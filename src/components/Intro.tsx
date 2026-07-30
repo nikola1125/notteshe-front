@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import introImg from "@/assets/intro.jpg";
 
 const LETTERS = "NOTTESHE".split("");
 
@@ -9,12 +10,12 @@ export function Intro({ onComplete }: { onComplete: () => void }) {
     document.body.style.overflow = "hidden";
 
     const timers = [
-      setTimeout(() => setPhase("hold"), 1500),
-      setTimeout(() => setPhase("exit"), 2500),
+      setTimeout(() => setPhase("hold"), 1400),
+      setTimeout(() => setPhase("exit"), 3100),
       setTimeout(() => {
         document.body.style.overflow = "";
         onComplete();
-      }, 3400),
+      }, 4000),
     ];
 
     return () => {
@@ -33,8 +34,8 @@ export function Intro({ onComplete }: { onComplete: () => void }) {
         transition: isExiting ? "transform 0.9s cubic-bezier(0.76, 0, 0.24, 1)" : "none",
       }}
     >
-      {/* Letters */}
-      <div className="flex items-end">
+      {/* Letters — sit below the image layer */}
+      <div className="relative z-0 flex items-end">
         {LETTERS.map((letter, i) => (
           <span key={i} className="inline-block overflow-hidden leading-none">
             <span
@@ -69,8 +70,23 @@ export function Intro({ onComplete }: { onComplete: () => void }) {
         </span>
       </div>
 
-      {/* Tagline */}
-      <div className="mt-7 overflow-hidden">
+      {/* intro.jpg fades in over the letters — image bg matches site bg
+          so only the leopard silhouette becomes visible */}
+      <img
+        src={introImg}
+        alt=""
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center"
+        style={{
+          zIndex: 1,
+          opacity: phase === "hold" ? 1 : 0,
+          transition: phase === "hold"
+            ? "opacity 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.1s"
+            : "none",
+        }}
+      />
+
+      {/* Tagline — above image */}
+      <div className="absolute bottom-10 left-1/2 z-10 -translate-x-1/2 text-center">
         <p
           style={{
             fontFamily: "var(--font-mono)",
@@ -80,23 +96,21 @@ export function Intro({ onComplete }: { onComplete: () => void }) {
             color: "var(--color-muted-foreground)",
             opacity: phase === "hold" ? 1 : 0,
             transform: phase === "hold" ? "translateY(0)" : "translateY(10px)",
-            transition: "opacity 0.7s ease 0.1s, transform 0.7s ease 0.1s",
+            transition: "opacity 0.7s ease 0.8s, transform 0.7s ease 0.8s",
           }}
         >
           Considered essentials · AW26
         </p>
+        <div
+          className="mx-auto mt-4"
+          style={{
+            width: phase === "hold" ? "80px" : "0px",
+            height: "1px",
+            background: "var(--color-border)",
+            transition: "width 0.8s ease 1s",
+          }}
+        />
       </div>
-
-      {/* Bottom line */}
-      <div
-        className="absolute bottom-10 left-1/2 -translate-x-1/2"
-        style={{
-          width: phase === "hold" ? "80px" : "0px",
-          height: "1px",
-          background: "var(--color-border)",
-          transition: "width 0.8s ease 0.2s",
-        }}
-      />
     </div>
   );
 }

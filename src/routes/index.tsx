@@ -250,7 +250,7 @@ function Index() {
           ].map((img) => (
             <figure
               key={img.cap}
-              className={`reveal shrink-0 snap-start group cursor-pointer ${img.mobileW} ${img.cls}`}
+              className={`reveal shrink-0 snap-start group cursor-pointer md:w-auto ${img.mobileW} ${img.cls}`}
               style={{ transitionDelay: `${img.delay}ms` }}
             >
               <div className="aspect-[3/4] overflow-hidden bg-muted">

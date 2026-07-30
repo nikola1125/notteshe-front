@@ -45,6 +45,7 @@ const products: Product[] = [
 
 function Index() {
   const [introDone, setIntroDone] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const els = document.querySelectorAll<HTMLElement>(".reveal");
@@ -57,15 +58,16 @@ function Index() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
       {!introDone && <Intro onComplete={() => setIntroDone(true)} />}
 
       {/* ─── Header ─── */}
       <header className="fixed top-0 z-50 w-full bg-background/50 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1600px] items-center justify-between px-5 py-3 md:px-12 md:py-4">
+        <div className="mx-auto flex max-w-[1600px] items-center justify-between px-5 py-2 md:px-12 md:py-4">
           <a href="#" data-nav-logo className="serif text-[17px] tracking-tight text-ink">
             Notteshe<span className="text-clay">.</span>
           </a>
+          {/* Desktop nav */}
           <nav className="hidden items-center gap-10 md:flex">
             {["Shop", "Sale", "Lookbook", "Story", "Contact"].map((l) => (
               <a
@@ -77,16 +79,54 @@ function Index() {
               </a>
             ))}
           </nav>
-          <div className="flex items-center gap-5">
-            <button className="relative flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-end text-[14px] text-ink/75 transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100">
+          <div className="flex items-center gap-3">
+            {/* Search — desktop only */}
+            <button className="relative hidden cursor-pointer text-[14px] text-ink/75 transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100 md:flex">
               Search
             </button>
-            <button className="relative flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-end text-[14px] text-ink/75 transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100">
+            {/* Bag */}
+            <button className="relative flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-end text-[14px] text-ink/75 transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100 md:min-w-0">
               Bag <span className="text-muted-foreground">(0)</span>
+            </button>
+            {/* Hamburger — mobile only */}
+            <button
+              className="flex min-h-[44px] min-w-[44px] cursor-pointer flex-col items-center justify-center gap-[5px] md:hidden"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-label="Toggle menu"
+            >
+              <span className={`block h-px w-5 bg-ink/80 transition-all duration-300 origin-center ${menuOpen ? "translate-y-[5px] rotate-45" : ""}`} />
+              <span className={`block h-px w-5 bg-ink/80 transition-all duration-300 ${menuOpen ? "opacity-0" : ""}`} />
+              <span className={`block h-px w-5 bg-ink/80 transition-all duration-300 origin-center ${menuOpen ? "-translate-y-[5px] -rotate-45" : ""}`} />
             </button>
           </div>
         </div>
         <div className="mx-5 border-b border-border/40 md:mx-12" />
+
+        {/* Mobile dropdown nav */}
+        <div
+          className="overflow-hidden transition-[max-height] duration-500 ease-in-out md:hidden"
+          style={{ maxHeight: menuOpen ? "360px" : "0px" }}
+        >
+          <nav className="flex flex-col gap-0 bg-background/95 px-5 pb-5 pt-3">
+            {["Shop", "Sale", "Lookbook", "Story", "Contact"].map((l) => (
+              <a
+                key={l}
+                href="#"
+                onClick={() => setMenuOpen(false)}
+                className={`border-b border-border/30 py-4 font-mono text-[11px] uppercase tracking-[0.25em] transition-colors ${l === "Sale" ? "text-clay" : "text-ink/70 hover:text-ink"}`}
+              >
+                {l}
+              </a>
+            ))}
+            <a
+              href="#"
+              onClick={() => setMenuOpen(false)}
+              className="pt-4 font-mono text-[11px] uppercase tracking-[0.25em] text-ink/70 hover:text-ink"
+            >
+              Search
+            </a>
+          </nav>
+        </div>
       </header>
 
       {/* ─── Hero ─── */}
@@ -172,7 +212,10 @@ function Index() {
         </div>
 
         {/* Mobile: horizontal scroll · Desktop: grid */}
-        <div className="-mx-5 flex gap-4 overflow-x-auto scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide md:mx-0 md:grid md:grid-cols-4 md:gap-x-6 md:overflow-visible md:px-0 md:pb-0 md:snap-none md:scroll-pl-0">
+        <div
+          className="-mx-5 flex gap-4 overflow-x-auto scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide overscroll-x-contain md:mx-0 md:grid md:grid-cols-4 md:gap-x-6 md:overflow-visible md:px-0 md:pb-0 md:snap-none md:scroll-pl-0"
+          style={{ touchAction: "pan-x pinch-zoom" }}
+        >
           {products.map((p, i) => (
             <article
               key={p.name}
@@ -242,7 +285,10 @@ function Index() {
         </div>
 
         {/* Mobile: horizontal scroll · Desktop: staggered grid */}
-        <div className="-mx-5 mt-8 flex gap-3 overflow-x-auto scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide md:mx-auto md:mt-10 md:grid md:max-w-[1600px] md:grid-cols-12 md:gap-5 md:overflow-visible md:px-12 md:pb-0 md:snap-none md:scroll-pl-0">
+        <div
+          className="-mx-5 mt-8 flex gap-3 overflow-x-auto scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide overscroll-x-contain md:mx-auto md:mt-10 md:grid md:max-w-[1600px] md:grid-cols-12 md:gap-5 md:overflow-visible md:px-12 md:pb-0 md:snap-none md:scroll-pl-0"
+          style={{ touchAction: "pan-x pinch-zoom" }}
+        >
           {[
             { src: look1, alt: "Lookbook chapter one",   cap: "Ch. 01 — Threshold", time: "04:12 pm", mobileW: "w-[72vw]", cls: "md:col-span-5",          delay: 0   },
             { src: look2, alt: "Lookbook chapter two",   cap: "Ch. 02 — Corridor",  time: "05:38 pm", mobileW: "w-[60vw]", cls: "md:col-span-4 md:mt-20", delay: 80  },
@@ -287,7 +333,10 @@ function Index() {
         </div>
 
         {/* Mobile: horizontal scroll · Desktop: grid */}
-        <div className="-mx-5 flex gap-4 overflow-x-auto scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide md:mx-0 md:grid md:grid-cols-4 md:gap-x-6 md:overflow-visible md:px-0 md:pb-0 md:snap-none md:scroll-pl-0">
+        <div
+          className="-mx-5 flex gap-4 overflow-x-auto scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide overscroll-x-contain md:mx-0 md:grid md:grid-cols-4 md:gap-x-6 md:overflow-visible md:px-0 md:pb-0 md:snap-none md:scroll-pl-0"
+          style={{ touchAction: "pan-x pinch-zoom" }}
+        >
           {saleProducts.map((p, i) => (
             <article
               key={p.name}

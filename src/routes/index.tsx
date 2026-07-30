@@ -80,9 +80,15 @@ function Index() {
             ))}
           </nav>
           <div className="flex items-center gap-3">
-            {/* Search — desktop only */}
-            <button className="relative hidden cursor-pointer text-[14px] text-ink/75 transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100 md:flex">
-              Search
+            {/* Search — icon on mobile, text on desktop */}
+            <button className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center text-ink/75 transition-colors duration-200 hover:text-ink md:min-w-0" aria-label="Search">
+              <svg className="md:hidden" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <span className="relative hidden text-[14px] after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 hover:after:scale-x-100 md:inline">
+                Search
+              </span>
             </button>
             {/* Wishlist heart */}
             <button className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center text-ink/75 transition-colors duration-200 hover:text-clay md:min-w-0" aria-label="Wishlist">

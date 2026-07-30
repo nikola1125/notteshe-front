@@ -84,6 +84,12 @@ function Index() {
             <button className="relative hidden cursor-pointer text-[14px] text-ink/75 transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100 md:flex">
               Search
             </button>
+            {/* Wishlist heart */}
+            <button className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center text-ink/75 transition-colors duration-200 hover:text-clay md:min-w-0" aria-label="Wishlist">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
+            </button>
             {/* Bag */}
             <button className="relative flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-end text-[14px] text-ink/75 transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100 md:min-w-0">
               Bag <span className="text-muted-foreground">(0)</span>

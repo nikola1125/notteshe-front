@@ -130,14 +130,15 @@ function Index() {
       </header>
 
       {/* ─── Hero ─── */}
-      <section className="relative h-[100svh] w-full overflow-hidden">
-        <img
-          src={hero}
-          alt="Notteshe AW26 campaign"
-          width={2400}
-          height={1600}
-          className="absolute inset-0 h-full w-full object-cover object-[center_20%]"
-        />
+      <section
+        className="relative h-[100svh] w-full"
+        style={{
+          backgroundImage: `url(${hero})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center 20%",
+          backgroundRepeat: "no-repeat",
+        }}
+      >
         <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-transparent to-background/60" />
 
         {/* Bottom overlay */}

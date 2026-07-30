@@ -2,20 +2,25 @@ import { useEffect, useState } from "react";
 import introImg from "@/assets/intro.jpg";
 
 const LETTERS = "NOTTESHE".split("");
+type Phase = "enter" | "walk" | "hold" | "exit";
 
 export function Intro({ onComplete }: { onComplete: () => void }) {
-  const [phase, setPhase] = useState<"enter" | "hold" | "exit">("enter");
+  const [phase, setPhase] = useState<Phase>("enter");
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
 
     const timers = [
-      setTimeout(() => setPhase("hold"), 1200),
-      setTimeout(() => setPhase("exit"), 2600),
+      // Letters finish sweeping → leopard starts walking in
+      setTimeout(() => setPhase("walk"), 1300),
+      // Leopard reaches position and sits
+      setTimeout(() => setPhase("hold"), 2700),
+      // Close
+      setTimeout(() => setPhase("exit"), 3900),
       setTimeout(() => {
         document.body.style.overflow = "";
         onComplete();
-      }, 3500),
+      }, 4800),
     ];
 
     return () => {
@@ -26,6 +31,22 @@ export function Intro({ onComplete }: { onComplete: () => void }) {
 
   const isExiting = phase === "exit";
 
+  // Image slides in from right simulating the leopard walking into position
+  const imageTransform = (() => {
+    if (phase === "enter") return "translateX(55%) translateY(1%)";
+    if (phase === "walk")  return "translateX(3%)  translateY(0.3%)";
+    return                        "translateX(0)    translateY(0)";
+  })();
+
+  const imageTransition = (() => {
+    if (phase === "enter") return "none";
+    if (phase === "walk")
+      // Smooth deceleration — leopard strides in
+      return "opacity 0.5s ease, transform 1.5s cubic-bezier(0.25, 0.1, 0.25, 1)";
+    // Gentle spring — leopard settles / sits
+    return "opacity 0.4s ease, transform 0.9s cubic-bezier(0.16, 1, 0.3, 1)";
+  })();
+
   return (
     <div
       className="fixed inset-0 z-[100] overflow-hidden bg-background"
@@ -34,24 +55,25 @@ export function Intro({ onComplete }: { onComplete: () => void }) {
         transition: isExiting ? "transform 0.9s cubic-bezier(0.76, 0, 0.24, 1)" : "none",
       }}
     >
-      {/* Full-screen intro image — fades and scales in */}
+      {/* intro.jpg — slides in from right as leopard "walks", settles into position */}
       <img
         src={introImg}
         alt=""
         className="absolute inset-0 h-full w-full object-cover object-center"
         style={{
           opacity: phase === "enter" ? 0 : 1,
-          transform: phase === "enter" ? "scale(1.06)" : "scale(1)",
-          transition: "opacity 1.1s ease, transform 1.4s cubic-bezier(0.16, 1, 0.3, 1)",
+          transform: imageTransform,
+          transition: imageTransition,
         }}
       />
 
-      {/* Letters sweep up over the image */}
+      {/* Animated letters — sweep up first, then fade as image takes over */}
       <div
-        className="absolute inset-0 flex flex-col items-center justify-center"
+        className="absolute inset-0 flex items-center justify-center"
         style={{
-          opacity: phase === "hold" ? 0 : 1,
-          transition: "opacity 0.5s ease",
+          opacity: phase === "hold" || phase === "exit" ? 0 : 1,
+          transition: "opacity 0.7s ease",
+          pointerEvents: "none",
         }}
       >
         <div className="flex items-end">
@@ -72,6 +94,7 @@ export function Intro({ onComplete }: { onComplete: () => void }) {
               </span>
             </span>
           ))}
+          {/* Period */}
           <span className="inline-block overflow-hidden leading-none">
             <span
               className="serif inline-block"
@@ -89,8 +112,8 @@ export function Intro({ onComplete }: { onComplete: () => void }) {
         </div>
       </div>
 
-      {/* Tagline — appears during hold phase */}
-      <div className="absolute bottom-16 left-1/2 -translate-x-1/2 text-center">
+      {/* Tagline + line — appear once leopard has settled */}
+      <div className="absolute bottom-14 left-1/2 -translate-x-1/2 text-center">
         <p
           style={{
             fontFamily: "var(--font-mono)",
@@ -111,7 +134,7 @@ export function Intro({ onComplete }: { onComplete: () => void }) {
             width: phase === "hold" ? "60px" : "0px",
             height: "1px",
             background: "var(--color-border)",
-            transition: "width 0.8s ease 0.5s",
+            transition: "width 0.9s ease 0.5s",
           }}
         />
       </div>

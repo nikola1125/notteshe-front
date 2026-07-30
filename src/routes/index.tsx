@@ -284,19 +284,70 @@ function Index() {
           </a>
         </div>
 
-        {/* Mobile: horizontal scroll · Desktop: staggered grid */}
-        <div
-          className="-mx-5 mt-8 flex gap-3 overflow-x-auto scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide overscroll-x-contain md:mx-auto md:mt-10 md:grid md:max-w-[1600px] md:grid-cols-12 md:gap-5 md:overflow-visible md:px-12 md:pb-0 md:snap-none md:scroll-pl-0"
-          style={{ touchAction: "pan-x pinch-zoom" }}
-        >
+        {/* Mobile: editorial masonry grid — all 3 images visible at once */}
+        <div className="mt-8 grid grid-cols-[3fr_2fr] gap-2 px-5 md:hidden">
+          {/* Left — large portrait spanning both rows */}
+          <figure className="group row-span-2 flex cursor-pointer flex-col">
+            <div className="min-h-0 flex-1 overflow-hidden bg-muted">
+              <img
+                src={look1}
+                alt="Lookbook chapter one"
+                width={1000}
+                height={1400}
+                loading="lazy"
+                className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+              />
+            </div>
+            <p className="mt-2 font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
+              Ch. 01 — Threshold
+            </p>
+          </figure>
+
+          {/* Top right */}
+          <figure className="group cursor-pointer">
+            <div className="aspect-[3/4] overflow-hidden bg-muted">
+              <img
+                src={look2}
+                alt="Lookbook chapter two"
+                width={1000}
+                height={1400}
+                loading="lazy"
+                className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+              />
+            </div>
+            <p className="mt-2 font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
+              Ch. 02 — Corridor
+            </p>
+          </figure>
+
+          {/* Bottom right */}
+          <figure className="group cursor-pointer">
+            <div className="aspect-[3/4] overflow-hidden bg-muted">
+              <img
+                src={look3}
+                alt="Lookbook chapter three"
+                width={1000}
+                height={1400}
+                loading="lazy"
+                className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+              />
+            </div>
+            <p className="mt-2 font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
+              Ch. 03 — Cuff
+            </p>
+          </figure>
+        </div>
+
+        {/* Desktop: staggered grid */}
+        <div className="mx-auto mt-10 hidden max-w-[1600px] grid-cols-12 gap-5 px-12 md:grid">
           {[
-            { src: look1, alt: "Lookbook chapter one",   cap: "Ch. 01 — Threshold", time: "04:12 pm", mobileW: "w-[72vw]", cls: "md:col-span-5",          delay: 0   },
-            { src: look2, alt: "Lookbook chapter two",   cap: "Ch. 02 — Corridor",  time: "05:38 pm", mobileW: "w-[60vw]", cls: "md:col-span-4 md:mt-20", delay: 80  },
-            { src: look3, alt: "Lookbook chapter three", cap: "Ch. 03 — Cuff",      time: "06:04 pm", mobileW: "w-[52vw]", cls: "md:col-span-3 md:mt-8",  delay: 160 },
+            { src: look1, alt: "Lookbook chapter one",   cap: "Ch. 01 — Threshold", time: "04:12 pm", cls: "col-span-5",         delay: 0   },
+            { src: look2, alt: "Lookbook chapter two",   cap: "Ch. 02 — Corridor",  time: "05:38 pm", cls: "col-span-4 mt-20",   delay: 80  },
+            { src: look3, alt: "Lookbook chapter three", cap: "Ch. 03 — Cuff",      time: "06:04 pm", cls: "col-span-3 mt-8",    delay: 160 },
           ].map((img) => (
             <figure
               key={img.cap}
-              className={`reveal shrink-0 snap-start group cursor-pointer md:w-auto ${img.mobileW} ${img.cls}`}
+              className={`reveal group cursor-pointer ${img.cls}`}
               style={{ transitionDelay: `${img.delay}ms` }}
             >
               <div className="aspect-[3/4] overflow-hidden bg-muted">

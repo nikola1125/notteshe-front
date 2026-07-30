@@ -79,9 +79,9 @@ function Index() {
               </a>
             ))}
           </nav>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center">
             {/* Search — icon on mobile, text on desktop */}
-            <button className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center text-ink/75 transition-colors duration-200 hover:text-ink md:min-w-0" aria-label="Search">
+            <button className="flex h-11 w-11 cursor-pointer items-center justify-center text-ink/75 transition-colors duration-200 hover:text-ink md:w-auto md:px-2" aria-label="Search">
               <svg className="md:hidden" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8" />
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -91,18 +91,25 @@ function Index() {
               </span>
             </button>
             {/* Wishlist heart */}
-            <button className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center text-ink/75 transition-colors duration-200 hover:text-clay md:min-w-0" aria-label="Wishlist">
+            <button className="flex h-11 w-11 cursor-pointer items-center justify-center text-ink/75 transition-colors duration-200 hover:text-clay md:w-auto md:px-2" aria-label="Wishlist">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
               </svg>
             </button>
-            {/* Bag */}
-            <button className="relative flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-end text-[14px] text-ink/75 transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100 md:min-w-0">
-              Bag <span className="text-muted-foreground">(0)</span>
+            {/* Bag — icon on mobile, text on desktop */}
+            <button className="flex h-11 w-11 cursor-pointer items-center justify-center text-ink/75 transition-colors duration-200 hover:text-ink md:w-auto md:px-2" aria-label="Bag">
+              <svg className="md:hidden" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <path d="M16 10a4 4 0 0 1-8 0" />
+              </svg>
+              <span className="relative hidden text-[14px] text-ink/75 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 hover:after:scale-x-100 md:inline">
+                Bag <span className="text-muted-foreground">(0)</span>
+              </span>
             </button>
             {/* Hamburger — mobile only */}
             <button
-              className="flex min-h-[44px] min-w-[44px] cursor-pointer flex-col items-center justify-center gap-[5px] md:hidden"
+              className="flex h-11 w-11 cursor-pointer flex-col items-center justify-center gap-[5px] md:hidden"
               onClick={() => setMenuOpen((v) => !v)}
               aria-label="Toggle menu"
             >

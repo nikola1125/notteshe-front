@@ -1,16 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Intro } from "@/components/Intro";
 import { WishlistButton } from "@/components/WishlistButton";
+import { products as allProducts } from "@/data/products";
 import hero from "@/assets/hero1.jpg";
-import p1 from "@/assets/bg1.jpg";
-import p2 from "@/assets/bg2.jpg";
-import p3 from "@/assets/bg3.jpg";
-import p4 from "@/assets/bg4.jpg";
-import s1 from "@/assets/bg5.jpg";
-import s2 from "@/assets/bg6.jpg";
-import s3 from "@/assets/bg7.jpg";
-import s4 from "@/assets/bg8.jpg";
 import look1 from "@/assets/look1.jpg";
 import look2 from "@/assets/look2.jpg";
 import look3 from "@/assets/look3.jpg";
@@ -20,28 +13,8 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-interface Product {
-  name: string;
-  price: number;
-  originalPrice: number | null;
-  img: string;
-  isNew: boolean;
-  colourways: number;
-}
-
-const saleProducts: Product[] = [
-  { name: "Cashmere Coat",      price: 320, originalPrice: 580, img: s1, isNew: false, colourways: 2 },
-  { name: "Linen Wide Trouser", price: 98,  originalPrice: 164, img: s2, isNew: false, colourways: 3 },
-  { name: "Silk Blouse",        price: 112, originalPrice: 198, img: s3, isNew: false, colourways: 4 },
-  { name: "Merino Roll-Neck",   price: 89,  originalPrice: 148, img: s4, isNew: false, colourways: 2 },
-];
-
-const products: Product[] = [
-  { name: "Wool Overshirt",    price: 248, originalPrice: null, img: p1, isNew: true,  colourways: 3 },
-  { name: "Silk Slip Dress",   price: 139, originalPrice: 198,  img: p2, isNew: false, colourways: 4 },
-  { name: "Ribbed Turtleneck", price: 164, originalPrice: null, img: p3, isNew: true,  colourways: 2 },
-  { name: "Tailored Trouser",  price: 149, originalPrice: 212,  img: p4, isNew: false, colourways: 3 },
-];
+const featuredProducts = allProducts.filter((p) => p.isNew).slice(0, 4);
+const saleProducts = allProducts.filter((p) => p.isSale).slice(0, 4);
 
 
 function Index() {
@@ -149,15 +122,17 @@ function Index() {
           className="-mx-5 flex gap-4 overflow-x-auto scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide overscroll-x-contain md:mx-0 md:grid md:grid-cols-4 md:gap-x-6 md:overflow-visible md:px-0 md:pb-0 md:snap-none md:scroll-pl-0"
           style={{ touchAction: "pan-x pinch-zoom" }}
         >
-          {products.map((p, i) => (
-            <article
-              key={p.name}
-              className="reveal group w-[68vw] shrink-0 snap-start cursor-pointer md:w-auto md:shrink"
+          {featuredProducts.map((p, i) => (
+            <Link
+              key={p.id}
+              to="/shop/$slug"
+              params={{ slug: p.slug }}
+              className="reveal group w-[68vw] shrink-0 snap-start md:w-auto md:shrink"
               style={{ transitionDelay: `${i * 80}ms` }}
             >
               <div className="relative aspect-[3/4] overflow-hidden bg-muted">
                 <img
-                  src={p.img}
+                  src={p.images[0]}
                   alt={p.name}
                   width={900}
                   height={1200}
@@ -166,7 +141,7 @@ function Index() {
                 />
 
                 {/* Badge */}
-                {p.originalPrice ? (
+                {p.isSale ? (
                   <span className="absolute left-3 top-3 bg-clay px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-paper">
                     Sale
                   </span>
@@ -178,7 +153,7 @@ function Index() {
 
                 {/* Wishlist */}
                 <WishlistButton
-                  productId={`hp-${i}`}
+                  productId={p.id}
                   className="absolute right-3 top-3 h-8 w-8 rounded-full bg-background/70 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                 />
 
@@ -192,19 +167,19 @@ function Index() {
                 <div>
                   <h3 className="relative inline-block serif text-[15px] text-ink after:absolute after:bottom-[-2px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 group-hover:after:scale-x-100">{p.name}</h3>
                   <p className="mt-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
-                    {p.colourways} colourways
+                    {p.colours.length} {p.colours.length === 1 ? "colour" : "colours"}
                   </p>
                 </div>
                 <div className="text-right">
                   {p.originalPrice && (
                     <p className="font-mono text-[10px] text-muted-foreground line-through">€{p.originalPrice}</p>
                   )}
-                  <p className={`font-mono text-[12px] ${p.originalPrice ? "text-clay" : "text-ink/70"}`}>
+                  <p className={`font-mono text-[12px] ${p.isSale ? "text-clay" : "text-ink/70"}`}>
                     €{p.price}
                   </p>
                 </div>
               </div>
-            </article>
+            </Link>
           ))}
         </div>
       </section>
@@ -328,14 +303,16 @@ function Index() {
           style={{ touchAction: "pan-x pinch-zoom" }}
         >
           {saleProducts.map((p, i) => (
-            <article
-              key={p.name}
-              className="reveal group w-[68vw] shrink-0 snap-start cursor-pointer md:w-auto md:shrink"
+            <Link
+              key={p.id}
+              to="/shop/$slug"
+              params={{ slug: p.slug }}
+              className="reveal group w-[68vw] shrink-0 snap-start md:w-auto md:shrink"
               style={{ transitionDelay: `${i * 80}ms` }}
             >
               <div className="relative aspect-[3/4] overflow-hidden bg-muted">
                 <img
-                  src={p.img}
+                  src={p.images[0]}
                   alt={p.name}
                   width={900}
                   height={1200}
@@ -353,7 +330,7 @@ function Index() {
                 <div>
                   <h3 className="relative inline-block serif text-[15px] text-ink after:absolute after:bottom-[-2px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 group-hover:after:scale-x-100">{p.name}</h3>
                   <p className="mt-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
-                    {p.colourways} colourways
+                    {p.colours.length} {p.colours.length === 1 ? "colour" : "colours"}
                   </p>
                 </div>
                 <div className="text-right">
@@ -361,7 +338,7 @@ function Index() {
                   <p className="font-mono text-[12px] text-clay">€{p.price}</p>
                 </div>
               </div>
-            </article>
+            </Link>
           ))}
         </div>
       </section>

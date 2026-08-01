@@ -2,6 +2,7 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState } from "react";
 import { getProductBySlug } from "@/data/products";
 import { WishlistButton } from "@/components/WishlistButton";
+import { useCart } from "@/store/cartStore";
 
 export const Route = createFileRoute("/shop/$slug")({
   component: ProductPage,
@@ -14,6 +15,7 @@ export const Route = createFileRoute("/shop/$slug")({
 
 function ProductPage() {
   const product = Route.useLoaderData();
+  const { addItem } = useCart();
   const [activeImage, setActiveImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColour, setSelectedColour] = useState(product.colours[0].name);
@@ -26,6 +28,15 @@ function ProductPage() {
       return;
     }
     setSizeError(false);
+    addItem({
+      productId: product.id,
+      name: product.name,
+      price: product.price,
+      originalPrice: product.originalPrice,
+      image: product.images[0],
+      size: selectedSize,
+      colour: selectedColour,
+    });
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   }

@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
 import { products } from "@/data/products";
+import { WishlistButton } from "@/components/WishlistButton";
 import type { ProductCategory, SortOption } from "@/types/product";
 
 export const Route = createFileRoute("/shop")({
@@ -164,6 +165,12 @@ function ShopPage() {
                       New In
                     </span>
                   ) : null}
+
+                  {/* Wishlist button */}
+                  <WishlistButton
+                    productId={product.id}
+                    className="absolute right-3 top-3 h-8 w-8 rounded-full bg-background/70 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                  />
 
                   {/* Quick view CTA */}
                   <div className="absolute bottom-0 left-0 right-0 translate-y-full border-t border-ink/10 bg-background/90 py-3.5 text-center font-mono text-[10px] uppercase tracking-widest text-ink backdrop-blur-sm transition-transform duration-300 ease-out group-hover:translate-y-0">

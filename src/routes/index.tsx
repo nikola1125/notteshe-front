@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useWishlist } from "@/store/wishlistStore";
 import { Intro } from "@/components/Intro";
+import { WishlistButton } from "@/components/WishlistButton";
 import hero from "@/assets/hero1.jpg";
 import p1 from "@/assets/bg1.jpg";
 import p2 from "@/assets/bg2.jpg";
@@ -46,6 +48,7 @@ const products: Product[] = [
 function Index() {
   const [introDone, setIntroDone] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const wishlistCount = useWishlist((s) => s.ids.length);
 
   useEffect(() => {
     const els = document.querySelectorAll<HTMLElement>(".reveal");
@@ -96,12 +99,17 @@ function Index() {
                 Search
               </span>
             </button>
-            {/* Wishlist heart */}
-            <button className="flex h-11 w-11 cursor-pointer items-center justify-center text-ink/75 transition-colors duration-200 hover:text-clay md:w-auto md:px-2" aria-label="Wishlist">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            {/* Wishlist heart — shows count badge when items saved */}
+            <Link to="/shop" className="relative flex h-11 w-11 cursor-pointer items-center justify-center text-ink/75 transition-colors duration-200 hover:text-clay md:w-auto md:px-2" aria-label="Wishlist">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill={wishlistCount > 0 ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={wishlistCount > 0 ? "text-clay" : ""}>
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
               </svg>
-            </button>
+              {wishlistCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-clay font-mono text-[9px] text-paper md:-right-1 md:-top-1">
+                  {wishlistCount}
+                </span>
+              )}
+            </Link>
             {/* Bag — icon on mobile, text on desktop */}
             <button className="flex h-11 w-11 cursor-pointer items-center justify-center text-ink/75 transition-colors duration-200 hover:text-ink md:w-auto md:px-2" aria-label="Bag">
               <svg className="md:hidden" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -275,6 +283,12 @@ function Index() {
                     New In
                   </span>
                 ) : null}
+
+                {/* Wishlist */}
+                <WishlistButton
+                  productId={`hp-${i}`}
+                  className="absolute right-3 top-3 h-8 w-8 rounded-full bg-background/70 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                />
 
                 {/* Hover CTA */}
                 <div className="absolute bottom-0 left-0 right-0 translate-y-full border-t border-ink/10 bg-background/90 py-3.5 text-center font-mono text-[10px] uppercase tracking-widest text-ink backdrop-blur-sm transition-transform duration-300 ease-out group-hover:translate-y-0">

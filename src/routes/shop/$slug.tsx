@@ -112,23 +112,19 @@ function ProductPage() {
   const [sizeError, setSizeError] = useState(false);
   const [added, setAdded] = useState(false);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
-  const touchStartX = useRef<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  function prev() {
-    setActiveImage((i) => (i === 0 ? product.images.length - 1 : i - 1));
-  }
-  function next() {
-    setActiveImage((i) => (i === product.images.length - 1 ? 0 : i + 1));
+  function scrollTo(i: number) {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ left: el.offsetWidth * i, behavior: "smooth" });
   }
 
-  function handleTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0].clientX;
-  }
-  function handleTouchEnd(e: React.TouchEvent) {
-    if (touchStartX.current === null) return;
-    const delta = touchStartX.current - e.changedTouches[0].clientX;
-    if (Math.abs(delta) > 40) delta > 0 ? next() : prev();
-    touchStartX.current = null;
+  function handleScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    const i = Math.round(el.scrollLeft / el.offsetWidth);
+    setActiveImage(i);
   }
 
   function handleAddToBag() {
@@ -188,7 +184,7 @@ function ProductPage() {
               {product.images.map((img, i) => (
                 <button
                   key={i}
-                  onClick={() => setActiveImage(i)}
+                  onClick={() => scrollTo(i)}
                   className={`h-20 w-16 overflow-hidden border transition-all duration-200 ${
                     activeImage === i ? "border-ink/50" : "border-transparent opacity-50 hover:opacity-80"
                   }`}
@@ -199,60 +195,46 @@ function ProductPage() {
             </div>
           )}
 
-          {/* Main image + arrows */}
-          <div
-            className="relative flex-1 overflow-hidden bg-muted aspect-[3/4]"
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-          >
-            <img
-              src={product.images[activeImage]}
-              alt={product.name}
-              className="h-full w-full object-cover transition-opacity duration-300"
-              loading="eager"
-            />
-
+          {/* Scroll gallery */}
+          <div className="relative flex-1 overflow-hidden">
             {/* Badge */}
-            {product.isSale ? (
-              <span className="absolute left-4 top-4 bg-clay px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-paper">
-                Sale
-              </span>
-            ) : product.isNew ? (
-              <span className="absolute left-4 top-4 border border-ink/30 px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-ink/70 backdrop-blur-sm">
-                New In
-              </span>
-            ) : null}
+            <div className="absolute left-4 top-4 z-10">
+              {product.isSale ? (
+                <span className="bg-clay px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-paper">
+                  Sale
+                </span>
+              ) : product.isNew ? (
+                <span className="border border-ink/30 px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-ink/70 backdrop-blur-sm">
+                  New In
+                </span>
+              ) : null}
+            </div>
 
-            {/* Prev / Next arrows */}
+            {/* Image counter — desktop only */}
             {product.images.length > 1 && (
-              <>
-                <button
-                  onClick={prev}
-                  className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center bg-background/70 backdrop-blur-sm text-ink/70 hover:text-ink transition-colors"
-                  aria-label="Previous image"
-                >
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2">
-                    <path d="M9 2 4 7l5 5" />
-                  </svg>
-                </button>
-                <button
-                  onClick={next}
-                  className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center bg-background/70 backdrop-blur-sm text-ink/70 hover:text-ink transition-colors"
-                  aria-label="Next image"
-                >
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2">
-                    <path d="M5 2l5 5-5 5" />
-                  </svg>
-                </button>
-              </>
-            )}
-
-            {/* Image counter */}
-            {product.images.length > 1 && (
-              <div className="absolute bottom-3 right-3 bg-background/70 px-2 py-1 backdrop-blur-sm font-mono text-[9px] text-ink/60">
+              <div className="absolute bottom-3 right-3 z-10 hidden bg-background/70 px-2 py-1 backdrop-blur-sm font-mono text-[9px] text-ink/60 md:block">
                 {activeImage + 1} / {product.images.length}
               </div>
             )}
+
+            {/* Scrollable strip */}
+            <div
+              ref={scrollRef}
+              onScroll={handleScroll}
+              className="flex aspect-[3/4] snap-x snap-mandatory overflow-x-auto scroll-smooth scrollbar-hide"
+              style={{ scrollSnapType: "x mandatory" }}
+            >
+              {product.images.map((img, i) => (
+                <div key={i} className="relative w-full shrink-0 snap-start bg-muted" style={{ scrollSnapAlign: "start" }}>
+                  <img
+                    src={img}
+                    alt={`${product.name} — view ${i + 1}`}
+                    className="h-full w-full object-cover"
+                    loading={i === 0 ? "eager" : "lazy"}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Mobile dot indicators */}
@@ -261,7 +243,7 @@ function ProductPage() {
               {product.images.map((_, i) => (
                 <button
                   key={i}
-                  onClick={() => setActiveImage(i)}
+                  onClick={() => scrollTo(i)}
                   className={`h-1 rounded-full transition-all duration-300 ${
                     activeImage === i ? "w-6 bg-ink" : "w-1.5 bg-ink/25"
                   }`}

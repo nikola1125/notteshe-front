@@ -20,7 +20,7 @@ export function Header() {
         {/* Desktop nav */}
         <nav className="hidden items-center gap-10 md:flex">
           <Link
-            to="/shop"
+            to="/shop/"
             className="relative text-[14px] text-ink/75 transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100"
           >
             Shop
@@ -58,7 +58,7 @@ export function Header() {
 
           {/* Wishlist */}
           <Link
-            to="/shop"
+            to="/wishlist"
             className="relative flex h-11 w-11 cursor-pointer items-center justify-center text-ink/75 transition-colors duration-200 hover:text-clay md:w-auto md:px-2"
             aria-label="Wishlist"
           >
@@ -121,7 +121,7 @@ export function Header() {
       >
         <nav className="flex flex-col gap-0 bg-background/95 px-5 pb-5 pt-3">
           <Link
-            to="/shop"
+            to="/shop/"
             onClick={() => setMenuOpen(false)}
             className="border-b border-border/30 py-4 font-mono text-[11px] uppercase tracking-[0.25em] text-ink/70 transition-colors hover:text-ink"
           >

@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useCart } from "@/store/cartStore";
 
@@ -46,7 +46,6 @@ function formatExpiry(value: string) {
 
 function CheckoutPage() {
   const { items, clearCart } = useCart();
-  const navigate = useNavigate();
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [errors, setErrors] = useState<Partial<FormState>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -144,8 +143,78 @@ function CheckoutPage() {
         <form onSubmit={handleSubmit} noValidate>
           <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1fr_400px] lg:gap-20">
 
+            {/* ── Right: order summary (first in DOM = first on mobile) ── */}
+            <div className="order-first lg:order-last lg:sticky lg:top-28 lg:self-start">
+              <div className="border border-border p-6">
+                <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Order summary
+                </p>
+
+                {/* Items */}
+                <ul className="mt-6 space-y-5">
+                  {items.map((item) => (
+                    <li key={item.id} className="flex gap-4">
+                      <div className="relative aspect-[3/4] w-16 shrink-0 overflow-hidden bg-muted">
+                        <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                        <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-ink font-mono text-[9px] text-background">
+                          {item.quantity}
+                        </span>
+                      </div>
+                      <div className="flex flex-1 flex-col justify-between py-0.5">
+                        <div>
+                          <p className="serif text-[14px] text-ink">{item.name}</p>
+                          <p className="mt-0.5 font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
+                            {item.size} · {item.colour}
+                          </p>
+                        </div>
+                        <div>
+                          {item.originalPrice && (
+                            <p className="font-mono text-[10px] text-muted-foreground line-through">€{item.originalPrice}</p>
+                          )}
+                          <p className={`font-mono text-[12px] ${item.originalPrice ? "text-clay" : "text-ink"}`}>
+                            €{(item.price * item.quantity).toFixed(0)}
+                          </p>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="mt-6 space-y-3 border-t border-border pt-6">
+                  <div className="flex justify-between font-mono text-[11px] text-ink/60">
+                    <span>Subtotal</span>
+                    <span>€{subtotal.toFixed(0)}</span>
+                  </div>
+                  <div className="flex justify-between font-mono text-[11px] text-ink/60">
+                    <span>Shipping</span>
+                    <span>{shipping === 0 ? "Free" : `€${shipping}`}</span>
+                  </div>
+                  {shipping > 0 && (
+                    <p className="font-mono text-[9px] text-muted-foreground/40">
+                      Free shipping on orders over €200
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-5 flex items-baseline justify-between border-t border-border pt-5">
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Total</p>
+                  <p className="serif text-2xl text-ink">€{total.toFixed(0)}</p>
+                </div>
+              </div>
+
+              <Link
+                to="/shop"
+                className="mt-4 hidden items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60 transition hover:text-ink lg:flex"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1">
+                  <path d="M8 1 3 6l5 5" />
+                </svg>
+                Continue shopping
+              </Link>
+            </div>
+
             {/* ── Left: form ── */}
-            <div className="space-y-10">
+            <div className="space-y-10 lg:order-first">
 
               {/* Contact */}
               <fieldset>
@@ -250,76 +319,6 @@ function CheckoutPage() {
                 <a href="#" className="underline underline-offset-2 hover:text-muted-foreground">Terms</a> and{" "}
                 <a href="#" className="underline underline-offset-2 hover:text-muted-foreground">Privacy policy</a>
               </p>
-            </div>
-
-            {/* ── Right: order summary ── */}
-            <div className="lg:sticky lg:top-28 lg:self-start">
-              <div className="border border-border p-6">
-                <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  Order summary
-                </p>
-
-                {/* Items */}
-                <ul className="mt-6 space-y-5">
-                  {items.map((item) => (
-                    <li key={item.id} className="flex gap-4">
-                      <div className="relative aspect-[3/4] w-16 shrink-0 overflow-hidden bg-muted">
-                        <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
-                        <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-ink font-mono text-[9px] text-background">
-                          {item.quantity}
-                        </span>
-                      </div>
-                      <div className="flex flex-1 flex-col justify-between py-0.5">
-                        <div>
-                          <p className="serif text-[14px] text-ink">{item.name}</p>
-                          <p className="mt-0.5 font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
-                            {item.size} · {item.colour}
-                          </p>
-                        </div>
-                        <div>
-                          {item.originalPrice && (
-                            <p className="font-mono text-[10px] text-muted-foreground line-through">€{item.originalPrice}</p>
-                          )}
-                          <p className={`font-mono text-[12px] ${item.originalPrice ? "text-clay" : "text-ink"}`}>
-                            €{(item.price * item.quantity).toFixed(0)}
-                          </p>
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-
-                <div className="mt-6 space-y-3 border-t border-border pt-6">
-                  <div className="flex justify-between font-mono text-[11px] text-ink/60">
-                    <span>Subtotal</span>
-                    <span>€{subtotal.toFixed(0)}</span>
-                  </div>
-                  <div className="flex justify-between font-mono text-[11px] text-ink/60">
-                    <span>Shipping</span>
-                    <span>{shipping === 0 ? "Free" : `€${shipping}`}</span>
-                  </div>
-                  {shipping > 0 && (
-                    <p className="font-mono text-[9px] text-muted-foreground/40">
-                      Free shipping on orders over €200
-                    </p>
-                  )}
-                </div>
-
-                <div className="mt-5 flex items-baseline justify-between border-t border-border pt-5">
-                  <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Total</p>
-                  <p className="serif text-2xl text-ink">€{total.toFixed(0)}</p>
-                </div>
-              </div>
-
-              <Link
-                to="/shop"
-                className="mt-4 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60 transition hover:text-ink"
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1">
-                  <path d="M8 1 3 6l5 5" />
-                </svg>
-                Continue shopping
-              </Link>
             </div>
 
           </div>

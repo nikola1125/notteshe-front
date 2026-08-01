@@ -107,19 +107,19 @@ export function CartDrawer() {
 
                     <div className="mt-3 flex items-center justify-between">
                       {/* Quantity */}
-                      <div className="flex items-center gap-3 border border-border">
+                      <div className="flex items-center border border-border">
                         <button
                           onClick={() => updateQuantity(item.id, -1)}
-                          className="flex h-8 w-8 items-center justify-center text-ink/60 hover:text-ink transition-colors"
+                          className="flex h-11 w-11 items-center justify-center text-ink/60 hover:text-ink transition-colors"
                         >
                           −
                         </button>
-                        <span className="font-mono text-[12px] text-ink w-4 text-center">
+                        <span className="font-mono text-[12px] text-ink w-5 text-center">
                           {item.quantity}
                         </span>
                         <button
                           onClick={() => updateQuantity(item.id, 1)}
-                          className="flex h-8 w-8 items-center justify-center text-ink/60 hover:text-ink transition-colors"
+                          className="flex h-11 w-11 items-center justify-center text-ink/60 hover:text-ink transition-colors"
                         >
                           +
                         </button>

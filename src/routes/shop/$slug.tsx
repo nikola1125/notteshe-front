@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getProductBySlug } from "@/data/products";
 import { WishlistButton } from "@/components/WishlistButton";
 import { useCart } from "@/store/cartStore";
@@ -112,12 +112,23 @@ function ProductPage() {
   const [sizeError, setSizeError] = useState(false);
   const [added, setAdded] = useState(false);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
+  const touchStartX = useRef<number | null>(null);
 
   function prev() {
     setActiveImage((i) => (i === 0 ? product.images.length - 1 : i - 1));
   }
   function next() {
     setActiveImage((i) => (i === product.images.length - 1 ? 0 : i + 1));
+  }
+
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+  }
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null) return;
+    const delta = touchStartX.current - e.changedTouches[0].clientX;
+    if (Math.abs(delta) > 40) delta > 0 ? next() : prev();
+    touchStartX.current = null;
   }
 
   function handleAddToBag() {
@@ -189,7 +200,11 @@ function ProductPage() {
           )}
 
           {/* Main image + arrows */}
-          <div className="relative flex-1 overflow-hidden bg-muted aspect-[3/4]">
+          <div
+            className="relative flex-1 overflow-hidden bg-muted aspect-[3/4]"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
             <img
               src={product.images[activeImage]}
               alt={product.name}

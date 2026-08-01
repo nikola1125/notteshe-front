@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Intro } from "@/components/Intro";
 import hero from "@/assets/hero1.jpg";
@@ -69,7 +69,13 @@ function Index() {
           </a>
           {/* Desktop nav */}
           <nav className="hidden items-center gap-10 md:flex">
-            {["Shop", "Sale", "Lookbook", "Story", "Contact"].map((l) => (
+            <Link
+              to="/shop"
+              className="relative text-[14px] text-ink/75 transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100"
+            >
+              Shop
+            </Link>
+            {["Sale", "Lookbook", "Story", "Contact"].map((l) => (
               <a
                 key={l}
                 href="#"
@@ -127,7 +133,14 @@ function Index() {
           style={{ maxHeight: menuOpen ? "360px" : "0px" }}
         >
           <nav className="flex flex-col gap-0 bg-background/95 px-5 pb-5 pt-3">
-            {["Shop", "Sale", "Lookbook", "Story", "Contact"].map((l) => (
+            <Link
+              to="/shop"
+              onClick={() => setMenuOpen(false)}
+              className="border-b border-border/30 py-4 font-mono text-[11px] uppercase tracking-[0.25em] text-ink/70 transition-colors hover:text-ink"
+            >
+              Shop
+            </Link>
+            {["Sale", "Lookbook", "Story", "Contact"].map((l) => (
               <a
                 key={l}
                 href="#"

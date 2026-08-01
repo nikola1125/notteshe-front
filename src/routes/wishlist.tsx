@@ -17,6 +17,15 @@ function WishlistPage() {
       {/* Page header */}
       <div className="border-b border-border pt-24 pb-10 md:pt-32 md:pb-14">
         <div className="mx-auto max-w-[1600px] px-5 md:px-12">
+          <button
+            onClick={() => window.history.back()}
+            className="mb-6 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-ink"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2">
+              <path d="M9 2 4 7l5 5" />
+            </svg>
+            Back
+          </button>
           <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
             Your collection
           </p>

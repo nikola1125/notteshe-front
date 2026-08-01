@@ -8,10 +8,22 @@ import bg5 from "@/assets/bg5.jpg";
 import bg6 from "@/assets/bg6.jpg";
 import bg7 from "@/assets/bg7.jpg";
 import bg8 from "@/assets/bg8.jpg";
+import bg9 from "@/assets/bg9.jpg";
+import bgw1 from "@/assets/bg-white1.jpg";
+import bgw2 from "@/assets/bg-white2.jpg";
+import bgw3 from "@/assets/bg-white3.jpg";
+import bgw4 from "@/assets/bg-white4.jpg";
+import bgw5 from "@/assets/bg-white5.jpg";
+import bgw6 from "@/assets/bg-white6.jpg";
+import bgw7 from "@/assets/bg-white7.jpg";
+import bgw8 from "@/assets/bg-white8.jpg";
+import bgw9 from "@/assets/bg-white9.jpg";
 import p1 from "@/assets/p1.jpg";
 import p2 from "@/assets/p2.jpg";
 import p3 from "@/assets/p3.jpg";
 import p4 from "@/assets/p4.jpg";
+import p5 from "@/assets/p5.jpg";
+import p6 from "@/assets/p6.jpg";
 
 const SIZES_XS_XL: Product["sizes"] = [
   { label: "XS", available: true },
@@ -48,7 +60,7 @@ export const products: Product[] = [
       { name: "Slate",   hex: "#8C9099" },
       { name: "Tobacco", hex: "#7A5C3E" },
     ],
-    images: [bg1, bg2],
+    images: [bg1, bg2, bgw1, bgw2],
     isNew: true,
     isSale: false,
     inStock: true,
@@ -77,7 +89,7 @@ export const products: Product[] = [
       { name: "Ebony",  hex: "#1C1C1C" },
       { name: "Sage",   hex: "#8A9E84" },
     ],
-    images: [bg2, bg3],
+    images: [bg2, bg3, bgw2, bgw3],
     isNew: false,
     isSale: true,
     inStock: true,
@@ -104,7 +116,7 @@ export const products: Product[] = [
       { name: "Ecru",   hex: "#E8E0D4" },
       { name: "Camel",  hex: "#C09B6A" },
     ],
-    images: [bg3, bg4],
+    images: [bg3, bg4, bgw3, bgw4],
     isNew: true,
     isSale: false,
     inStock: true,
@@ -132,7 +144,7 @@ export const products: Product[] = [
       { name: "Camel",    hex: "#C09B6A" },
       { name: "Ivory",    hex: "#F2EDE6" },
     ],
-    images: [bg4, bg1],
+    images: [bg4, bg1, bgw4, bgw1],
     isNew: false,
     isSale: true,
     inStock: true,
@@ -159,7 +171,7 @@ export const products: Product[] = [
       { name: "Camel",  hex: "#C09B6A" },
       { name: "Black",  hex: "#111111" },
     ],
-    images: [bg5, bg6],
+    images: [bg5, bg6, bgw5, bgw6],
     isNew: false,
     isSale: true,
     inStock: true,
@@ -187,7 +199,7 @@ export const products: Product[] = [
       { name: "White",  hex: "#F7F5F2" },
       { name: "Slate",  hex: "#8C9099" },
     ],
-    images: [bg6, bg5],
+    images: [bg6, bg5, bgw6, bgw5],
     isNew: false,
     isSale: true,
     inStock: true,
@@ -216,7 +228,7 @@ export const products: Product[] = [
       { name: "Slate", hex: "#8C9099" },
       { name: "Ebony", hex: "#1C1C1C" },
     ],
-    images: [bg7, bg8],
+    images: [bg7, bg8, bgw7, bgw8],
     isNew: false,
     isSale: true,
     inStock: true,
@@ -243,7 +255,7 @@ export const products: Product[] = [
       { name: "Ecru",    hex: "#E8E0D4" },
       { name: "Tobacco", hex: "#7A5C3E" },
     ],
-    images: [bg8, bg7],
+    images: [bg8, bg7, bgw8, bgw9],
     isNew: false,
     isSale: true,
     inStock: true,
@@ -270,7 +282,7 @@ export const products: Product[] = [
       { name: "White",  hex: "#F7F5F2" },
       { name: "Sand",   hex: "#D4C5A9" },
     ],
-    images: [p1, p2],
+    images: [p1, p2, bgw9, bg9],
     isNew: true,
     isSale: false,
     inStock: true,
@@ -297,7 +309,7 @@ export const products: Product[] = [
       { name: "Indigo", hex: "#3B4A6B" },
       { name: "Ecru",   hex: "#E8E0D4" },
     ],
-    images: [p2, p3],
+    images: [p2, p3, p5, bg9],
     isNew: true,
     isSale: false,
     inStock: true,
@@ -324,7 +336,7 @@ export const products: Product[] = [
       { name: "Ebony",   hex: "#1C1C1C" },
       { name: "Tobacco", hex: "#7A5C3E" },
     ],
-    images: [p3, p4],
+    images: [p3, p4, p6, bgw3],
     isNew: true,
     isSale: false,
     inStock: true,
@@ -350,7 +362,7 @@ export const products: Product[] = [
       { name: "Ecru",  hex: "#E8E0D4" },
       { name: "Black", hex: "#111111" },
     ],
-    images: [p4, p1],
+    images: [p4, p1, p5, p6],
     isNew: true,
     isSale: false,
     inStock: true,

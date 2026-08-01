@@ -134,8 +134,17 @@ function CheckoutPage() {
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-[1600px] px-5 pb-24 pt-24 md:px-12 md:pt-32">
 
-        {/* Page title */}
+        {/* Back + Page title */}
         <div className="mb-10 md:mb-14">
+          <button
+            onClick={() => window.history.back()}
+            className="mb-6 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-ink"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2">
+              <path d="M9 2 4 7l5 5" />
+            </svg>
+            Back
+          </button>
           <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Checkout</p>
           <h1 className="serif mt-2 text-4xl text-ink md:text-5xl">Your order</h1>
         </div>

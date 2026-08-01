@@ -1,8 +1,10 @@
 import { useEffect } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useCart } from "@/store/cartStore";
 
 export function CartDrawer() {
   const { items, isOpen, closeCart, removeItem, updateQuantity } = useCart();
+  const navigate = useNavigate();
 
   const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const count = items.reduce((sum, i) => sum + i.quantity, 0);
@@ -154,7 +156,10 @@ export function CartDrawer() {
             <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/50">
               Shipping calculated at checkout
             </p>
-            <button className="w-full bg-ink py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-colors hover:bg-ink/90">
+            <button
+              onClick={() => { closeCart(); navigate({ to: "/checkout" }); }}
+              className="w-full bg-ink py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-colors hover:bg-ink/90"
+            >
               Checkout
             </button>
             <button

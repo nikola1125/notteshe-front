@@ -16,9 +16,14 @@ export const Route = createFileRoute("/")({
 const featuredProducts = allProducts.filter((p) => p.isNew).slice(0, 4);
 const saleProducts = allProducts.filter((p) => p.isSale).slice(0, 4);
 
+// Evaluated once when the JS bundle loads. On true reload this is false;
+// on client-side back/forward navigation the module stays in memory so it
+// stays true after the intro has played, preventing it from showing again.
+const _navType = (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined)?.type;
+let _introShown = _navType !== "reload";
 
 function Index() {
-  const [introDone, setIntroDone] = useState(false);
+  const [introDone, setIntroDone] = useState(() => _introShown);
 
   useEffect(() => {
     const els = document.querySelectorAll<HTMLElement>(".reveal");
@@ -32,7 +37,9 @@ function Index() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
-      {!introDone && <Intro onComplete={() => setIntroDone(true)} />}
+      {!introDone && (
+        <Intro onComplete={() => { _introShown = true; setIntroDone(true); }} />
+      )}
 
       {/* ─── Hero ─── */}
       <section

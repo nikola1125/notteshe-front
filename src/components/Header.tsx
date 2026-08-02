@@ -2,11 +2,16 @@ import { Link } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { useCart } from "@/store/cartStore";
 import { useWishlist } from "@/store/wishlistStore";
+import { useAuthStore } from "@/store/authStore";
+import { useSession, signOut } from "@/lib/auth/client";
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [badgeBounce, setBadgeBounce] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { openCart, items } = useCart();
+  const { openAuthModal } = useAuthStore();
+  const { data: session } = useSession();
   const cartCount = items.reduce((sum, i) => sum + i.quantity, 0);
   const prevCount = useRef(cartCount);
 
@@ -54,19 +59,71 @@ export function Header() {
 
         {/* Actions */}
         <div className="flex items-center">
-          {/* Search */}
-          <button
-            className="flex h-11 w-11 cursor-pointer items-center justify-center text-ink/75 transition-colors duration-200 hover:text-ink md:w-auto md:px-2"
-            aria-label="Search"
-          >
-            <svg className="md:hidden" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <span className="relative hidden text-[14px] after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 hover:after:scale-x-100 md:inline">
-              Search
-            </span>
-          </button>
+          {/* Account */}
+          <div className="relative">
+            {session?.user ? (
+              <button
+                onClick={() => setUserMenuOpen((v) => !v)}
+                className="flex h-11 w-11 cursor-pointer items-center justify-center text-ink/75 transition-colors duration-200 hover:text-ink md:w-auto md:px-2"
+                aria-label="Account"
+              >
+                <svg className="md:hidden" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                <span className="relative hidden text-[14px] md:inline">
+                  {session.user.name?.split(" ")[0]}
+                </span>
+              </button>
+            ) : (
+              <button
+                onClick={() => openAuthModal("login")}
+                className="flex h-11 w-11 cursor-pointer items-center justify-center text-ink/75 transition-colors duration-200 hover:text-ink md:w-auto md:px-2"
+                aria-label="Sign in"
+              >
+                <svg className="md:hidden" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                <span className="relative hidden text-[14px] after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 hover:after:scale-x-100 md:inline">
+                  Sign in
+                </span>
+              </button>
+            )}
+
+            {/* User dropdown */}
+            {userMenuOpen && session?.user && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
+                <div className="absolute right-0 top-full z-50 mt-2 w-48 border border-border bg-background py-2 shadow-lg">
+                  <div className="border-b border-border px-4 pb-2">
+                    <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Signed in as</p>
+                    <p className="mt-0.5 truncate font-mono text-[11px] text-ink">{session.user.email}</p>
+                  </div>
+                  <Link
+                    to="/account/orders"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="block px-4 py-2.5 font-mono text-[10px] uppercase tracking-widest text-ink/70 transition-colors hover:text-ink"
+                  >
+                    My orders
+                  </Link>
+                  <Link
+                    to="/wishlist"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="block px-4 py-2.5 font-mono text-[10px] uppercase tracking-widest text-ink/70 transition-colors hover:text-ink"
+                  >
+                    Saved items
+                  </Link>
+                  <button
+                    onClick={async () => { await signOut(); setUserMenuOpen(false); }}
+                    className="block w-full px-4 py-2.5 text-left font-mono text-[10px] uppercase tracking-widest text-ink/70 transition-colors hover:text-ink"
+                  >
+                    Sign out
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Wishlist */}
           <Link

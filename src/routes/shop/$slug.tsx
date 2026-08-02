@@ -103,26 +103,18 @@ function SizeGuideModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-interface FlyState {
-  src: string;
-  fromX: number;
-  fromY: number;
-  fromSize: number;
-  toX: number;
-  toY: number;
-  phase: "start" | "fly" | "done";
-}
+// suppress unused import warning — PendingFly is used as a type only
+type _PFCheck = PendingFly;
 
 function ProductPage() {
   const product = Route.useLoaderData();
-  const { addItem } = useCart();
+  const { addItem, openCart, setPendingFly, triggerFlyNow, items: cartItems } = useCart();
   const [activeImage, setActiveImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColour, setSelectedColour] = useState(product.colours[0].name);
   const [sizeError, setSizeError] = useState(false);
   const [added, setAdded] = useState(false);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
-  const [fly, setFly] = useState<FlyState | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const galleryRef = useRef<HTMLDivElement>(null);
 
@@ -145,6 +137,9 @@ function ProductPage() {
       return;
     }
     setSizeError(false);
+
+    const cartWasEmpty = cartItems.length === 0;
+
     addItem({
       productId: product.id,
       name: product.name,
@@ -158,53 +153,29 @@ function ProductPage() {
     setTimeout(() => setAdded(false), 2000);
 
     const galleryEl = galleryRef.current;
-    const cartBtn = document.querySelector<HTMLElement>('[aria-label="Bag"]');
-    if (!galleryEl || !cartBtn) return;
+    if (!galleryEl) { if (cartWasEmpty) openCart(); return; }
 
     const gRect = galleryEl.getBoundingClientRect();
-    const cRect = cartBtn.getBoundingClientRect();
     const size = Math.min(gRect.width, gRect.height) * 0.28;
 
-    setFly({
+    setPendingFly({
       src: product.images[0],
       fromX: gRect.left + gRect.width / 2 - size / 2,
       fromY: gRect.top + gRect.height / 2 - size / 2,
       fromSize: size,
-      toX: cRect.left + cRect.width / 2,
-      toY: cRect.top + cRect.height / 2,
-      phase: "start",
     });
 
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setFly((f) => f ? { ...f, phase: "fly" } : null);
-      });
-    });
-
-    setTimeout(() => setFly(null), 800);
+    if (cartWasEmpty) {
+      openCart();
+    } else {
+      triggerFlyNow();
+    }
   }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       {sizeGuideOpen && <SizeGuideModal onClose={() => setSizeGuideOpen(false)} />}
 
-      {fly && (
-        <div
-          className="pointer-events-none fixed z-[200] overflow-hidden rounded-sm"
-          style={{
-            left: fly.phase === "fly" ? fly.toX - 10 : fly.fromX,
-            top: fly.phase === "fly" ? fly.toY - 10 : fly.fromY,
-            width: fly.phase === "fly" ? 20 : fly.fromSize,
-            height: fly.phase === "fly" ? 20 : fly.fromSize,
-            opacity: fly.phase === "fly" ? 0 : 1,
-            transition: fly.phase === "fly"
-              ? "left 0.65s cubic-bezier(0.25, 0.46, 0.45, 0.94), top 0.65s cubic-bezier(0.25, 0.46, 0.45, 0.94), width 0.65s ease, height 0.65s ease, opacity 0.3s ease 0.45s"
-              : "none",
-          }}
-        >
-          <img src={fly.src} className="h-full w-full object-cover" alt="" />
-        </div>
-      )}
 
       {/* Back + Breadcrumb */}
       <div className="mx-auto max-w-[1600px] px-5 pt-24 md:px-12 md:pt-32">

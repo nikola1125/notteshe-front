@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useWishlist } from "@/store/wishlistStore";
+import { useAuthStore } from "@/store/authStore";
+import { useSession } from "@/lib/auth/client";
 
 interface WishlistButtonProps {
   productId: string;
@@ -19,10 +21,18 @@ export function WishlistButton({ productId, className = "" }: WishlistButtonProp
   const { toggle, has } = useWishlist();
   const liked = has(productId);
   const [burst, setBurst] = useState(false);
+  const { data: session } = useSession();
+  const { openAuthModal } = useAuthStore();
 
   function handleClick(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
+
+    if (!session?.user) {
+      openAuthModal("login");
+      return;
+    }
+
     if (!liked) {
       setBurst(true);
       setTimeout(() => setBurst(false), 700);

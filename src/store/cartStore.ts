@@ -13,15 +13,26 @@ export interface CartItem {
   quantity: number;
 }
 
+export interface PendingFly {
+  src: string;
+  fromX: number;
+  fromY: number;
+  fromSize: number;
+}
+
 interface CartStore {
   items: CartItem[];
   isOpen: boolean;
+  pendingFly: PendingFly | null;
+  flyNow: boolean;
   addItem: (payload: Omit<CartItem, "id" | "quantity">) => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, delta: number) => void;
   clearCart: () => void;
   openCart: () => void;
   closeCart: () => void;
+  setPendingFly: (fly: PendingFly | null) => void;
+  triggerFlyNow: () => void;
 }
 
 export const useCart = create<CartStore>()(
@@ -29,6 +40,8 @@ export const useCart = create<CartStore>()(
     (set, get) => ({
       items: [],
       isOpen: false,
+      pendingFly: null,
+      flyNow: false,
 
       addItem: (payload) => {
         const id = `${payload.productId}-${payload.size}-${payload.colour}`;
@@ -38,12 +51,10 @@ export const useCart = create<CartStore>()(
             items: s.items.map((i) =>
               i.id === id ? { ...i, quantity: i.quantity + 1 } : i
             ),
-            isOpen: true,
           }));
         } else {
           set((s) => ({
             items: [...s.items, { ...payload, id, quantity: 1 }],
-            isOpen: true,
           }));
         }
       },
@@ -61,7 +72,12 @@ export const useCart = create<CartStore>()(
       clearCart: () => set({ items: [] }),
       openCart: () => set({ isOpen: true }),
       closeCart: () => set({ isOpen: false }),
+      setPendingFly: (fly) => set({ pendingFly: fly }),
+      triggerFlyNow: () => set({ flyNow: true }),
     }),
-    { name: "notteshe-cart" }
+    {
+      name: "notteshe-cart",
+      partialize: (s) => ({ items: s.items }),
+    }
   )
 );

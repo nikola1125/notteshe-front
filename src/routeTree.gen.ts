@@ -10,15 +10,22 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AccountRouteImport } from './routes/account'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as ShopRouteImport } from './routes/shop'
 import { Route as WishlistRouteImport } from './routes/wishlist'
+import { Route as AccountOrdersRouteImport } from './routes/account/orders'
 import { Route as ShopIndexRouteImport } from './routes/shop/index'
 import { Route as ShopSlugRouteImport } from './routes/shop/$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountRoute = AccountRouteImport.update({
+  id: '/account',
+  path: '/account',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CheckoutRoute = CheckoutRouteImport.update({
@@ -36,6 +43,11 @@ const WishlistRoute = WishlistRouteImport.update({
   path: '/wishlist',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AccountOrdersRoute = AccountOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => AccountRoute,
+} as any)
 const ShopIndexRoute = ShopIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -49,46 +61,69 @@ const ShopSlugRoute = ShopSlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/account': typeof AccountRouteWithChildren
   '/checkout': typeof CheckoutRoute
   '/shop': typeof ShopRouteWithChildren
   '/wishlist': typeof WishlistRoute
+  '/account/orders': typeof AccountOrdersRoute
   '/shop/$slug': typeof ShopSlugRoute
   '/shop/': typeof ShopIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/account': typeof AccountRouteWithChildren
   '/checkout': typeof CheckoutRoute
   '/wishlist': typeof WishlistRoute
+  '/account/orders': typeof AccountOrdersRoute
   '/shop/$slug': typeof ShopSlugRoute
   '/shop': typeof ShopIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/account': typeof AccountRouteWithChildren
   '/checkout': typeof CheckoutRoute
   '/shop': typeof ShopRouteWithChildren
   '/wishlist': typeof WishlistRoute
+  '/account/orders': typeof AccountOrdersRoute
   '/shop/$slug': typeof ShopSlugRoute
   '/shop/': typeof ShopIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/checkout' | '/shop' | '/wishlist' | '/shop/$slug' | '/shop/'
-  fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/checkout' | '/wishlist' | '/shop/$slug' | '/shop'
-  id:
-    | '__root__'
     | '/'
+    | '/account'
     | '/checkout'
     | '/shop'
     | '/wishlist'
+    | '/account/orders'
+    | '/shop/$slug'
+    | '/shop/'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    | '/'
+    | '/account'
+    | '/checkout'
+    | '/wishlist'
+    | '/account/orders'
+    | '/shop/$slug'
+    | '/shop'
+  id:
+    | '__root__'
+    | '/'
+    | '/account'
+    | '/checkout'
+    | '/shop'
+    | '/wishlist'
+    | '/account/orders'
     | '/shop/$slug'
     | '/shop/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AccountRoute: typeof AccountRouteWithChildren
   CheckoutRoute: typeof CheckoutRoute
   ShopRoute: typeof ShopRouteWithChildren
   WishlistRoute: typeof WishlistRoute
@@ -101,6 +136,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account': {
+      id: '/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AccountRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/checkout': {
@@ -124,6 +166,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WishlistRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/account/orders': {
+      id: '/account/orders'
+      path: '/orders'
+      fullPath: '/account/orders'
+      preLoaderRoute: typeof AccountOrdersRouteImport
+      parentRoute: typeof AccountRoute
+    }
     '/shop/': {
       id: '/shop/'
       path: '/'
@@ -141,6 +190,17 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AccountRouteChildren {
+  AccountOrdersRoute: typeof AccountOrdersRoute
+}
+
+const AccountRouteChildren: AccountRouteChildren = {
+  AccountOrdersRoute: AccountOrdersRoute,
+}
+
+const AccountRouteWithChildren =
+  AccountRoute._addFileChildren(AccountRouteChildren)
+
 interface ShopRouteChildren {
   ShopSlugRoute: typeof ShopSlugRoute
   ShopIndexRoute: typeof ShopIndexRoute
@@ -155,6 +215,7 @@ const ShopRouteWithChildren = ShopRoute._addFileChildren(ShopRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AccountRoute: AccountRouteWithChildren,
   CheckoutRoute: CheckoutRoute,
   ShopRoute: ShopRouteWithChildren,
   WishlistRoute: WishlistRoute,

@@ -1,34 +1,118 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useCart } from "@/store/cartStore";
 
+interface FlyState {
+  src: string;
+  fromX: number;
+  fromY: number;
+  fromSize: number;
+  toX: number;
+  toY: number;
+  phase: "start" | "fly";
+}
+
 export function CartDrawer() {
-  const { items, isOpen, closeCart, removeItem, updateQuantity } = useCart();
+  const { items, isOpen, closeCart, removeItem, updateQuantity, pendingFly, setPendingFly, flyNow } = useCart();
   const navigate = useNavigate();
+  const [fly, setFly] = useState<FlyState | null>(null);
 
   const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const count = items.reduce((sum, i) => sum + i.quantity, 0);
 
-  // Lock body scroll when open
   useEffect(() => {
     document.body.style.overflow = isOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [isOpen]);
 
-  // Close on Escape
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") closeCart(); };
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") handleClose(); };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [closeCart]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, pendingFly]);
+
+  // Immediate fly — cart stays closed, item animates straight to bag icon
+  useEffect(() => {
+    if (!flyNow || !pendingFly) return;
+
+    const pf = pendingFly;
+    setPendingFly(null);
+    useCart.setState({ flyNow: false });
+
+    const cartBtn = document.querySelector<HTMLElement>('[aria-label="Bag"]');
+    if (!cartBtn) return;
+
+    const cRect = cartBtn.getBoundingClientRect();
+    setFly({
+      ...pf,
+      toX: cRect.left + cRect.width / 2,
+      toY: cRect.top + cRect.height / 2,
+      phase: "start",
+    });
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setFly((f) => f ? { ...f, phase: "fly" } : null);
+      });
+    });
+    setTimeout(() => setFly(null), 800);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flyNow]);
+
+  function handleClose() {
+    const pf = pendingFly;
+    closeCart();
+    setPendingFly(null);
+
+    if (!pf) return;
+
+    const cartBtn = document.querySelector<HTMLElement>('[aria-label="Bag"]');
+    if (!cartBtn) return;
+
+    const cRect = cartBtn.getBoundingClientRect();
+    const state: FlyState = {
+      ...pf,
+      toX: cRect.left + cRect.width / 2,
+      toY: cRect.top + cRect.height / 2,
+      phase: "start",
+    };
+    setFly(state);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setFly((f) => f ? { ...f, phase: "fly" } : null);
+      });
+    });
+
+    setTimeout(() => setFly(null), 800);
+  }
 
   return (
     <>
+      {/* Fly-to-cart overlay — outside drawer so transform doesn't clip it */}
+      {fly && (
+        <div
+          className="pointer-events-none fixed z-[200] overflow-hidden rounded-sm"
+          style={{
+            left: fly.phase === "fly" ? fly.toX - 10 : fly.fromX,
+            top: fly.phase === "fly" ? fly.toY - 10 : fly.fromY,
+            width: fly.phase === "fly" ? 20 : fly.fromSize,
+            height: fly.phase === "fly" ? 20 : fly.fromSize,
+            opacity: fly.phase === "fly" ? 0 : 1,
+            transition: fly.phase === "fly"
+              ? "left 0.65s cubic-bezier(0.25, 0.46, 0.45, 0.94), top 0.65s cubic-bezier(0.25, 0.46, 0.45, 0.94), width 0.65s ease, height 0.65s ease, opacity 0.3s ease 0.45s"
+              : "none",
+          }}
+        >
+          <img src={fly.src} className="h-full w-full object-cover" alt="" />
+        </div>
+      )}
+
       {/* Backdrop */}
       <div
         className="fixed inset-0 z-[90] bg-background/60 backdrop-blur-sm transition-opacity duration-500"
         style={{ opacity: isOpen ? 1 : 0, pointerEvents: isOpen ? "auto" : "none" }}
-        onClick={closeCart}
+        onClick={handleClose}
       />
 
       {/* Drawer */}
@@ -47,7 +131,7 @@ export function CartDrawer() {
             </p>
           </div>
           <button
-            onClick={closeCart}
+            onClick={handleClose}
             className="flex h-10 w-10 items-center justify-center text-ink/50 hover:text-ink transition-colors"
             aria-label="Close bag"
           >
@@ -157,13 +241,13 @@ export function CartDrawer() {
               Shipping calculated at checkout
             </p>
             <button
-              onClick={() => { closeCart(); navigate({ to: "/checkout" }); }}
+              onClick={() => { handleClose(); navigate({ to: "/checkout" }); }}
               className="w-full bg-ink py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-colors hover:bg-ink/90"
             >
               Checkout
             </button>
             <button
-              onClick={closeCart}
+              onClick={handleClose}
               className="w-full py-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-ink transition-colors"
             >
               Continue shopping

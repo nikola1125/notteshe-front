@@ -13,6 +13,8 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Header } from "@/components/Header";
 import { CartDrawer } from "@/components/CartDrawer";
+import { AuthModal } from "@/components/AuthModal";
+import { useAuthStore } from "@/store/authStore";
 
 
 
@@ -118,11 +120,22 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const { authModalOpen, authModalMode, authModalCallback, closeAuthModal } = useAuthStore();
 
   return (
     <QueryClientProvider client={queryClient}>
       <Header />
       <CartDrawer />
+      {authModalOpen && (
+        <AuthModal
+          defaultMode={authModalMode}
+          onClose={closeAuthModal}
+          onSuccess={() => {
+            authModalCallback?.();
+            closeAuthModal();
+          }}
+        />
+      )}
       <Outlet />
     </QueryClientProvider>
   );

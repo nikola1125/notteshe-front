@@ -1,6 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useCart } from "@/store/cartStore";
+import { useSession } from "@/lib/auth/client";
+import { useAuthStore } from "@/store/authStore";
+import { placeOrder } from "@/lib/orders";
 
 export const Route = createFileRoute("/checkout")({
   component: CheckoutPage,
@@ -46,11 +49,47 @@ function formatExpiry(value: string) {
 
 function CheckoutPage() {
   const { items, clearCart } = useCart();
+  const { data: session, isPending: sessionLoading } = useSession();
+  const { openAuthModal } = useAuthStore();
+
+  if (sessionLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <svg className="animate-spin text-muted-foreground" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+          <path d="M12 2a10 10 0 0 1 10 10" />
+        </svg>
+      </div>
+    );
+  }
+
+  if (!session?.user && items.length > 0) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-5 text-center">
+        <p className="serif text-3xl text-ink">Sign in to continue.</p>
+        <p className="font-mono text-[11px] text-muted-foreground">
+          You need an account to place an order.
+        </p>
+        <button
+          onClick={() => openAuthModal("login")}
+          className="bg-ink px-8 py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-colors hover:bg-ink/90"
+        >
+          Sign in / Create account
+        </button>
+        <Link
+          to="/shop/"
+          className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition hover:text-ink"
+        >
+          ← Back to shop
+        </Link>
+      </div>
+    );
+  }
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [errors, setErrors] = useState<Partial<FormState>>({});
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
-  const [orderRef] = useState(() => `NTS-${Math.floor(10000 + Math.random() * 90000)}`);
+  const [orderRef, setOrderRef] = useState("");
 
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
   const shipping = subtotal >= 200 ? 0 : 12;
@@ -77,15 +116,41 @@ function CheckoutPage() {
     return Object.keys(next).length === 0;
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validate()) return;
     setSubmitting(true);
-    setTimeout(() => {
+    try {
+      const result = await placeOrder({
+        data: {
+          email: form.email,
+          firstName: form.firstName,
+          lastName: form.lastName,
+          address: form.address,
+          address2: form.address2 || undefined,
+          city: form.city,
+          postalCode: form.postalCode,
+          country: form.country,
+          items: items.map((i) => ({
+            productId: i.productId,
+            name: i.name,
+            price: i.price,
+            originalPrice: i.originalPrice,
+            image: i.image,
+            size: i.size,
+            colour: i.colour,
+            quantity: i.quantity,
+          })),
+        },
+      });
       clearCart();
+      setOrderRef(result.orderId.slice(0, 8).toUpperCase());
       setConfirmed(true);
+    } catch {
+      setErrors({ email: "Something went wrong. Please try again." });
+    } finally {
       setSubmitting(false);
-    }, 1400);
+    }
   }
 
   if (items.length === 0 && !confirmed) {

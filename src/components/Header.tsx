@@ -1,12 +1,24 @@
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useCart } from "@/store/cartStore";
 import { useWishlist } from "@/store/wishlistStore";
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [badgeBounce, setBadgeBounce] = useState(false);
   const { openCart, items } = useCart();
   const cartCount = items.reduce((sum, i) => sum + i.quantity, 0);
+  const prevCount = useRef(cartCount);
+
+  useEffect(() => {
+    if (cartCount > prevCount.current) {
+      setBadgeBounce(true);
+      const t = setTimeout(() => setBadgeBounce(false), 500);
+      prevCount.current = cartCount;
+      return () => clearTimeout(t);
+    }
+    prevCount.current = cartCount;
+  }, [cartCount]);
   const wishlistCount = useWishlist((s) => s.ids.length);
 
   return (
@@ -93,7 +105,10 @@ export function Header() {
               <span className="text-muted-foreground">({cartCount})</span>
             </span>
             {cartCount > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-ink font-mono text-[9px] text-background md:hidden">
+              <span
+                className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-ink font-mono text-[9px] text-background md:hidden"
+                style={badgeBounce ? { animation: "cart-badge-bounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both" } : undefined}
+              >
                 {cartCount}
               </span>
             )}

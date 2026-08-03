@@ -58,7 +58,13 @@ function isH3SwallowedErrorBody(body: string): boolean {
 }
 
 export default {
-  async fetch(request: Request, env: unknown, ctx: unknown) {
+  async fetch(request: Request, env: Record<string, string>, ctx: unknown) {
+    // Cloudflare passes env bindings as an object — copy them into process.env
+    // so all server code can read them via process.env["VAR_NAME"]
+    if (env && typeof env === "object") {
+      Object.assign(process.env, env);
+    }
+
     try {
       // Better Auth needs real HTTP routes — intercept before TanStack Router
       const url = new URL(request.url);

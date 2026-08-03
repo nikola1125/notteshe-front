@@ -122,7 +122,7 @@ export const product = pgTable("product", {
   slug: text("slug").notNull().unique(),
   name: text("name").notNull(),
   description: text("description").notNull().default(""),
-  details: jsonb("details").notNull().default([]),   // string[]
+  details: jsonb("details").$type<string[]>().notNull().default([]),
   categoryId: text("category_id").references(() => category.id, { onDelete: "set null" }),
   collectionId: text("collection_id").references(() => collection.id, { onDelete: "set null" }),
   price: real("price").notNull(),
@@ -137,6 +137,8 @@ export const product = pgTable("product", {
   index("product_category_idx").on(t.categoryId),
   index("product_collection_idx").on(t.collectionId),
   index("product_visible_idx").on(t.isVisible),
+  index("product_new_idx").on(t.isNew),
+  index("product_sale_idx").on(t.isSale),
 ]);
 
 // ─── Product Image ────────────────────────────────────────────────────────────
@@ -161,7 +163,9 @@ export const productSize = pgTable("product_size", {
   label: text("label").notNull(),
   available: boolean("available").notNull().default(true),
   stock: integer("stock").notNull().default(0),
-});
+}, (t) => [
+  index("product_size_product_idx").on(t.productId),
+]);
 
 // ─── Product Colour ───────────────────────────────────────────────────────────
 
@@ -171,7 +175,9 @@ export const productColour = pgTable("product_colour", {
   name: text("name").notNull(),
   hex: text("hex").notNull(),
   order: integer("order").notNull().default(0),
-});
+}, (t) => [
+  index("product_colour_product_idx").on(t.productId),
+]);
 
 // ─── Wishlist ─────────────────────────────────────────────────────────────────
 
@@ -264,7 +270,7 @@ export const auditLog = pgTable("audit_log", {
   action: text("action").notNull(),       // e.g. "product.update", "order.status_change"
   entityType: text("entity_type"),        // e.g. "product", "order"
   entityId: text("entity_id"),
-  diff: jsonb("diff"),                    // { before: {}, after: {} }
+  diff: jsonb("diff").$type<{ before?: unknown; after?: unknown } | null>(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (t) => [
   index("audit_log_admin_idx").on(t.adminId),

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useCart } from "@/store/cartStore";
 import { useWishlist } from "@/store/wishlistStore";
 import { useAuthStore } from "@/store/authStore";
@@ -12,7 +12,7 @@ export function Header() {
   const { openCart, items } = useCart();
   const { openAuthModal } = useAuthStore();
   const { data: session } = useSession();
-  const cartCount = items.reduce((sum, i) => sum + i.quantity, 0);
+  const cartCount = useMemo(() => items.reduce((sum, i) => sum + i.quantity, 0), [items]);
   const prevCount = useRef(cartCount);
 
   useEffect(() => {

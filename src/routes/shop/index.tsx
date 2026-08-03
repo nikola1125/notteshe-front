@@ -89,6 +89,9 @@ const getShopData = createServerFn({ method: "GET" }).handler(
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export const Route = createFileRoute("/shop/")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    sale: search["sale"] === "1" ? "1" as const : undefined,
+  }),
   loader: () => getShopData(),
   component: ShopPage,
 });
@@ -106,7 +109,8 @@ type SortValue = (typeof SORT_OPTIONS)[number]["value"];
 
 function ShopPage() {
   const { products, categories, total } = Route.useLoaderData();
-  const [activeCategoryId, setActiveCategoryId] = useState<string | "all">("all");
+  const { sale } = Route.useSearch();
+  const [activeCategoryId, setActiveCategoryId] = useState<string | "all" | "sale">(sale === "1" ? "sale" : "all");
   const [activeSort, setActiveSort] = useState<SortValue>("featured");
   const [sortOpen, setSortOpen] = useState(false);
 
@@ -125,9 +129,9 @@ function ShopPage() {
 
   const filtered = useMemo(() => {
     let list =
-      activeCategoryId === "all"
-        ? [...products]
-        : products.filter((p) => p.categoryId === activeCategoryId);
+      activeCategoryId === "all" ? [...products]
+      : activeCategoryId === "sale" ? products.filter((p) => p.isSale)
+      : products.filter((p) => p.categoryId === activeCategoryId);
 
     switch (activeSort) {
       case "newest":
@@ -194,6 +198,16 @@ function ShopPage() {
                 {cat.name}
               </button>
             ))}
+            <button
+              onClick={() => setActiveCategoryId("sale")}
+              className={`shrink-0 border-b-[1.5px] px-4 py-4 font-mono text-[10px] uppercase tracking-widest transition-colors duration-200 md:px-5 ${
+                activeCategoryId === "sale"
+                  ? "border-clay text-clay"
+                  : "border-transparent text-clay/60 hover:text-clay"
+              }`}
+            >
+              Sale
+            </button>
           </div>
 
           {/* Sort dropdown */}

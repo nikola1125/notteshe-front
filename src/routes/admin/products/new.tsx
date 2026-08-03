@@ -53,7 +53,7 @@ const createProduct = createServerFn({ method: "POST" })
       price: data.price,
       originalPrice: data.originalPrice ?? null,
       isNew: data.isNew,
-      isSale: data.originalPrice != null && data.originalPrice > 0,
+      isSale: data.isSale,
       isVisible: data.isVisible,
       inStock: data.inStock,
     });

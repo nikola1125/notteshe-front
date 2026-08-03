@@ -71,6 +71,7 @@ const getProductEdit = createServerFn({ method: "GET" })
         price: Number(p.price),
         originalPrice: p.originalPrice != null ? Number(p.originalPrice) : null,
         isNew: p.isNew,
+        isSale: p.isSale,
         isVisible: p.isVisible,
         inStock: p.inStock,
         sizes: sizes.map((s) => ({
@@ -124,7 +125,7 @@ const updateProduct = createServerFn({ method: "POST" })
         price: fields.price,
         originalPrice: fields.originalPrice ?? null,
         isNew: fields.isNew,
-        isSale: fields.originalPrice != null && fields.originalPrice > 0,
+        isSale: fields.isSale,
         isVisible: fields.isVisible,
         inStock: fields.inStock,
         updatedAt: new Date(),

@@ -33,6 +33,7 @@ export interface ProductFormData {
   price: number;
   originalPrice: number | null;
   isNew: boolean;
+  isSale: boolean;
   isVisible: boolean;
   inStock: boolean;
   sizes: SizeEntry[];
@@ -80,6 +81,7 @@ export function ProductForm({
     initialData?.originalPrice != null ? String(initialData.originalPrice) : ""
   );
   const [isNew, setIsNew] = useState(initialData?.isNew ?? false);
+  const [isSale, setIsSale] = useState(initialData?.isSale ?? false);
   const [isVisible, setIsVisible] = useState(initialData?.isVisible ?? true);
   const [inStock, setInStock] = useState(initialData?.inStock ?? true);
 
@@ -185,6 +187,7 @@ export function ProductForm({
         price: parseFloat(price) || 0,
         originalPrice: originalPrice ? parseFloat(originalPrice) : null,
         isNew,
+        isSale,
         isVisible,
         inStock,
         sizes,
@@ -338,6 +341,7 @@ export function ProductForm({
           {(
             [
               { label: "New In", state: isNew, setter: setIsNew },
+              { label: "Sale", state: isSale, setter: setIsSale },
               { label: "Visible", state: isVisible, setter: setIsVisible },
               { label: "In Stock", state: inStock, setter: setInStock },
             ] as const

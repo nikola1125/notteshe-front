@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { subscribeNewsletter } from "@/lib/newsletter";
 import { Intro } from "@/components/Intro";
 import { WishlistButton } from "@/components/WishlistButton";
 import { products as allProducts } from "@/data/products";
@@ -402,27 +403,7 @@ function Index() {
               New arrivals, early access, and the occasional word from us. Sent no more than once a month. Nothing more.
             </p>
           </div>
-          <form className="col-span-12 md:col-span-6">
-            <label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-              Your address
-            </label>
-            <div className="mt-3 flex items-center gap-4 border-b border-ink/20 pb-3 transition-colors focus-within:border-ink/50">
-              <input
-                type="email"
-                placeholder="you@somewhere.com"
-                className="flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-muted-foreground/35"
-              />
-              <button
-                type="submit"
-                className="relative min-h-[44px] shrink-0 font-mono text-[10px] uppercase tracking-widest text-clay transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100"
-              >
-                Subscribe →
-              </button>
-            </div>
-            <p className="mt-3 font-mono text-[9px] uppercase tracking-widest text-muted-foreground/50">
-              English · French · Japanese · No spam, ever.
-            </p>
-          </form>
+          <NewsletterForm />
         </div>
       </section>
 
@@ -443,17 +424,17 @@ function Index() {
                 ))}
               </div>
             </div>
-            {[
-              { title: "Shop",  links: ["New Arrivals", "Collection", "Lookbook", "Archive"] },
-              { title: "House", links: ["Our Story", "Ateliers", "Sustainability", "Journal"] },
-              { title: "Help",  links: ["Shipping", "Returns", "Size Guide", "Contact"] },
-            ].map((c) => (
+            {([
+              { title: "Shop",  links: [{ label: "Shop all", to: "/shop" }, { label: "Lookbook", to: "/lookbook" }] },
+              { title: "House", links: [{ label: "Our Story", to: "/about" }, { label: "Contact", to: "/contact" }, { label: "FAQ", to: "/faq" }] },
+              { title: "Help",  links: [{ label: "Shipping", to: "/shipping" }, { label: "Returns", to: "/returns" }, { label: "Size Guide", to: "/size-guide" }] },
+            ] as const).map((c) => (
               <div key={c.title} className="col-span-4 md:col-span-2">
                 <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-5">{c.title}</p>
                 <ul className="space-y-3">
                   {c.links.map((l) => (
-                    <li key={l}>
-                      <a href="#" className="relative inline-block text-[13px] text-ink/55 transition-colors duration-200 after:absolute after:bottom-[-2px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-clay hover:after:scale-x-100">{l}</a>
+                    <li key={l.label}>
+                      <Link to={l.to} className="relative inline-block text-[13px] text-ink/55 transition-colors duration-200 after:absolute after:bottom-[-2px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-clay hover:after:scale-x-100">{l.label}</Link>
                     </li>
                   ))}
                 </ul>
@@ -475,5 +456,62 @@ function Index() {
       </footer>
 
     </div>
+  );
+}
+
+function NewsletterForm() {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      inputRef.current?.focus();
+      return;
+    }
+    setStatus("sending");
+    try {
+      await subscribeNewsletter({ data: { email } });
+      setStatus("done");
+    } catch {
+      setStatus("error");
+    }
+  }
+
+  if (status === "done") {
+    return (
+      <div className="col-span-12 md:col-span-6">
+        <p className="font-mono text-[11px] uppercase tracking-widest text-clay">You're on the list.</p>
+        <p className="mt-2 text-[13px] font-light text-muted-foreground">We'll be in touch — quietly.</p>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="col-span-12 md:col-span-6">
+      <label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Your address</label>
+      <div className="mt-3 flex items-center gap-4 border-b border-ink/20 pb-3 transition-colors focus-within:border-ink/50">
+        <input
+          ref={inputRef}
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@somewhere.com"
+          className="flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-muted-foreground/35"
+        />
+        <button
+          type="submit"
+          disabled={status === "sending"}
+          className="relative min-h-[44px] shrink-0 font-mono text-[10px] uppercase tracking-widest text-clay transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100 disabled:opacity-50"
+        >
+          {status === "sending" ? "…" : "Subscribe →"}
+        </button>
+      </div>
+      {status === "error" && (
+        <p className="mt-2 font-mono text-[9px] uppercase tracking-widest text-clay">Something went wrong. Try again.</p>
+      )}
+      <p className="mt-3 font-mono text-[9px] uppercase tracking-widest text-muted-foreground/50">No spam, ever.</p>
+    </form>
   );
 }

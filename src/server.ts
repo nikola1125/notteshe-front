@@ -60,6 +60,15 @@ export default {
     try {
       const url = new URL(request.url);
 
+      if (url.pathname === "/debug-env") {
+        const g = globalThis as typeof globalThis & { __env__?: Record<string, unknown> };
+        return new Response(JSON.stringify({
+          globalEnvKeys: Object.keys(g.__env__ ?? {}),
+          hasDb: !!(g.__env__?.["DATABASE_URL"]),
+          processEnvDb: !!process.env["DATABASE_URL"],
+        }), { headers: { "content-type": "application/json" } });
+      }
+
       if (url.pathname.startsWith("/api/auth/")) {
         const { auth } = await getAuthModule();
         return auth.handler(request);

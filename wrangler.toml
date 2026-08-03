@@ -1,0 +1,9 @@
+name = "notteshe"
+main = ".output/index.js"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+BETTER_AUTH_URL = "https://notteshe.nhaxhi8.workers.dev"
+CLOUDINARY_CLOUD_NAME = "dgwphhhew"
+CLOUDINARY_API_KEY = "953383282719784"

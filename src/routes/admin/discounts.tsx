@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/start-server-core/request-response";
-import { randomUUID } from "node:crypto";
+
 import { eq, desc } from "drizzle-orm";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -14,8 +13,7 @@ import type { DiscountCode } from "@/db/schema";
 
 const getDiscounts = createServerFn({ method: "GET" }).handler(
   async (): Promise<DiscountCode[]> => {
-    const request = getRequest();
-    await requireAdmin(request);
+    await requireAdmin();
     return db().select().from(discountCode).orderBy(desc(discountCode.createdAt));
   }
 );
@@ -33,9 +31,8 @@ const createDiscount = createServerFn({ method: "POST" })
       }
   )
   .handler(async ({ data }) => {
-    const request = getRequest();
-    const admin = await requireAdmin(request);
-    const id = randomUUID();
+    const admin = await requireAdmin();
+    const id = crypto.randomUUID();
     await db()
       .insert(discountCode)
       .values({
@@ -56,8 +53,7 @@ const createDiscount = createServerFn({ method: "POST" })
 const toggleDiscount = createServerFn({ method: "POST" })
   .validator((input: unknown) => input as { id: string; active: boolean })
   .handler(async ({ data }) => {
-    const request = getRequest();
-    const admin = await requireAdmin(request);
+    const admin = await requireAdmin();
     await db()
       .update(discountCode)
       .set({ isActive: data.active })
@@ -69,8 +65,7 @@ const toggleDiscount = createServerFn({ method: "POST" })
 const deleteDiscount = createServerFn({ method: "POST" })
   .validator((input: unknown) => ({ id: (input as { id: string }).id }))
   .handler(async ({ data }) => {
-    const request = getRequest();
-    const admin = await requireAdmin(request);
+    const admin = await requireAdmin();
     await db()
       .delete(discountCode)
       .where(eq(discountCode.id, data.id));

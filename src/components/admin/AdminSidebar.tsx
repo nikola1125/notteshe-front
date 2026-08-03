@@ -1,4 +1,4 @@
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link, useLocation, useRouter } from "@tanstack/react-router";
 import {
   LayoutDashboard,
   Package,
@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { logoutAdminFn } from "@/lib/admin/auth";
 
 interface AdminSidebarProps {
   adminName: string;
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
 export function AdminSidebar({ adminName, adminRole }: AdminSidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const router = useRouter();
 
   function isActive(href: string, exact?: boolean) {
     if (exact) return location.pathname === href;
@@ -42,8 +44,8 @@ export function AdminSidebar({ adminName, adminRole }: AdminSidebarProps) {
 
   async function handleLogout() {
     try {
-      await fetch("/api/admin/logout", { method: "POST" });
-      window.location.href = "/admin/login";
+      await logoutAdminFn();
+      await router.navigate({ to: "/admin-login" });
     } catch {
       toast.error("Logout failed");
     }

@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/start-server-core/request-response";
 import { eq } from "drizzle-orm";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -12,8 +11,7 @@ import type { ShippingConfig } from "@/db/schema";
 
 const getShippingConfig = createServerFn({ method: "GET" }).handler(
   async (): Promise<ShippingConfig> => {
-    const request = getRequest();
-    await requireAdmin(request);
+    await requireAdmin();
     const rows = await db()
       .select()
       .from(shippingConfig)
@@ -41,8 +39,7 @@ const saveShippingConfig = createServerFn({ method: "POST" })
       input as { enabled: boolean; fee: number; freeThreshold: number }
   )
   .handler(async ({ data }) => {
-    const request = getRequest();
-    const admin = await requireAdmin(request);
+    const admin = await requireAdmin();
     await db()
       .update(shippingConfig)
       .set({ ...data, updatedAt: new Date() })

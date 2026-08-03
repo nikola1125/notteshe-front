@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/start-server-core/request-response";
 import {
   eq,
   desc,
@@ -42,8 +41,7 @@ interface DashboardData {
 
 const getDashboardData = createServerFn({ method: "GET" }).handler(
   async (): Promise<DashboardData> => {
-    const request = getRequest();
-    await requireAdmin(request);
+    await requireAdmin();
 
     const database = db();
     const todayStart = new Date();

@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useLocation,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -121,12 +122,14 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const { authModalOpen, authModalMode, authModalCallback, closeAuthModal } = useAuthStore();
+  const location = useLocation();
+  const isAdmin = location.pathname.startsWith("/admin");
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Header />
-      <CartDrawer />
-      {authModalOpen && (
+      {!isAdmin && <Header />}
+      {!isAdmin && <CartDrawer />}
+      {!isAdmin && authModalOpen && (
         <AuthModal
           defaultMode={authModalMode}
           onClose={closeAuthModal}

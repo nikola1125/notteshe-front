@@ -1,8 +1,9 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
+import { loginAdminFn } from "@/lib/admin/auth";
 
-export const Route = createFileRoute("/admin/login")({
+export const Route = createFileRoute("/admin-login")({
   component: AdminLogin,
 });
 
@@ -16,19 +17,14 @@ function AdminLogin() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const json = await res.json() as { success: boolean; error?: string };
-      if (json.success) {
+      const result = await loginAdminFn({ data: { email, password } });
+      if (result.success) {
         await router.navigate({ to: "/admin" });
       } else {
-        toast.error(json.error ?? "Invalid credentials");
+        toast.error(result.error ?? "Invalid credentials");
       }
     } catch {
-      toast.error("Network error");
+      toast.error("Login failed");
     } finally {
       setLoading(false);
     }

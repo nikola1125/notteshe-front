@@ -1,61 +1,151 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
 import { useState, useEffect, useMemo } from "react";
-import { products } from "@/data/products";
+import { eq, desc, and } from "drizzle-orm";
+import { db } from "@/db";
+import { product, productImage, productColour, category } from "@/db/schema";
 import { WishlistButton } from "@/components/WishlistButton";
-import type { ProductCategory, SortOption } from "@/types/product";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface ShopProduct {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  originalPrice: number | null;
+  isNew: boolean;
+  isSale: boolean;
+  categoryId: string | null;
+  categoryName: string | null;
+  coverImage: string | null;
+  colourCount: number;
+}
+
+interface ShopData {
+  products: ShopProduct[];
+  categories: Array<{ id: string; name: string; slug: string }>;
+  total: number;
+}
+
+// ─── Server function ──────────────────────────────────────────────────────────
+
+const getShopData = createServerFn({ method: "GET" }).handler(
+  async (): Promise<ShopData> => {
+    const database = db();
+
+    const [prods, cats, coverImages, colours] = await Promise.all([
+      database
+        .select({
+          id: product.id,
+          name: product.name,
+          slug: product.slug,
+          price: product.price,
+          originalPrice: product.originalPrice,
+          isNew: product.isNew,
+          isSale: product.isSale,
+          categoryId: product.categoryId,
+        })
+        .from(product)
+        .where(and(eq(product.isVisible, true), eq(product.inStock, true)))
+        .orderBy(desc(product.createdAt)),
+
+      database
+        .select({ id: category.id, name: category.name, slug: category.slug })
+        .from(category)
+        .orderBy(category.name),
+
+      database
+        .select({ productId: productImage.productId, url: productImage.url })
+        .from(productImage)
+        .where(eq(productImage.isCover, true)),
+
+      database
+        .select({ productId: productColour.productId })
+        .from(productColour),
+    ]);
+
+    const coverMap = new Map(coverImages.map((img) => [img.productId, img.url]));
+    const catMap = new Map(cats.map((c) => [c.id, c.name]));
+
+    const colourCountMap = new Map<string, number>();
+    for (const c of colours) {
+      colourCountMap.set(c.productId, (colourCountMap.get(c.productId) ?? 0) + 1);
+    }
+
+    const products = prods.map((p) => ({
+      ...p,
+      price: Number(p.price),
+      originalPrice: p.originalPrice != null ? Number(p.originalPrice) : null,
+      categoryName: p.categoryId ? (catMap.get(p.categoryId) ?? null) : null,
+      coverImage: coverMap.get(p.id) ?? null,
+      colourCount: colourCountMap.get(p.id) ?? 0,
+    }));
+
+    return { products, categories: cats, total: products.length };
+  }
+);
+
+// ─── Route ────────────────────────────────────────────────────────────────────
 
 export const Route = createFileRoute("/shop/")({
+  loader: () => getShopData(),
   component: ShopPage,
 });
 
-const CATEGORIES: { label: string; value: ProductCategory | "All" }[] = [
-  { label: "All",         value: "All" },
-  { label: "Knitwear",    value: "Knitwear" },
-  { label: "Outerwear",   value: "Outerwear" },
-  { label: "Trousers",    value: "Trousers" },
-  { label: "Dresses",     value: "Dresses" },
-  { label: "Tops",        value: "Tops" },
-  { label: "Accessories", value: "Accessories" },
-];
+const SORT_OPTIONS = [
+  { label: "Featured",  value: "featured" },
+  { label: "Newest",    value: "newest" },
+  { label: "Price ↑",   value: "price-asc" },
+  { label: "Price ↓",   value: "price-desc" },
+] as const;
 
-const SORT_OPTIONS: { label: string; value: SortOption }[] = [
-  { label: "Featured",    value: "featured" },
-  { label: "Newest",      value: "newest" },
-  { label: "Price ↑",     value: "price-asc" },
-  { label: "Price ↓",     value: "price-desc" },
-];
+type SortValue = (typeof SORT_OPTIONS)[number]["value"];
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 function ShopPage() {
-  const [activeCategory, setActiveCategory] = useState<ProductCategory | "All">("All");
-  const [activeSort, setActiveSort] = useState<SortOption>("featured");
+  const { products, categories, total } = Route.useLoaderData();
+  const [activeCategoryId, setActiveCategoryId] = useState<string | "all">("all");
+  const [activeSort, setActiveSort] = useState<SortValue>("featured");
   const [sortOpen, setSortOpen] = useState(false);
 
   useEffect(() => {
     const els = document.querySelectorAll<HTMLElement>(".reveal");
     const io = new IntersectionObserver(
-      (entries) => entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add("in-view"); }),
+      (entries) =>
+        entries.forEach((e) => {
+          if (e.isIntersecting) e.target.classList.add("in-view");
+        }),
       { threshold: 0.06 }
     );
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();
-  }, [activeCategory]);
+  }, [activeCategoryId]);
 
   const filtered = useMemo(() => {
-    let list = activeCategory === "All"
-      ? [...products]
-      : products.filter((p) => p.category === activeCategory);
+    let list =
+      activeCategoryId === "all"
+        ? [...products]
+        : products.filter((p) => p.categoryId === activeCategoryId);
 
     switch (activeSort) {
-      case "newest":     list = list.filter((p) => p.isNew).concat(list.filter((p) => !p.isNew)); break;
-      case "price-asc":  list.sort((a, b) => a.price - b.price); break;
-      case "price-desc": list.sort((a, b) => b.price - a.price); break;
-      default: break;
+      case "newest":
+        list = list.filter((p) => p.isNew).concat(list.filter((p) => !p.isNew));
+        break;
+      case "price-asc":
+        list.sort((a, b) => a.price - b.price);
+        break;
+      case "price-desc":
+        list.sort((a, b) => b.price - a.price);
+        break;
     }
 
     return list;
-  }, [activeCategory, activeSort]);
+  }, [activeCategoryId, activeSort, products]);
 
-  const activeSortLabel = SORT_OPTIONS.find((o) => o.value === activeSort)?.label ?? "Featured";
+  const activeSortLabel =
+    SORT_OPTIONS.find((o) => o.value === activeSort)?.label ?? "Featured";
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -70,7 +160,7 @@ function ShopPage() {
             The Shop.
           </h1>
           <p className="mt-4 max-w-md text-[13px] leading-relaxed text-muted-foreground">
-            {products.length} pieces. Considered once, made well, left alone.
+            {total} {total === 1 ? "piece" : "pieces"}. Considered once, made well, left alone.
           </p>
         </div>
       </div>
@@ -78,22 +168,35 @@ function ShopPage() {
       {/* ─── Filters + Sort ─── */}
       <div className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-[1600px] items-center justify-between px-5 md:px-12">
-          <div className="-mx-5 flex overflow-x-auto scrollbar-hide px-5 md:mx-0 md:gap-0 md:px-0">
-            {CATEGORIES.map((cat) => (
+
+          {/* Category tabs */}
+          <div className="-mx-5 flex overflow-x-auto scrollbar-hide px-5 md:mx-0 md:px-0">
+            <button
+              onClick={() => setActiveCategoryId("all")}
+              className={`shrink-0 border-b-[1.5px] px-4 py-4 font-mono text-[10px] uppercase tracking-widest transition-colors duration-200 md:px-5 ${
+                activeCategoryId === "all"
+                  ? "border-ink text-ink"
+                  : "border-transparent text-muted-foreground hover:text-ink"
+              }`}
+            >
+              All
+            </button>
+            {categories.map((cat) => (
               <button
-                key={cat.value}
-                onClick={() => setActiveCategory(cat.value)}
+                key={cat.id}
+                onClick={() => setActiveCategoryId(cat.id)}
                 className={`shrink-0 border-b-[1.5px] px-4 py-4 font-mono text-[10px] uppercase tracking-widest transition-colors duration-200 md:px-5 ${
-                  activeCategory === cat.value
+                  activeCategoryId === cat.id
                     ? "border-ink text-ink"
                     : "border-transparent text-muted-foreground hover:text-ink"
                 }`}
               >
-                {cat.label}
+                {cat.name}
               </button>
             ))}
           </div>
 
+          {/* Sort dropdown */}
           <div className="relative ml-4 shrink-0">
             <button
               onClick={() => setSortOpen((v) => !v)}
@@ -109,25 +212,31 @@ function ShopPage() {
             </button>
 
             {sortOpen && (
-              <div className="absolute right-0 top-full z-50 min-w-[140px] border border-border bg-background shadow-sm">
-                {SORT_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => { setActiveSort(opt.value); setSortOpen(false); }}
-                    className={`block w-full px-5 py-3 text-left font-mono text-[10px] uppercase tracking-widest transition-colors hover:bg-muted ${
-                      activeSort === opt.value ? "text-ink" : "text-muted-foreground"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setSortOpen(false)}
+                />
+                <div className="absolute right-0 top-full z-50 min-w-[140px] border border-border bg-background shadow-sm">
+                  {SORT_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => { setActiveSort(opt.value); setSortOpen(false); }}
+                      className={`block w-full px-5 py-3 text-left font-mono text-[10px] uppercase tracking-widest transition-colors hover:bg-muted ${
+                        activeSort === opt.value ? "text-ink" : "text-muted-foreground"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </div>
       </div>
 
-      {/* ─── Product Grid ─── */}
+      {/* ─── Product grid ─── */}
       <div className="mx-auto max-w-[1600px] px-5 py-12 md:px-12 md:py-16">
         {filtered.length === 0 ? (
           <p className="py-24 text-center font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
@@ -135,34 +244,42 @@ function ShopPage() {
           </p>
         ) : (
           <div className="grid grid-cols-2 gap-x-3 gap-y-12 md:grid-cols-3 md:gap-x-6 lg:grid-cols-4">
-            {filtered.map((product, i) => (
+            {filtered.map((p, i) => (
               <Link
-                key={product.id}
+                key={p.id}
                 to="/shop/$slug"
-                params={{ slug: product.slug }}
+                params={{ slug: p.slug }}
                 className="reveal group"
                 style={{ transitionDelay: `${(i % 4) * 60}ms` }}
               >
                 <div className="relative aspect-[3/4] overflow-hidden bg-muted">
-                  <img
-                    src={product.images[0]}
-                    alt={product.name}
-                    loading={i < 4 ? "eager" : "lazy"}
-                    className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
-                  />
+                  {p.coverImage ? (
+                    <img
+                      src={p.coverImage}
+                      alt={p.name}
+                      loading={i < 4 ? "eager" : "lazy"}
+                      className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center">
+                      <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/40">
+                        No image
+                      </span>
+                    </div>
+                  )}
 
-                  {product.isSale ? (
+                  {p.isSale ? (
                     <span className="absolute left-3 top-3 bg-clay px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-paper">
                       Sale
                     </span>
-                  ) : product.isNew ? (
+                  ) : p.isNew ? (
                     <span className="absolute left-3 top-3 border border-ink/30 px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-ink/70 backdrop-blur-sm">
                       New In
                     </span>
                   ) : null}
 
                   <WishlistButton
-                    productId={product.id}
+                    productId={p.id}
                     className="absolute right-3 top-3 h-8 w-8 rounded-full bg-background/70 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                   />
 
@@ -174,20 +291,22 @@ function ShopPage() {
                 <div className="mt-4 flex items-start justify-between">
                   <div>
                     <h3 className="relative inline-block serif text-[15px] text-ink after:absolute after:bottom-[-2px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 group-hover:after:scale-x-100">
-                      {product.name}
+                      {p.name}
                     </h3>
-                    <p className="mt-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
-                      {product.colours.length} {product.colours.length === 1 ? "colour" : "colours"}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    {product.originalPrice && (
-                      <p className="font-mono text-[10px] text-muted-foreground line-through">
-                        €{product.originalPrice}
+                    {p.colourCount > 0 && (
+                      <p className="mt-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
+                        {p.colourCount} {p.colourCount === 1 ? "colour" : "colours"}
                       </p>
                     )}
-                    <p className={`font-mono text-[12px] ${product.isSale ? "text-clay" : "text-ink/70"}`}>
-                      €{product.price}
+                  </div>
+                  <div className="text-right">
+                    {p.originalPrice && (
+                      <p className="font-mono text-[10px] text-muted-foreground line-through">
+                        €{p.originalPrice}
+                      </p>
+                    )}
+                    <p className={`font-mono text-[12px] ${p.isSale ? "text-clay" : "text-ink/70"}`}>
+                      €{p.price}
                     </p>
                   </div>
                 </div>
@@ -202,7 +321,6 @@ function ShopPage() {
           All prices include VAT · Free shipping over €200 · Returns within 14 days
         </p>
       </div>
-
     </div>
   );
 }

@@ -1,6 +1,5 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/start-server-core/request-response";
 import { eq, desc } from "drizzle-orm";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -83,8 +82,7 @@ interface OrderDetailData {
 const getOrderDetail = createServerFn({ method: "GET" })
   .validator((input: unknown) => ({ id: (input as { id: string }).id }))
   .handler(async ({ data }): Promise<OrderDetailData> => {
-    const request = getRequest();
-    await requireAdmin(request);
+    await requireAdmin();
     const database = db();
 
     const [orderRows, itemRows, historyRows] = await Promise.all([
@@ -153,8 +151,7 @@ const updateOrderStatus = createServerFn({ method: "POST" })
       input as { id: string; status: OrderStatus; trackingNumber?: string }
   )
   .handler(async ({ data }) => {
-    const request = getRequest();
-    const admin = await requireAdmin(request);
+    const admin = await requireAdmin();
     const database = db();
 
     const before = await database
@@ -187,8 +184,7 @@ const updateOrderStatus = createServerFn({ method: "POST" })
 const saveAdminNote = createServerFn({ method: "POST" })
   .validator((input: unknown) => input as { id: string; note: string })
   .handler(async ({ data }) => {
-    const request = getRequest();
-    const admin = await requireAdmin(request);
+    const admin = await requireAdmin();
     await db()
       .update(orders)
       .set({ adminNote: data.note, updatedAt: new Date() })

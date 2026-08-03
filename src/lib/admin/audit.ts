@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+
 import { db } from "@/db";
 import { auditLog } from "@/db/schema";
 
@@ -13,7 +13,7 @@ export async function logAudit(
     await db()
       .insert(auditLog)
       .values({
-        id: randomUUID(),
+        id: crypto.randomUUID(),
         adminId,
         action,
         entityType: entityType ?? null,

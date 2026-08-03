@@ -1,7 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/start-server-core/request-response";
-import { randomUUID } from "node:crypto";
+
 import { eq } from "drizzle-orm";
 import { toast } from "sonner";
 import { db } from "@/db";
@@ -29,8 +28,7 @@ interface ProductEditData {
 const getProductEdit = createServerFn({ method: "GET" })
   .validator((input: unknown) => ({ id: (input as { id: string }).id }))
   .handler(async ({ data }): Promise<ProductEditData> => {
-    const request = getRequest();
-    await requireAdmin(request);
+    await requireAdmin();
     const database = db();
 
     const [prod, cats, cols, sizes, colours, images] = await Promise.all([
@@ -103,8 +101,7 @@ const updateProduct = createServerFn({ method: "POST" })
     (input: unknown) => input as ProductFormData & { id: string }
   )
   .handler(async ({ data }) => {
-    const request = getRequest();
-    const admin = await requireAdmin(request);
+    const admin = await requireAdmin();
     const database = db();
     const { id, sizes, colours, images, ...fields } = data;
 
@@ -139,7 +136,7 @@ const updateProduct = createServerFn({ method: "POST" })
     if (sizes.length > 0) {
       await database.insert(productSize).values(
         sizes.map((s) => ({
-          id: s.id || randomUUID(),
+          id: s.id || crypto.randomUUID(),
           productId: id,
           label: s.label,
           available: s.available,
@@ -155,7 +152,7 @@ const updateProduct = createServerFn({ method: "POST" })
     if (colours.length > 0) {
       await database.insert(productColour).values(
         colours.map((c, i) => ({
-          id: c.id || randomUUID(),
+          id: c.id || crypto.randomUUID(),
           productId: id,
           name: c.name,
           hex: c.hex,
@@ -171,7 +168,7 @@ const updateProduct = createServerFn({ method: "POST" })
     if (images.length > 0) {
       await database.insert(productImage).values(
         images.map((img, i) => ({
-          id: img.id || randomUUID(),
+          id: img.id || crypto.randomUUID(),
           productId: id,
           cloudflareId: img.cloudflareId,
           url: img.url,

@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/start-server-core/request-response";
 import { eq, desc, count } from "drizzle-orm";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -19,8 +18,7 @@ interface NewsletterData {
 
 const getSubscribers = createServerFn({ method: "GET" }).handler(
   async (): Promise<NewsletterData> => {
-    const request = getRequest();
-    await requireAdmin(request);
+    await requireAdmin();
     const database = db();
 
     const [subs, activeResult] = await Promise.all([
@@ -44,8 +42,7 @@ const getSubscribers = createServerFn({ method: "GET" }).handler(
 const toggleSubscriber = createServerFn({ method: "POST" })
   .validator((input: unknown) => input as { id: string; active: boolean })
   .handler(async ({ data }) => {
-    const request = getRequest();
-    const admin = await requireAdmin(request);
+    const admin = await requireAdmin();
     await db()
       .update(newsletterSubscriber)
       .set({ isActive: data.active })

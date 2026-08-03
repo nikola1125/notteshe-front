@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/start-server-core/request-response";
 import { eq, desc, count, sql } from "drizzle-orm";
 import { toast } from "sonner";
 import { db } from "@/db";
@@ -38,8 +37,7 @@ const getProducts = createServerFn({ method: "GET" })
     return { page: isNaN(page) ? 1 : page };
   })
   .handler(async ({ data }): Promise<ProductsData> => {
-    const request = getRequest();
-    await requireAdmin(request);
+    await requireAdmin();
 
     const offset = (data.page - 1) * PAGE_SIZE;
     const database = db();
@@ -96,8 +94,7 @@ const toggleVisibility = createServerFn({ method: "POST" })
     return { id: d.id, visible: d.visible };
   })
   .handler(async ({ data }) => {
-    const request = getRequest();
-    const admin = await requireAdmin(request);
+    const admin = await requireAdmin();
     await db()
       .update(product)
       .set({ isVisible: data.visible, updatedAt: new Date() })

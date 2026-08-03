@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountRouteImport } from './routes/account'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AdminLoginRouteImport } from './routes/admin-login'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as ShopRouteImport } from './routes/shop'
 import { Route as WishlistRouteImport } from './routes/wishlist'
@@ -20,7 +21,6 @@ import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminAuditRouteImport } from './routes/admin/audit'
 import { Route as AdminCustomersRouteImport } from './routes/admin/customers'
 import { Route as AdminDiscountsRouteImport } from './routes/admin/discounts'
-import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminNewsletterRouteImport } from './routes/admin/newsletter'
 import { Route as AdminShippingRouteImport } from './routes/admin/shipping'
 import { Route as ShopIndexRouteImport } from './routes/shop/index'
@@ -44,6 +44,11 @@ const AccountRoute = AccountRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/admin-login',
+  path: '/admin-login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CheckoutRoute = CheckoutRouteImport.update({
@@ -84,11 +89,6 @@ const AdminCustomersRoute = AdminCustomersRouteImport.update({
 const AdminDiscountsRoute = AdminDiscountsRouteImport.update({
   id: '/discounts',
   path: '/discounts',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminLoginRoute = AdminLoginRouteImport.update({
-  id: '/login',
-  path: '/login',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminNewsletterRoute = AdminNewsletterRouteImport.update({
@@ -141,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account': typeof AccountRouteWithChildren
   '/admin': typeof AdminRouteWithChildren
+  '/admin-login': typeof AdminLoginRoute
   '/checkout': typeof CheckoutRoute
   '/shop': typeof ShopRouteWithChildren
   '/wishlist': typeof WishlistRoute
@@ -148,7 +149,6 @@ export interface FileRoutesByFullPath {
   '/admin/audit': typeof AdminAuditRoute
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/discounts': typeof AdminDiscountsRoute
-  '/admin/login': typeof AdminLoginRoute
   '/admin/newsletter': typeof AdminNewsletterRoute
   '/admin/shipping': typeof AdminShippingRoute
   '/shop/$slug': typeof ShopSlugRoute
@@ -163,13 +163,13 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountRouteWithChildren
+  '/admin-login': typeof AdminLoginRoute
   '/checkout': typeof CheckoutRoute
   '/wishlist': typeof WishlistRoute
   '/account/orders': typeof AccountOrdersRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/discounts': typeof AdminDiscountsRoute
-  '/admin/login': typeof AdminLoginRoute
   '/admin/newsletter': typeof AdminNewsletterRoute
   '/admin/shipping': typeof AdminShippingRoute
   '/shop/$slug': typeof ShopSlugRoute
@@ -186,6 +186,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/account': typeof AccountRouteWithChildren
   '/admin': typeof AdminRouteWithChildren
+  '/admin-login': typeof AdminLoginRoute
   '/checkout': typeof CheckoutRoute
   '/shop': typeof ShopRouteWithChildren
   '/wishlist': typeof WishlistRoute
@@ -193,7 +194,6 @@ export interface FileRoutesById {
   '/admin/audit': typeof AdminAuditRoute
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/discounts': typeof AdminDiscountsRoute
-  '/admin/login': typeof AdminLoginRoute
   '/admin/newsletter': typeof AdminNewsletterRoute
   '/admin/shipping': typeof AdminShippingRoute
   '/shop/$slug': typeof ShopSlugRoute
@@ -211,6 +211,7 @@ export interface FileRouteTypes {
     | '/'
     | '/account'
     | '/admin'
+    | '/admin-login'
     | '/checkout'
     | '/shop'
     | '/wishlist'
@@ -218,7 +219,6 @@ export interface FileRouteTypes {
     | '/admin/audit'
     | '/admin/customers'
     | '/admin/discounts'
-    | '/admin/login'
     | '/admin/newsletter'
     | '/admin/shipping'
     | '/shop/$slug'
@@ -233,13 +233,13 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/account'
+    | '/admin-login'
     | '/checkout'
     | '/wishlist'
     | '/account/orders'
     | '/admin/audit'
     | '/admin/customers'
     | '/admin/discounts'
-    | '/admin/login'
     | '/admin/newsletter'
     | '/admin/shipping'
     | '/shop/$slug'
@@ -255,6 +255,7 @@ export interface FileRouteTypes {
     | '/'
     | '/account'
     | '/admin'
+    | '/admin-login'
     | '/checkout'
     | '/shop'
     | '/wishlist'
@@ -262,7 +263,6 @@ export interface FileRouteTypes {
     | '/admin/audit'
     | '/admin/customers'
     | '/admin/discounts'
-    | '/admin/login'
     | '/admin/newsletter'
     | '/admin/shipping'
     | '/shop/$slug'
@@ -279,6 +279,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountRoute: typeof AccountRouteWithChildren
   AdminRoute: typeof AdminRouteWithChildren
+  AdminLoginRoute: typeof AdminLoginRoute
   CheckoutRoute: typeof CheckoutRoute
   ShopRoute: typeof ShopRouteWithChildren
   WishlistRoute: typeof WishlistRoute
@@ -305,6 +306,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin-login': {
+      id: '/admin-login'
+      path: '/admin-login'
+      fullPath: '/admin-login'
+      preLoaderRoute: typeof AdminLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/checkout': {
@@ -361,13 +369,6 @@ declare module '@tanstack/react-router' {
       path: '/discounts'
       fullPath: '/admin/discounts'
       preLoaderRoute: typeof AdminDiscountsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/login': {
-      id: '/admin/login'
-      path: '/login'
-      fullPath: '/admin/login'
-      preLoaderRoute: typeof AdminLoginRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/newsletter': {
@@ -451,7 +452,6 @@ interface AdminRouteChildren {
   AdminAuditRoute: typeof AdminAuditRoute
   AdminCustomersRoute: typeof AdminCustomersRoute
   AdminDiscountsRoute: typeof AdminDiscountsRoute
-  AdminLoginRoute: typeof AdminLoginRoute
   AdminNewsletterRoute: typeof AdminNewsletterRoute
   AdminShippingRoute: typeof AdminShippingRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -466,7 +466,6 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminAuditRoute: AdminAuditRoute,
   AdminCustomersRoute: AdminCustomersRoute,
   AdminDiscountsRoute: AdminDiscountsRoute,
-  AdminLoginRoute: AdminLoginRoute,
   AdminNewsletterRoute: AdminNewsletterRoute,
   AdminShippingRoute: AdminShippingRoute,
   AdminIndexRoute: AdminIndexRoute,
@@ -495,6 +494,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRoute: AccountRouteWithChildren,
   AdminRoute: AdminRouteWithChildren,
+  AdminLoginRoute: AdminLoginRoute,
   CheckoutRoute: CheckoutRoute,
   ShopRoute: ShopRouteWithChildren,
   WishlistRoute: WishlistRoute,

@@ -18,6 +18,19 @@ async function getServerEntry(): Promise<ServerEntry> {
   return serverEntryPromise;
 }
 
+// Pre-warm the auth module so the first request isn't slow
+let authModulePromise: Promise<{ auth: { handler: (req: Request) => Promise<Response> } }> | undefined;
+
+function getAuthModule() {
+  if (!authModulePromise) {
+    authModulePromise = import("./lib/auth/server");
+  }
+  return authModulePromise;
+}
+
+// Kick off the import immediately — don't wait for the first auth request
+getAuthModule();
+
 // h3 swallows in-handler throws into a normal 500 Response with body
 // {"unhandled":true,"message":"HTTPError"} — try/catch alone never fires for those.
 async function normalizeCatastrophicSsrResponse(response: Response): Promise<Response> {
@@ -47,6 +60,13 @@ function isH3SwallowedErrorBody(body: string): boolean {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      // Better Auth needs real HTTP routes — intercept before TanStack Router
+      const url = new URL(request.url);
+      if (url.pathname.startsWith("/api/auth/")) {
+        const { auth } = await getAuthModule();
+        return auth.handler(request);
+      }
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);

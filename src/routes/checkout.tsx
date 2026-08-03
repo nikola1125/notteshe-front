@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCart } from "@/store/cartStore";
 import { useSession } from "@/lib/auth/client";
 import { useAuthStore } from "@/store/authStore";
@@ -11,6 +11,7 @@ export const Route = createFileRoute("/checkout")({
 
 interface FormState {
   email: string;
+  phone: string;
   firstName: string;
   lastName: string;
   address: string;
@@ -25,6 +26,7 @@ interface FormState {
 
 const EMPTY_FORM: FormState = {
   email: "",
+  phone: "",
   firstName: "",
   lastName: "",
   address: "",
@@ -51,6 +53,27 @@ function CheckoutPage() {
   const { items, clearCart } = useCart();
   const { data: session, isPending: sessionLoading } = useSession();
   const { openAuthModal } = useAuthStore();
+
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [errors, setErrors] = useState<Partial<FormState>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const [orderRef, setOrderRef] = useState("");
+
+  // Autofill contact fields from session when user signs in
+  useEffect(() => {
+    if (!session?.user) return;
+    const fullName = session.user.name ?? "";
+    const spaceIdx = fullName.indexOf(" ");
+    const firstName = spaceIdx > -1 ? fullName.slice(0, spaceIdx) : fullName;
+    const lastName  = spaceIdx > -1 ? fullName.slice(spaceIdx + 1) : "";
+    setForm((f) => ({
+      ...f,
+      email:     f.email     || session.user.email     || "",
+      firstName: f.firstName || firstName,
+      lastName:  f.lastName  || lastName,
+    }));
+  }, [session?.user?.id]);
 
   if (sessionLoading) {
     return (
@@ -85,11 +108,6 @@ function CheckoutPage() {
       </div>
     );
   }
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [errors, setErrors] = useState<Partial<FormState>>({});
-  const [submitting, setSubmitting] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
-  const [orderRef, setOrderRef] = useState("");
 
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
   const shipping = subtotal >= 200 ? 0 : 12;
@@ -102,7 +120,7 @@ function CheckoutPage() {
 
   function validate() {
     const required: (keyof FormState)[] = [
-      "email", "firstName", "lastName", "address", "city", "postalCode", "country",
+      "email", "phone", "firstName", "lastName", "address", "city", "postalCode", "country",
       "cardNumber", "cardExpiry", "cardCvc",
     ];
     const next: Partial<FormState> = {};
@@ -295,14 +313,25 @@ function CheckoutPage() {
                 <legend className="mb-6 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                   Contact
                 </legend>
-                <Field
-                  label="Email address"
-                  value={form.email}
-                  onChange={(v) => set("email", v)}
-                  error={errors.email}
-                  type="email"
-                  placeholder="you@somewhere.com"
-                />
+                <div className="space-y-5">
+                  <Field
+                    label="Email address"
+                    value={form.email}
+                    onChange={(v) => set("email", v)}
+                    error={errors.email}
+                    type="email"
+                    placeholder="you@somewhere.com"
+                  />
+                  <Field
+                    label="Phone number"
+                    value={form.phone}
+                    onChange={(v) => set("phone", v)}
+                    error={errors.phone}
+                    type="tel"
+                    placeholder="+355 69 123 4567"
+                    inputMode="tel"
+                  />
+                </div>
               </fieldset>
 
               {/* Shipping */}

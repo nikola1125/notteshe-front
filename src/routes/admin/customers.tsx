@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/start-server-core/request-response";
 import { eq, desc, count, sum, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { user, orders } from "@/db/schema";
@@ -17,8 +16,7 @@ interface CustomerRow {
 
 const getCustomers = createServerFn({ method: "GET" }).handler(
   async (): Promise<CustomerRow[]> => {
-    const request = getRequest();
-    await requireAdmin(request);
+    await requireAdmin();
 
     const rows = await db()
       .select({

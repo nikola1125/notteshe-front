@@ -1,6 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/start-server-core/request-response";
 import { eq, desc, count, and } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, orderItem, user } from "@/db/schema";
@@ -62,8 +61,7 @@ const getOrders = createServerFn({ method: "GET" })
     };
   })
   .handler(async ({ data }): Promise<OrdersData> => {
-    const request = getRequest();
-    await requireAdmin(request);
+    await requireAdmin();
     const database = db();
     const offset = (data.page - 1) * PAGE_SIZE;
 

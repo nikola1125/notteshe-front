@@ -1,15 +1,85 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
+import { eq, and } from "drizzle-orm";
+import { db } from "@/db";
+import { product, productImage, productColour, category } from "@/db/schema";
 import { useWishlist } from "@/store/wishlistStore";
 import { WishlistButton } from "@/components/WishlistButton";
-import { products } from "@/data/products";
+
+interface WishlistProduct {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  originalPrice: number | null;
+  isNew: boolean;
+  isSale: boolean;
+  categoryName: string | null;
+  coverImage: string | null;
+  colourCount: number;
+}
+
+const getWishlistProducts = createServerFn({ method: "GET" }).handler(
+  async (): Promise<WishlistProduct[]> => {
+    const database = db();
+
+    const [prods, cats, coverImages, colours] = await Promise.all([
+      database
+        .select({
+          id: product.id,
+          name: product.name,
+          slug: product.slug,
+          price: product.price,
+          originalPrice: product.originalPrice,
+          isNew: product.isNew,
+          isSale: product.isSale,
+          categoryId: product.categoryId,
+        })
+        .from(product)
+        .where(and(eq(product.isVisible, true), eq(product.inStock, true))),
+
+      database
+        .select({ id: category.id, name: category.name })
+        .from(category),
+
+      database
+        .select({ productId: productImage.productId, url: productImage.url })
+        .from(productImage)
+        .where(eq(productImage.isCover, true)),
+
+      database
+        .select({ productId: productColour.productId })
+        .from(productColour),
+    ]);
+
+    const coverMap = new Map(coverImages.map((img) => [img.productId, img.url]));
+    const catMap   = new Map(cats.map((c) => [c.id, c.name]));
+
+    const colourCountMap = new Map<string, number>();
+    for (const c of colours) {
+      colourCountMap.set(c.productId, (colourCountMap.get(c.productId) ?? 0) + 1);
+    }
+
+    return prods.map((p) => ({
+      ...p,
+      price: Number(p.price),
+      originalPrice: p.originalPrice != null ? Number(p.originalPrice) : null,
+      categoryName: p.categoryId ? (catMap.get(p.categoryId) ?? null) : null,
+      coverImage: coverMap.get(p.id) ?? null,
+      colourCount: colourCountMap.get(p.id) ?? 0,
+    }));
+  }
+);
 
 export const Route = createFileRoute("/wishlist")({
+  loader: () => getWishlistProducts(),
   component: WishlistPage,
 });
 
 function WishlistPage() {
+  const allProducts = Route.useLoaderData();
   const ids = useWishlist((s) => s.ids);
-  const saved = products.filter((p) => ids.includes(p.id));
+  const saved = allProducts.filter((p) => ids.includes(p.id));
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -58,26 +128,34 @@ function WishlistPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-x-3 gap-y-12 md:grid-cols-3 md:gap-x-6 lg:grid-cols-4">
-            {saved.map((product) => (
-              <div key={product.id} className="group relative">
+            {saved.map((p) => (
+              <div key={p.id} className="group relative">
                 <Link
                   to="/shop/$slug"
-                  params={{ slug: product.slug }}
+                  params={{ slug: p.slug }}
                   className="block"
                 >
                   <div className="relative aspect-[3/4] overflow-hidden bg-muted">
-                    <img
-                      src={product.images[0]}
-                      alt={product.name}
-                      loading="lazy"
-                      className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
-                    />
+                    {p.coverImage ? (
+                      <img
+                        src={p.coverImage}
+                        alt={p.name}
+                        loading="lazy"
+                        className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/40">
+                          No image
+                        </span>
+                      </div>
+                    )}
 
-                    {product.isSale ? (
+                    {p.isSale ? (
                       <span className="absolute left-3 top-3 bg-clay px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-paper">
                         Sale
                       </span>
-                    ) : product.isNew ? (
+                    ) : p.isNew ? (
                       <span className="absolute left-3 top-3 border border-ink/30 px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-ink/70 backdrop-blur-sm">
                         New In
                       </span>
@@ -91,28 +169,29 @@ function WishlistPage() {
                   <div className="mt-4 flex items-start justify-between">
                     <div>
                       <h3 className="relative inline-block serif text-[15px] text-ink after:absolute after:bottom-[-2px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 group-hover:after:scale-x-100">
-                        {product.name}
+                        {p.name}
                       </h3>
-                      <p className="mt-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
-                        {product.category}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      {product.originalPrice && (
-                        <p className="font-mono text-[10px] text-muted-foreground line-through">
-                          €{product.originalPrice}
+                      {p.colourCount > 0 && (
+                        <p className="mt-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
+                          {p.colourCount} {p.colourCount === 1 ? "colour" : "colours"}
                         </p>
                       )}
-                      <p className={`font-mono text-[12px] ${product.isSale ? "text-clay" : "text-ink/70"}`}>
-                        €{product.price}
+                    </div>
+                    <div className="text-right">
+                      {p.originalPrice && (
+                        <p className="font-mono text-[10px] text-muted-foreground line-through">
+                          €{p.originalPrice}
+                        </p>
+                      )}
+                      <p className={`font-mono text-[12px] ${p.isSale ? "text-clay" : "text-ink/70"}`}>
+                        €{p.price}
                       </p>
                     </div>
                   </div>
                 </Link>
 
-                {/* Wishlist toggle — always visible here so they can unsave */}
                 <WishlistButton
-                  productId={product.id}
+                  productId={p.id}
                   className="absolute right-3 top-3 h-8 w-8 rounded-full bg-background/70 backdrop-blur-sm"
                 />
               </div>

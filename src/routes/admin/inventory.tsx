@@ -37,20 +37,33 @@ const getInventory = createServerFn({ method: "GET" }).handler(async () => {
     .from(product)
     .orderBy(product.name);
 
-  const sizes = await db()
-    .select({
-      id: productSize.id,
-      productId: productSize.productId,
-      label: productSize.label,
-      stock: productSize.stock,
-      available: productSize.available,
-    })
-    .from(productSize);
+  // Query sizes — stock/available columns may not exist yet if migration hasn't run
+  let sizes: Array<{ id: string; productId: string; label: string; stock: number; available: boolean }> = [];
+  try {
+    const rows = await db()
+      .select({
+        id: productSize.id,
+        productId: productSize.productId,
+        label: productSize.label,
+        stock: productSize.stock,
+        available: productSize.available,
+      })
+      .from(productSize);
+    sizes = rows.map((r) => ({
+      id: r.id,
+      productId: r.productId,
+      label: r.label,
+      stock: Number(r.stock ?? 0),
+      available: Boolean(r.available ?? true),
+    }));
+  } catch (err) {
+    console.error("inventory: failed to query product_size", err);
+  }
 
   const sizesByProduct = new Map<string, SizeRow[]>();
   for (const s of sizes) {
     if (!sizesByProduct.has(s.productId)) sizesByProduct.set(s.productId, []);
-    sizesByProduct.get(s.productId)!.push({ id: s.id, label: s.label, stock: Number(s.stock), available: s.available });
+    sizesByProduct.get(s.productId)!.push({ id: s.id, label: s.label, stock: s.stock, available: s.available });
   }
 
   return products.map((p) => {

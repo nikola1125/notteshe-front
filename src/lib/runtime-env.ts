@@ -1,12 +1,13 @@
 // Cloudflare Workers passes env bindings as the second argument to fetch().
-// Dashboard secrets are only in env — process.env is empty unless
-// nodejs_compat_populate_process_env flag is set in wrangler.toml.
-let _env: Record<string, string> = {};
+// We store them on globalThis so they're accessible across all bundled chunks —
+// module-level variables are NOT shared when Nitro splits code into multiple chunks.
+
+type GlobalWithEnv = typeof globalThis & { __cf_env__?: Record<string, string> };
 
 export function setRuntimeEnv(env: Record<string, string>) {
-  _env = env;
+  (globalThis as GlobalWithEnv).__cf_env__ = env;
 }
 
 export function getRuntimeEnv(key: string): string | undefined {
-  return _env[key] ?? process.env[key];
+  return (globalThis as GlobalWithEnv).__cf_env__?.[key] ?? process.env[key];
 }

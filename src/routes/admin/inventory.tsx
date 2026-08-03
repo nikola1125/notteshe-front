@@ -32,10 +32,15 @@ interface ProductRow {
 const getInventory = createServerFn({ method: "GET" }).handler(async () => {
   await requireAdmin();
 
-  const products = await db()
-    .select({ id: product.id, name: product.name, inStock: product.inStock, coverImageUrl: product.coverImageUrl })
-    .from(product)
-    .orderBy(product.name);
+  let products: Array<{ id: string; name: string; inStock: boolean; coverImageUrl: string | null }> = [];
+  try {
+    products = await db()
+      .select({ id: product.id, name: product.name, inStock: product.inStock, coverImageUrl: product.coverImageUrl })
+      .from(product)
+      .orderBy(product.name);
+  } catch (err) {
+    console.error("inventory: failed to query products", err);
+  }
 
   // Query sizes — stock/available columns may not exist yet if migration hasn't run
   let sizes: Array<{ id: string; productId: string; label: string; stock: number; available: boolean }> = [];
@@ -113,7 +118,7 @@ export const Route = createFileRoute("/admin/inventory")({
 // ─── Component ────────────────────────────────────────────────────────────────
 
 function InventoryPage() {
-  const initial = Route.useLoaderData();
+  const initial = Route.useLoaderData() ?? [];
   const [rows, setRows] = useState<ProductRow[]>(initial);
   const [saving, setSaving] = useState<string | null>(null);
   const [search, setSearch] = useState("");

@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 
 // Lazy singleton — not initialized at module load time so process.env is
 // populated from Cloudflare bindings before db() reads DATABASE_URL
@@ -27,8 +28,8 @@ function getAuth() {
 
       socialProviders: {
         google: {
-          clientId: process.env["GOOGLE_CLIENT_ID"]!,
-          clientSecret: process.env["GOOGLE_CLIENT_SECRET"]!,
+          clientId: getRuntimeEnv("GOOGLE_CLIENT_ID")!,
+          clientSecret: getRuntimeEnv("GOOGLE_CLIENT_SECRET")!,
         },
       },
 
@@ -42,7 +43,7 @@ function getAuth() {
       },
 
       trustedOrigins: [
-        process.env["BETTER_AUTH_URL"] ?? "http://localhost:8080",
+        getRuntimeEnv("BETTER_AUTH_URL") ?? "http://localhost:8080",
       ],
     });
   }

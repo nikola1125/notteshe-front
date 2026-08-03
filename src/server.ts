@@ -1,4 +1,5 @@
 import "./lib/error-capture";
+import { setRuntimeEnv } from "./lib/runtime-env";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
@@ -57,10 +58,9 @@ function isH3SwallowedErrorBody(body: string): boolean {
 
 export default {
   async fetch(request: Request, env: Record<string, string>, ctx: unknown) {
-    // Cloudflare passes env bindings as an object — copy them into process.env
-    // so all server code can read them via process.env["VAR_NAME"]
+    // Store Cloudflare env bindings so server code can read them via getRuntimeEnv()
     if (env && typeof env === "object") {
-      Object.assign(process.env, env);
+      setRuntimeEnv(env);
     }
 
     try {

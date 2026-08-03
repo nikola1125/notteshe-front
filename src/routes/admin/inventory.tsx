@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import { useState } from "react";
 import { toast } from "sonner";
 import { db } from "@/db";
@@ -28,7 +29,7 @@ interface ProductRow {
 
 // ─── Server functions ─────────────────────────────────────────────────────────
 
-const getInventory = createServerFn({ method: "GET" }).handler(async (): Promise<ProductRow[]> => {
+const getInventory = createServerFn({ method: "GET" }).handler(async () => {
   await requireAdmin();
 
   const products = await db()
@@ -49,7 +50,7 @@ const getInventory = createServerFn({ method: "GET" }).handler(async (): Promise
   const sizesByProduct = new Map<string, SizeRow[]>();
   for (const s of sizes) {
     if (!sizesByProduct.has(s.productId)) sizesByProduct.set(s.productId, []);
-    sizesByProduct.get(s.productId)!.push({ id: s.id, label: s.label, stock: s.stock, available: s.available });
+    sizesByProduct.get(s.productId)!.push({ id: s.id, label: s.label, stock: Number(s.stock), available: s.available });
   }
 
   return products.map((p) => {
@@ -58,7 +59,7 @@ const getInventory = createServerFn({ method: "GET" }).handler(async (): Promise
       id: p.id,
       name: p.name,
       coverImageUrl: p.coverImageUrl ?? null,
-      inStock: p.inStock,
+      inStock: Boolean(p.inStock),
       sizes: sz,
       totalStock: sz.reduce((sum, s) => sum + s.stock, 0),
     };
@@ -66,7 +67,7 @@ const getInventory = createServerFn({ method: "GET" }).handler(async (): Promise
 });
 
 const updateSizeStock = createServerFn({ method: "POST" })
-  .validator((d: unknown) => d as { sizeId: string; stock: number; available: boolean })
+  .validator((d: unknown) => z.object({ sizeId: z.string(), stock: z.number(), available: z.boolean() }).parse(d))
   .handler(async ({ data }) => {
     const admin = await requireAdmin();
     await db()
@@ -78,7 +79,7 @@ const updateSizeStock = createServerFn({ method: "POST" })
   });
 
 const updateProductStock = createServerFn({ method: "POST" })
-  .validator((d: unknown) => d as { productId: string; inStock: boolean })
+  .validator((d: unknown) => z.object({ productId: z.string(), inStock: z.boolean() }).parse(d))
   .handler(async ({ data }) => {
     const admin = await requireAdmin();
     await db()

@@ -2,12 +2,23 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useCallback } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { createServerFn } from "@tanstack/react-start";
+import { eq } from "drizzle-orm";
 import { useCart } from "@/store/cartStore";
 import { useSession } from "@/lib/auth/client";
 import { useAuthStore } from "@/store/authStore";
 import { createPaymentIntent } from "@/lib/payment";
 
+const getShipping = createServerFn({ method: "GET" }).handler(async () => {
+  const { db } = await import("@/db");
+  const { shippingConfig } = await import("@/db/schema");
+  const rows = await db().select().from(shippingConfig).where(eq(shippingConfig.id, "default")).limit(1);
+  if (rows[0]) return { enabled: rows[0].enabled, fee: rows[0].fee, freeThreshold: rows[0].freeThreshold };
+  return { enabled: true, fee: 12, freeThreshold: 200 };
+});
+
 export const Route = createFileRoute("/checkout")({
+  loader: () => getShipping(),
   component: CheckoutPage,
 });
 
@@ -39,6 +50,7 @@ function CheckoutPage() {
   const { items } = useCart();
   const { data: session, isPending: sessionLoading } = useSession();
   const { openAuthModal } = useAuthStore();
+  const shippingCfg = Route.useLoaderData();
 
   const [form, setForm] = useState<ShippingForm>(EMPTY_FORM);
   const [errors, setErrors] = useState<Partial<ShippingForm>>({});
@@ -62,7 +74,9 @@ function CheckoutPage() {
   }, [session?.user?.id]);
 
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
-  const shipping = subtotal >= 200 ? 0 : 12;
+  const shipping = !shippingCfg.enabled ? 0
+    : subtotal >= shippingCfg.freeThreshold ? 0
+    : shippingCfg.fee;
   const total = subtotal + shipping;
 
   function set(field: keyof ShippingForm, value: string) {
@@ -222,8 +236,8 @@ function CheckoutPage() {
                 <div className="flex justify-between font-mono text-[11px] text-ink/60">
                   <span>Shipping</span><span>{shipping === 0 ? "Free" : `€${shipping}`}</span>
                 </div>
-                {shipping > 0 && (
-                  <p className="font-mono text-[9px] text-muted-foreground/40">Free shipping on orders over €200</p>
+                {shippingCfg.enabled && shipping > 0 && (
+                  <p className="font-mono text-[9px] text-muted-foreground/40">Free shipping on orders over €{shippingCfg.freeThreshold}</p>
                 )}
               </div>
               <div className="mt-5 flex items-baseline justify-between border-t border-border pt-5">

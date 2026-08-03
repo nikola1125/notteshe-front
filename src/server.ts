@@ -64,8 +64,17 @@ export default {
     }
 
     try {
-      // Better Auth needs real HTTP routes — intercept before TanStack Router
       const url = new URL(request.url);
+
+      // Temporary debug endpoint — remove after confirming env is correct
+      if (url.pathname === "/debug-env") {
+        return new Response(JSON.stringify({
+          keys: Object.keys(env || {}),
+          hasDb: !!env?.DATABASE_URL,
+          globalHasDb: !!(globalThis as Record<string, unknown>).__cf_env__,
+        }), { headers: { "content-type": "application/json" } });
+      }
+
       if (url.pathname.startsWith("/api/auth/")) {
         const { auth } = await getAuthModule();
         return auth.handler(request);

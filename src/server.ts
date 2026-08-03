@@ -1,5 +1,4 @@
 import "./lib/error-capture";
-import { setRuntimeEnv } from "./lib/runtime-env";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
@@ -58,22 +57,8 @@ function isH3SwallowedErrorBody(body: string): boolean {
 
 export default {
   async fetch(request: Request, env: Record<string, string>, ctx: unknown) {
-    // Store Cloudflare env bindings so server code can read them via getRuntimeEnv()
-    if (env && typeof env === "object") {
-      setRuntimeEnv(env);
-    }
-
     try {
       const url = new URL(request.url);
-
-      // Temporary debug endpoint — remove after confirming env is correct
-      if (url.pathname === "/debug-env") {
-        return new Response(JSON.stringify({
-          envKeys: Object.keys(env || {}),
-          processEnvDb: !!process.env["DATABASE_URL"],
-          processEnvKeys: Object.keys(process.env).slice(0, 20),
-        }), { headers: { "content-type": "application/json" } });
-      }
 
       if (url.pathname.startsWith("/api/auth/")) {
         const { auth } = await getAuthModule();

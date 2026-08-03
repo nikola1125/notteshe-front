@@ -1,13 +1,9 @@
-// Cloudflare Workers passes env bindings as the second argument to fetch().
-// We store them on globalThis so they're accessible across all bundled chunks —
-// module-level variables are NOT shared when Nitro splits code into multiple chunks.
+// Nitro's cloudflare-module preset sets globalThis.__env__ = env (all bindings including secrets)
+// before calling the app handler. We read from there first, then fall back to process.env
+// (which nodejs_compat_populate_process_env populates with plain vars from wrangler.json).
 
-type GlobalWithEnv = typeof globalThis & { __cf_env__?: Record<string, string> };
-
-export function setRuntimeEnv(env: Record<string, string>) {
-  (globalThis as GlobalWithEnv).__cf_env__ = env;
-}
+type GlobalWithEnv = typeof globalThis & { __env__?: Record<string, string> };
 
 export function getRuntimeEnv(key: string): string | undefined {
-  return (globalThis as GlobalWithEnv).__cf_env__?.[key] ?? process.env[key];
+  return (globalThis as GlobalWithEnv).__env__?.[key] ?? process.env[key];
 }

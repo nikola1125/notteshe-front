@@ -18,7 +18,8 @@ async function getServerEntry(): Promise<ServerEntry> {
   return serverEntryPromise;
 }
 
-// Pre-warm the auth module so the first request isn't slow
+// Auth module cached after first use — NOT pre-warmed at module load time
+// because db() reads process.env which isn't populated until the first request
 let authModulePromise: Promise<{ auth: { handler: (req: Request) => Promise<Response> } }> | undefined;
 
 function getAuthModule() {
@@ -27,9 +28,6 @@ function getAuthModule() {
   }
   return authModulePromise;
 }
-
-// Kick off the import immediately — don't wait for the first auth request
-getAuthModule();
 
 // h3 swallows in-handler throws into a normal 500 Response with body
 // {"unhandled":true,"message":"HTTPError"} — try/catch alone never fires for those.

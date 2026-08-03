@@ -8,6 +8,7 @@ import {
   Tag,
   Mail,
   ScrollText,
+  Warehouse,
   LogOut,
   Menu,
   X,
@@ -24,6 +25,7 @@ interface AdminSidebarProps {
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard, exact: true },
   { label: "Products", href: "/admin/products", icon: Package },
+  { label: "Inventory", href: "/admin/inventory", icon: Warehouse },
   { label: "Orders", href: "/admin/orders", icon: ShoppingBag },
   { label: "Customers", href: "/admin/customers", icon: Users },
   { label: "Shipping", href: "/admin/shipping", icon: Truck },

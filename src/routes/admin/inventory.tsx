@@ -20,6 +20,7 @@ interface SizeRow {
 interface ProductRow {
   id: string;
   name: string;
+  coverImageUrl: string | null;
   inStock: boolean;
   sizes: SizeRow[];
   totalStock: number;
@@ -31,7 +32,7 @@ const getInventory = createServerFn({ method: "GET" }).handler(async (): Promise
   await requireAdmin();
 
   const products = await db()
-    .select({ id: product.id, name: product.name, inStock: product.inStock })
+    .select({ id: product.id, name: product.name, inStock: product.inStock, coverImageUrl: product.coverImageUrl })
     .from(product)
     .orderBy(product.name);
 
@@ -56,6 +57,7 @@ const getInventory = createServerFn({ method: "GET" }).handler(async (): Promise
     return {
       id: p.id,
       name: p.name,
+      coverImageUrl: p.coverImageUrl ?? null,
       inStock: p.inStock,
       sizes: sz,
       totalStock: sz.reduce((sum, s) => sum + s.stock, 0),
@@ -187,6 +189,15 @@ function InventoryPage() {
             {/* Product header */}
             <div className="flex items-center justify-between gap-4 border-b border-[var(--color-border)] px-4 py-3">
               <div className="flex items-center gap-3">
+                {p.coverImageUrl ? (
+                  <img
+                    src={p.coverImageUrl}
+                    alt={p.name}
+                    className="h-10 w-8 rounded object-cover"
+                  />
+                ) : (
+                  <div className="h-10 w-8 rounded bg-[var(--color-border)]" />
+                )}
                 <span className="font-mono text-[11px] text-[var(--color-foreground)]">{p.name}</span>
                 <span className="font-mono text-[10px] text-[var(--color-muted-foreground)]">
                   {p.totalStock} total

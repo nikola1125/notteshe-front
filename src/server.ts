@@ -69,9 +69,9 @@ export default {
       // Temporary debug endpoint — remove after confirming env is correct
       if (url.pathname === "/debug-env") {
         return new Response(JSON.stringify({
-          keys: Object.keys(env || {}),
-          hasDb: !!env?.DATABASE_URL,
-          globalHasDb: !!(globalThis as Record<string, unknown>).__cf_env__,
+          envKeys: Object.keys(env || {}),
+          processEnvDb: !!process.env["DATABASE_URL"],
+          processEnvKeys: Object.keys(process.env).slice(0, 20),
         }), { headers: { "content-type": "application/json" } });
       }
 

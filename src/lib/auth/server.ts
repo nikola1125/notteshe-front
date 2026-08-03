@@ -52,6 +52,7 @@ function getAuth() {
 
 export const auth = {
   handler: (req: Request) => getAuth().handler(req),
+  get api() { return getAuth().api; },
 };
 
 export type Auth = ReturnType<typeof getAuth>;

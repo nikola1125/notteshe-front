@@ -1,21 +1,99 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
 import { useEffect, useState, useRef } from "react";
+import { and, desc, eq } from "drizzle-orm";
 import { subscribeNewsletter } from "@/lib/newsletter";
 import { Intro } from "@/components/Intro";
 import { WishlistButton } from "@/components/WishlistButton";
-import { products as allProducts } from "@/data/products";
+import { db } from "@/db";
+import { product, productImage, productColour } from "@/db/schema";
 import hero from "@/assets/hero1.jpg";
 import look1 from "@/assets/look1.jpg";
 import look2 from "@/assets/look2.jpg";
 import look3 from "@/assets/look3.jpg";
 import philosophy from "@/assets/philosophy.jpg";
 
-export const Route = createFileRoute("/")({
-  component: Index,
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface HomeProduct {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  originalPrice: number | null;
+  isNew: boolean;
+  isSale: boolean;
+  coverImage: string | null;
+  colourCount: number;
+}
+
+interface HomeData {
+  wardrobe: HomeProduct[];
+  wardrobeTotal: number;
+  sale: HomeProduct[];
+}
+
+// ─── Server function ──────────────────────────────────────────────────────────
+
+const getHomeData = createServerFn({ method: "GET" }).handler(async (): Promise<HomeData> => {
+  const database = db();
+
+  const [prods, covers, colours] = await Promise.all([
+    database
+      .select({
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        price: product.price,
+        originalPrice: product.originalPrice,
+        isNew: product.isNew,
+        isSale: product.isSale,
+        isPermanentWardrobe: product.isPermanentWardrobe,
+      })
+      .from(product)
+      .where(and(eq(product.isVisible, true), eq(product.inStock, true)))
+      .orderBy(desc(product.createdAt)),
+    database
+      .select({ productId: productImage.productId, url: productImage.url })
+      .from(productImage)
+      .where(eq(productImage.isCover, true)),
+    database.select({ productId: productColour.productId }).from(productColour),
+  ]);
+
+  const coverMap = new Map(covers.map((c) => [c.productId, c.url]));
+  const colourMap = new Map<string, number>();
+  for (const c of colours) colourMap.set(c.productId, (colourMap.get(c.productId) ?? 0) + 1);
+
+  const toHomeProduct = (p: typeof prods[number]): HomeProduct => ({
+    id: p.id,
+    name: p.name,
+    slug: p.slug,
+    price: Number(p.price),
+    originalPrice: p.originalPrice != null ? Number(p.originalPrice) : null,
+    isNew: p.isNew,
+    isSale: p.isSale,
+    coverImage: coverMap.get(p.id) ?? null,
+    colourCount: colourMap.get(p.id) ?? 0,
+  });
+
+  const wardrobeAll = prods
+    .filter((p) => p.isPermanentWardrobe)
+    .sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0));
+
+  return {
+    wardrobe: wardrobeAll.slice(0, 4).map(toHomeProduct),
+    wardrobeTotal: wardrobeAll.length,
+    sale: prods.filter((p) => p.isSale).slice(0, 4).map(toHomeProduct),
+  };
 });
 
-const featuredProducts = allProducts.filter((p) => p.isNew).slice(0, 4);
-const saleProducts = allProducts.filter((p) => p.isSale).slice(0, 4);
+// ─── Route ────────────────────────────────────────────────────────────────────
+
+export const Route = createFileRoute("/")({
+  loader: () => getHomeData(),
+  staleTime: 60_000,
+  component: Index,
+});
 
 // Evaluated once when the JS bundle loads. On true reload this is false;
 // on client-side back/forward navigation the module stays in memory so it
@@ -24,6 +102,7 @@ const _navType = (performance.getEntriesByType("navigation")[0] as PerformanceNa
 let _introShown = _navType !== "reload";
 
 function Index() {
+  const { wardrobe, wardrobeTotal, sale } = Route.useLoaderData();
   const [introDone, setIntroDone] = useState(() => _introShown);
 
   useEffect(() => {
@@ -90,7 +169,7 @@ function Index() {
           <em className="italic text-clay">and one long refusal to shout.</em>
         </p>
         <div className="mx-auto mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 px-8 font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-          {["28 Pieces", "6 Mills", "IT · JP", "AW26"].map((s, i) => (
+          {[`${wardrobeTotal} Pieces`, "6 Mills", "IT · JP", "AW26"].map((s, i) => (
             <span key={s} className="flex items-center gap-5">
               {i > 0 && <span className="text-border">·</span>}
               {s}
@@ -120,9 +199,9 @@ function Index() {
             <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">New Arrivals</p>
             <h2 className="serif mt-2 text-3xl leading-tight text-ink md:text-5xl">The permanent wardrobe.</h2>
           </div>
-          <a href="#" className="relative hidden font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-clay hover:after:scale-x-100 md:inline-block">
-            View all — 28
-          </a>
+          <Link to="/shop" className="relative hidden font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-clay hover:after:scale-x-100 md:inline-block">
+            View all — {wardrobeTotal}
+          </Link>
         </div>
 
         {/* Mobile: horizontal scroll · Desktop: grid */}
@@ -130,7 +209,11 @@ function Index() {
           className="-mx-5 flex gap-4 overflow-x-auto scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide overscroll-x-contain md:mx-0 md:grid md:grid-cols-4 md:gap-x-6 md:overflow-visible md:px-0 md:pb-0 md:snap-none md:scroll-pl-0"
           style={{ touchAction: "pan-x pinch-zoom" }}
         >
-          {featuredProducts.map((p, i) => (
+          {wardrobe.length === 0 ? (
+            <p className="col-span-4 py-16 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
+              No pieces in the permanent wardrobe yet.
+            </p>
+          ) : wardrobe.map((p, i) => (
             <Link
               key={p.id}
               to="/shop/$slug"
@@ -139,16 +222,21 @@ function Index() {
               style={{ transitionDelay: `${i * 80}ms` }}
             >
               <div className="relative aspect-[3/4] overflow-hidden bg-muted">
-                <img
-                  src={p.images[0]}
-                  alt={p.name}
-                  width={900}
-                  height={1200}
-                  loading={i < 2 ? "eager" : "lazy"}
-                  className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
-                />
+                {p.coverImage ? (
+                  <img
+                    src={p.coverImage}
+                    alt={p.name}
+                    width={900}
+                    height={1200}
+                    loading={i < 2 ? "eager" : "lazy"}
+                    className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center">
+                    <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/40">No image</span>
+                  </div>
+                )}
 
-                {/* Badge */}
                 {p.isSale ? (
                   <span className="absolute left-3 top-3 bg-clay px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-paper">
                     Sale
@@ -159,13 +247,11 @@ function Index() {
                   </span>
                 ) : null}
 
-                {/* Wishlist */}
                 <WishlistButton
                   productId={p.id}
                   className="absolute right-3 top-3 h-8 w-8 rounded-full bg-background/70 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                 />
 
-                {/* Hover CTA */}
                 <div className="absolute bottom-0 left-0 right-0 translate-y-full border-t border-ink/10 bg-background/90 py-3.5 text-center font-mono text-[10px] uppercase tracking-widest text-ink backdrop-blur-sm transition-transform duration-300 ease-out group-hover:translate-y-0">
                   View piece
                 </div>
@@ -174,9 +260,11 @@ function Index() {
               <div className="mt-4 flex items-start justify-between">
                 <div>
                   <h3 className="relative inline-block serif text-[15px] text-ink after:absolute after:bottom-[-2px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 group-hover:after:scale-x-100">{p.name}</h3>
-                  <p className="mt-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
-                    {p.colours.length} {p.colours.length === 1 ? "colour" : "colours"}
-                  </p>
+                  {p.colourCount > 0 && (
+                    <p className="mt-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
+                      {p.colourCount} {p.colourCount === 1 ? "colour" : "colours"}
+                    </p>
+                  )}
                 </div>
                 <div className="text-right">
                   {p.originalPrice && (
@@ -310,7 +398,11 @@ function Index() {
           className="-mx-5 flex gap-4 overflow-x-auto scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide overscroll-x-contain md:mx-0 md:grid md:grid-cols-4 md:gap-x-6 md:overflow-visible md:px-0 md:pb-0 md:snap-none md:scroll-pl-0"
           style={{ touchAction: "pan-x pinch-zoom" }}
         >
-          {saleProducts.map((p, i) => (
+          {sale.length === 0 ? (
+            <p className="col-span-4 py-16 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
+              No sale items right now.
+            </p>
+          ) : sale.map((p, i) => (
             <Link
               key={p.id}
               to="/shop/$slug"
@@ -319,14 +411,20 @@ function Index() {
               style={{ transitionDelay: `${i * 80}ms` }}
             >
               <div className="relative aspect-[3/4] overflow-hidden bg-muted">
-                <img
-                  src={p.images[0]}
-                  alt={p.name}
-                  width={900}
-                  height={1200}
-                  loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
-                />
+                {p.coverImage ? (
+                  <img
+                    src={p.coverImage}
+                    alt={p.name}
+                    width={900}
+                    height={1200}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center">
+                    <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/40">No image</span>
+                  </div>
+                )}
                 <span className="absolute left-3 top-3 bg-clay px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-paper">
                   Sale
                 </span>
@@ -337,12 +435,16 @@ function Index() {
               <div className="mt-4 flex items-start justify-between">
                 <div>
                   <h3 className="relative inline-block serif text-[15px] text-ink after:absolute after:bottom-[-2px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 group-hover:after:scale-x-100">{p.name}</h3>
-                  <p className="mt-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
-                    {p.colours.length} {p.colours.length === 1 ? "colour" : "colours"}
-                  </p>
+                  {p.colourCount > 0 && (
+                    <p className="mt-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
+                      {p.colourCount} {p.colourCount === 1 ? "colour" : "colours"}
+                    </p>
+                  )}
                 </div>
                 <div className="text-right">
-                  <p className="font-mono text-[10px] text-muted-foreground line-through">€{p.originalPrice}</p>
+                  {p.originalPrice && (
+                    <p className="font-mono text-[10px] text-muted-foreground line-through">€{p.originalPrice}</p>
+                  )}
                   <p className="font-mono text-[12px] text-clay">€{p.price}</p>
                 </div>
               </div>

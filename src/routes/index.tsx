@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { useEffect, useState, useRef } from "react";
 import { and, desc, eq } from "drizzle-orm";
@@ -91,7 +91,6 @@ const getHomeData = createServerFn({ method: "GET" }).handler(async (): Promise<
 
 export const Route = createFileRoute("/")({
   loader: () => getHomeData(),
-  staleTime: 60_000,
   component: Index,
 });
 
@@ -103,7 +102,24 @@ let _introShown = _navType !== "reload";
 
 function Index() {
   const { wardrobe, wardrobeTotal, sale } = Route.useLoaderData();
+  const router = useRouter();
   const [introDone, setIntroDone] = useState(() => _introShown);
+
+  // Refetch when the tab becomes visible (switching from admin) or every 60s
+  useEffect(() => {
+    function refresh() {
+      router.invalidate();
+    }
+    function onVisibility() {
+      if (document.visibilityState === "visible") refresh();
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    const interval = setInterval(refresh, 60_000);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      clearInterval(interval);
+    };
+  }, [router]);
 
   useEffect(() => {
     const els = document.querySelectorAll<HTMLElement>(".reveal");

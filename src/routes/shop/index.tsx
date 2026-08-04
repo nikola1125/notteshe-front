@@ -210,8 +210,11 @@ function ShopPage() {
             </button>
           </div>
 
+          {/* Divider */}
+          <div className="mx-3 h-4 w-px shrink-0 bg-border" />
+
           {/* Sort dropdown */}
-          <div className="relative ml-4 shrink-0">
+          <div className="relative shrink-0">
             <button
               onClick={() => setSortOpen((v) => !v)}
               className="flex items-center gap-2 py-4 font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-ink"

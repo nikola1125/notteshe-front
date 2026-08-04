@@ -6,7 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Plus, X, Search } from "lucide-react";
 import { db } from "@/db";
-import { product } from "@/db/schema";
+import { product, productImage } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAudit } from "@/lib/admin/audit";
 
@@ -28,20 +28,27 @@ const getWardrobeData = createServerFn({ method: "GET" }).handler(async () => {
   }> = [];
 
   try {
-    all = await db()
-      .select({
-        id: product.id,
-        name: product.name,
-        slug: product.slug,
-        coverImageUrl: product.coverImageUrl,
-        isNew: product.isNew,
-        isSale: product.isSale,
-        inStock: product.inStock,
-        isVisible: product.isVisible,
-        isPermanentWardrobe: product.isPermanentWardrobe,
-      })
-      .from(product)
-      .orderBy(desc(product.createdAt));
+    const [rows, covers] = await Promise.all([
+      db()
+        .select({
+          id: product.id,
+          name: product.name,
+          slug: product.slug,
+          isNew: product.isNew,
+          isSale: product.isSale,
+          inStock: product.inStock,
+          isVisible: product.isVisible,
+          isPermanentWardrobe: product.isPermanentWardrobe,
+        })
+        .from(product)
+        .orderBy(desc(product.createdAt)),
+      db()
+        .select({ productId: productImage.productId, url: productImage.url })
+        .from(productImage)
+        .where(eq(productImage.isCover, true)),
+    ]);
+    const coverMap = new Map(covers.map((c) => [c.productId, c.url]));
+    all = rows.map((r) => ({ ...r, coverImageUrl: coverMap.get(r.id) ?? null }));
   } catch (err) {
     console.error("wardrobe: failed to query products", err);
   }

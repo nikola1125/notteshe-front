@@ -5,7 +5,7 @@ import { z } from "zod";
 import { useState } from "react";
 import { toast } from "sonner";
 import { db } from "@/db";
-import { product, productSize } from "@/db/schema";
+import { product, productSize, productImage } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAudit } from "@/lib/admin/audit";
 
@@ -32,15 +32,24 @@ interface ProductRow {
 const getInventory = createServerFn({ method: "GET" }).handler(async () => {
   await requireAdmin();
 
-  let products: Array<{ id: string; name: string; inStock: boolean; coverImageUrl: string | null }> = [];
+  let products: Array<{ id: string; name: string; inStock: boolean }> = [];
+  let coverImages: Array<{ productId: string; url: string }> = [];
   try {
-    products = await db()
-      .select({ id: product.id, name: product.name, inStock: product.inStock, coverImageUrl: product.coverImageUrl })
-      .from(product)
-      .orderBy(product.name);
+    [products, coverImages] = await Promise.all([
+      db()
+        .select({ id: product.id, name: product.name, inStock: product.inStock })
+        .from(product)
+        .orderBy(product.name),
+      db()
+        .select({ productId: productImage.productId, url: productImage.url })
+        .from(productImage)
+        .where(eq(productImage.isCover, true)),
+    ]);
   } catch (err) {
     console.error("inventory: failed to query products", err);
   }
+
+  const coverMap = new Map(coverImages.map((img) => [img.productId, img.url]));
 
   // Query sizes — stock/available columns may not exist yet if migration hasn't run
   let sizes: Array<{ id: string; productId: string; label: string; stock: number; available: boolean }> = [];
@@ -76,7 +85,7 @@ const getInventory = createServerFn({ method: "GET" }).handler(async () => {
     return {
       id: p.id,
       name: p.name,
-      coverImageUrl: p.coverImageUrl ?? null,
+      coverImageUrl: coverMap.get(p.id) ?? null,
       inStock: Boolean(p.inStock),
       sizes: sz,
       totalStock: sz.reduce((sum, s) => sum + s.stock, 0),

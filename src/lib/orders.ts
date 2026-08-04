@@ -106,6 +106,8 @@ export const placeOrder = createServerFn({ method: "POST" })
       status: "PENDING",
       subtotal,
       shippingFee: fee,
+      discountCode: validatedCode,
+      discountAmount,
       total,
       shippingAddress,
     });

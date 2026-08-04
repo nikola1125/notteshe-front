@@ -199,6 +199,8 @@ export const orders = pgTable("orders", {
   status: orderStatusEnum("status").notNull().default("PENDING"),
   subtotal: real("subtotal").notNull(),
   shippingFee: real("shipping_fee").notNull().default(0),
+  discountCode: text("discount_code"),
+  discountAmount: real("discount_amount").notNull().default(0),
   total: real("total").notNull(),
   // Frozen copy of shipping address at order time
   shippingAddress: jsonb("shipping_address").notNull(),

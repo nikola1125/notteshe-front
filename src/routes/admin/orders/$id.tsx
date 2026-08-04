@@ -56,6 +56,8 @@ interface OrderDetailData {
     status: OrderStatus;
     subtotal: number;
     shippingFee: number;
+    discountCode: string | null;
+    discountAmount: number;
     total: number;
     shippingAddress: ShippingAddress;
     adminNote: string | null;
@@ -121,6 +123,8 @@ const getOrderDetail = createServerFn({ method: "GET" })
         status: o.status as OrderStatus,
         subtotal: Number(o.subtotal),
         shippingFee: Number(o.shippingFee),
+        discountCode: o.discountCode ?? null,
+        discountAmount: Number(o.discountAmount ?? 0),
         total: Number(o.total),
         shippingAddress: o.shippingAddress as ShippingAddress,
         adminNote: o.adminNote,
@@ -307,26 +311,22 @@ function OrderDetail() {
             </div>
             <div className="mt-4 space-y-1 border-t border-[var(--color-border)] pt-4">
               <div className="flex justify-between font-mono text-xs">
-                <span className="text-[var(--color-muted-foreground)]">
-                  Subtotal
-                </span>
+                <span className="text-[var(--color-muted-foreground)]">Subtotal</span>
                 <span>{fmt(data.order.subtotal)}</span>
               </div>
               <div className="flex justify-between font-mono text-xs">
-                <span className="text-[var(--color-muted-foreground)]">
-                  Shipping
-                </span>
-                <span>
-                  {data.order.shippingFee === 0
-                    ? "Free"
-                    : fmt(data.order.shippingFee)}
-                </span>
+                <span className="text-[var(--color-muted-foreground)]">Shipping</span>
+                <span>{data.order.shippingFee === 0 ? "Free" : fmt(data.order.shippingFee)}</span>
               </div>
+              {data.order.discountCode && (
+                <div className="flex justify-between font-mono text-xs text-green-400">
+                  <span>Discount <span className="ml-1 rounded bg-green-500/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider">{data.order.discountCode}</span></span>
+                  <span>−{fmt(data.order.discountAmount)}</span>
+                </div>
+              )}
               <div className="flex justify-between font-mono text-sm font-medium">
                 <span>Total</span>
-                <span className="text-[var(--color-clay)]">
-                  {fmt(data.order.total)}
-                </span>
+                <span className="text-[var(--color-clay)]">{fmt(data.order.total)}</span>
               </div>
             </div>
           </div>

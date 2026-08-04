@@ -105,6 +105,14 @@ function OrdersPage() {
                         {addr.firstName} {addr.lastName}, {addr.city}
                       </p>
                     </div>
+                    {order.discountCode && (
+                      <div>
+                        <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">Discount</p>
+                        <p className="mt-0.5 font-mono text-[11px] text-green-400">
+                          {order.discountCode} — −€{Number(order.discountAmount ?? 0).toFixed(0)}
+                        </p>
+                      </div>
+                    )}
                     {order.trackingNumber && (
                       <div>
                         <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">Tracking</p>

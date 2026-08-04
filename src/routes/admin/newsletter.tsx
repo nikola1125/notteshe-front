@@ -58,6 +58,7 @@ const toggleSubscriber = createServerFn({ method: "POST" })
 
 export const Route = createFileRoute("/admin/newsletter")({
   loader: () => getSubscribers(),
+  staleTime: 30_000,
   component: Newsletter,
 });
 

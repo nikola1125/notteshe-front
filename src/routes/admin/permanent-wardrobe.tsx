@@ -78,6 +78,7 @@ const toggleWardrobe = createServerFn({ method: "POST" })
 
 export const Route = createFileRoute("/admin/permanent-wardrobe")({
   loader: () => getWardrobeData(),
+  staleTime: 30_000,
   component: PermanentWardrobePage,
 });
 

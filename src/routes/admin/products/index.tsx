@@ -108,6 +108,7 @@ const toggleVisibility = createServerFn({ method: "POST" })
 export const Route = createFileRoute("/admin/products/")({
   loaderDeps: ({ search }) => ({ page: Number((search as Record<string, string>).page ?? 1) }),
   loader: ({ deps }) => getProducts({ data: { page: deps.page } }),
+  staleTime: 30_000,
   component: ProductList,
 });
 

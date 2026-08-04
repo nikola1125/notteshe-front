@@ -52,6 +52,7 @@ const saveShippingConfig = createServerFn({ method: "POST" })
 
 export const Route = createFileRoute("/admin/shipping")({
   loader: () => getShippingConfig(),
+  staleTime: 60_000,
   component: Shipping,
 });
 

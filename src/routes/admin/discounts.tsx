@@ -75,6 +75,7 @@ const deleteDiscount = createServerFn({ method: "POST" })
 
 export const Route = createFileRoute("/admin/discounts")({
   loader: () => getDiscounts(),
+  staleTime: 30_000,
   component: Discounts,
 });
 

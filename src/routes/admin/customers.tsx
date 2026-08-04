@@ -45,6 +45,7 @@ const getCustomers = createServerFn({ method: "GET" }).handler(
 
 export const Route = createFileRoute("/admin/customers")({
   loader: () => getCustomers(),
+  staleTime: 30_000,
   component: Customers,
 });
 

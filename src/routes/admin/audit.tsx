@@ -48,6 +48,7 @@ const getAuditLog = createServerFn({ method: "GET" }).handler(
 
 export const Route = createFileRoute("/admin/audit")({
   loader: () => getAuditLog(),
+  staleTime: 30_000,
   component: AuditLogPage,
 });
 

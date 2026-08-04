@@ -71,6 +71,26 @@ export async function verifyPassword(
   }
 }
 
+// ─── In-memory session cache (per worker instance, 60s TTL) ──────────────────
+// Eliminates repeated DB roundtrips for auth on every server function call.
+
+const _sessionCache = new Map<string, { admin: AdminUser; exp: number }>();
+
+function cacheGet(token: string): AdminUser | null {
+  const hit = _sessionCache.get(token);
+  if (!hit) return null;
+  if (hit.exp < Date.now()) { _sessionCache.delete(token); return null; }
+  return hit.admin;
+}
+
+function cacheSet(token: string, admin: AdminUser) {
+  _sessionCache.set(token, { admin, exp: Date.now() + 60_000 });
+}
+
+function cacheDel(token: string) {
+  _sessionCache.delete(token);
+}
+
 // ─── Session management ───────────────────────────────────────────────────────
 
 export async function createAdminSession(adminId: string): Promise<string> {
@@ -100,6 +120,9 @@ export async function getAdminSession(): Promise<AdminUser | null> {
     const token = getCookie("admin_token");
     if (!token) return null;
 
+    const cached = cacheGet(token);
+    if (cached) return cached;
+
     const rows = await db()
       .select({ adminUser })
       .from(adminSession)
@@ -112,6 +135,8 @@ export async function getAdminSession(): Promise<AdminUser | null> {
     if (!rows[0]) return null;
     const admin = rows[0].adminUser;
     if (!admin.isActive) return null;
+
+    cacheSet(token, admin);
     return admin;
   } catch {
     return null;
@@ -119,6 +144,7 @@ export async function getAdminSession(): Promise<AdminUser | null> {
 }
 
 export async function deleteAdminSession(token: string): Promise<void> {
+  cacheDel(token);
   await db().delete(adminSession).where(eq(adminSession.token, token));
 }
 

@@ -107,6 +107,20 @@ export function ProductForm({
     if (!slugManual) setSlug(slugify(name));
   }, [name, slugManual]);
 
+  function handleSaleToggle() {
+    if (!isSale) {
+      // Turning ON: current price becomes the "original" (crossed-out) price
+      setOriginalPrice(price);
+      setPrice("");
+      setIsSale(true);
+    } else {
+      // Turning OFF: restore price from original, clear originalPrice
+      if (originalPrice) setPrice(originalPrice);
+      setOriginalPrice("");
+      setIsSale(false);
+    }
+  }
+
   function addColour() {
     if (!newColour.name.trim()) return;
     setColours((prev) => [...prev, { name: newColour.name.trim(), hex: newColour.hex }]);
@@ -364,20 +378,20 @@ export function ProductForm({
         <div className="flex flex-wrap gap-6">
           {(
             [
-              { label: "New In", state: isNew, setter: setIsNew },
-              { label: "Sale", state: isSale, setter: setIsSale },
-              { label: "Visible", state: isVisible, setter: setIsVisible },
-              { label: "In Stock", state: inStock, setter: setInStock },
-              { label: "Permanent Wardrobe", state: isPermanentWardrobe, setter: setIsPermanentWardrobe },
-            ] as const
-          ).map(({ label, state, setter }) => (
+              { label: "New In",            state: isNew,               onToggle: () => setIsNew(!isNew) },
+              { label: "Sale",              state: isSale,              onToggle: handleSaleToggle },
+              { label: "Visible",           state: isVisible,           onToggle: () => setIsVisible(!isVisible) },
+              { label: "In Stock",          state: inStock,             onToggle: () => setInStock(!inStock) },
+              { label: "Permanent Wardrobe",state: isPermanentWardrobe, onToggle: () => setIsPermanentWardrobe(!isPermanentWardrobe) },
+            ]
+          ).map(({ label, state, onToggle }) => (
             <label key={label} className="flex cursor-pointer items-center gap-2">
               <div
-                onClick={() => setter(!state)}
+                onClick={onToggle}
                 role="checkbox"
                 aria-checked={state}
                 tabIndex={0}
-                onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") setter(!state); }}
+                onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") onToggle(); }}
                 className={`h-5 w-9 rounded-full transition-colors ${state ? "bg-[var(--color-clay)]" : "bg-[var(--color-muted)]"}`}
               >
                 <div

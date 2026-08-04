@@ -30,7 +30,7 @@ export const placeOrder = createServerFn({ method: "POST" })
     const { requireAuth } = await import("@/lib/auth/session");
     const { db } = await import("@/db");
     const { orders, orderItem, shippingConfig, discountCode, productSize } = await import("@/db/schema");
-    const { eq, and, or, isNull, gt, sql, inArray } = await import("drizzle-orm");
+    const { eq, sql, inArray } = await import("drizzle-orm");
     const { randomUUID } = await import("node:crypto");
 
     const session = await requireAuth();
@@ -62,17 +62,14 @@ export const placeOrder = createServerFn({ method: "POST" })
       const rows = await db()
         .select()
         .from(discountCode)
-        .where(
-          and(
-            eq(discountCode.code, data.discountCode.toUpperCase().trim()),
-            eq(discountCode.isActive, true),
-            or(isNull(discountCode.expiresAt), gt(discountCode.expiresAt, new Date())),
-          )
-        )
+        .where(eq(discountCode.code, data.discountCode.toUpperCase().trim()))
         .limit(1);
       const code = rows[0];
+      const now = new Date();
       if (
         code &&
+        code.isActive &&
+        (!code.expiresAt || code.expiresAt > now) &&
         (code.maxUses === null || code.usedCount < code.maxUses) &&
         (code.minOrderAmount === null || subtotal >= code.minOrderAmount)
       ) {

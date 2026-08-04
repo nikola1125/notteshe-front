@@ -14,22 +14,20 @@ const applyDiscountCode = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { db } = await import("@/db");
     const { discountCode } = await import("@/db/schema");
-    const { and, eq, gt, isNull, or } = await import("drizzle-orm");
+    const { eq } = await import("drizzle-orm");
 
+    // Fetch by code only — do all other checks in JS to avoid drizzle SQL edge cases
     const rows = await db()
       .select()
       .from(discountCode)
-      .where(
-        and(
-          eq(discountCode.code, data.code.toUpperCase().trim()),
-          eq(discountCode.isActive, true),
-          or(isNull(discountCode.expiresAt), gt(discountCode.expiresAt, new Date())),
-        )
-      )
+      .where(eq(discountCode.code, data.code.toUpperCase().trim()))
       .limit(1);
 
     const code = rows[0];
     if (!code) return { valid: false as const, error: "Invalid or expired code" };
+    if (!code.isActive) return { valid: false as const, error: "This code is no longer active" };
+    if (code.expiresAt && code.expiresAt < new Date())
+      return { valid: false as const, error: "This code has expired" };
     if (code.maxUses !== null && code.usedCount >= code.maxUses)
       return { valid: false as const, error: "This code has reached its usage limit" };
     if (code.minOrderAmount !== null && data.subtotal < code.minOrderAmount)

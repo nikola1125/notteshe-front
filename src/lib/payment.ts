@@ -39,7 +39,7 @@ export const createPaymentIntent = createServerFn({ method: "POST" })
     const { getStripe } = await import("@/lib/stripe");
     const { db } = await import("@/db");
     const { shippingConfig, discountCode } = await import("@/db/schema");
-    const { eq, and, or, isNull, gt, sql } = await import("drizzle-orm");
+    const { eq, sql } = await import("drizzle-orm");
 
     const session = await requireAuth();
 
@@ -56,17 +56,14 @@ export const createPaymentIntent = createServerFn({ method: "POST" })
       const rows = await db()
         .select()
         .from(discountCode)
-        .where(
-          and(
-            eq(discountCode.code, data.discountCode.toUpperCase().trim()),
-            eq(discountCode.isActive, true),
-            or(isNull(discountCode.expiresAt), gt(discountCode.expiresAt, new Date())),
-          )
-        )
+        .where(eq(discountCode.code, data.discountCode.toUpperCase().trim()))
         .limit(1);
       const code = rows[0];
+      const now = new Date();
       if (
         code &&
+        code.isActive &&
+        (!code.expiresAt || code.expiresAt > now) &&
         (code.maxUses === null || code.usedCount < code.maxUses) &&
         (code.minOrderAmount === null || subtotal >= code.minOrderAmount)
       ) {

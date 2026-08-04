@@ -11,6 +11,7 @@ export interface CartItem {
   size: string;
   colour: string;
   quantity: number;
+  stock: number;        // max allowed quantity
 }
 
 export interface PendingFly {

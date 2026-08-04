@@ -25,6 +25,7 @@ const CreatePaymentIntentSchema = z.object({
     postalCode: z.string().min(1),
     country: z.string().min(1),
   }),
+  discountCode: z.string().optional(),
 });
 
 export type ShippingAddressInput = z.infer<typeof CreatePaymentIntentSchema>["shippingAddress"];
@@ -37,7 +38,8 @@ export const createPaymentIntent = createServerFn({ method: "POST" })
     const { requireAuth } = await import("@/lib/auth/session");
     const { getStripe } = await import("@/lib/stripe");
     const { db } = await import("@/db");
-    const { shippingConfig } = await import("@/db/schema");
+    const { shippingConfig, discountCode } = await import("@/db/schema");
+    const { eq, and, or, isNull, gt, sql } = await import("drizzle-orm");
 
     const session = await requireAuth();
 
@@ -46,7 +48,42 @@ export const createPaymentIntent = createServerFn({ method: "POST" })
     const fee = config?.enabled
       ? subtotal >= (config.freeThreshold ?? 200) ? 0 : (config.fee ?? 12)
       : 0;
-    const total = subtotal + fee;
+
+    // Re-validate discount server-side (never trust client-computed amount)
+    let discountAmount = 0;
+    let validatedCode: string | null = null;
+    if (data.discountCode) {
+      const rows = await db()
+        .select()
+        .from(discountCode)
+        .where(
+          and(
+            eq(discountCode.code, data.discountCode.toUpperCase().trim()),
+            eq(discountCode.isActive, true),
+            or(isNull(discountCode.expiresAt), gt(discountCode.expiresAt, new Date())),
+          )
+        )
+        .limit(1);
+      const code = rows[0];
+      if (
+        code &&
+        (code.maxUses === null || code.usedCount < code.maxUses) &&
+        (code.minOrderAmount === null || subtotal >= code.minOrderAmount)
+      ) {
+        discountAmount =
+          code.type === "PERCENT"
+            ? Math.round(subtotal * (code.value / 100) * 100) / 100
+            : Math.min(code.value, subtotal);
+        validatedCode = code.code;
+        // Increment usage count
+        await db()
+          .update(discountCode)
+          .set({ usedCount: sql`used_count + 1` })
+          .where(eq(discountCode.code, code.code));
+      }
+    }
+
+    const total = Math.max(0, subtotal + fee - discountAmount);
 
     const intent = await getStripe().paymentIntents.create({
       amount: Math.round(total * 100),
@@ -65,6 +102,8 @@ export const createPaymentIntent = createServerFn({ method: "POST" })
         phone: data.shippingAddress.phone,
         subtotal: String(subtotal),
         shippingFee: String(fee),
+        discountCode: validatedCode ?? "",
+        discountAmount: String(discountAmount),
         items: JSON.stringify(data.items),
       },
     });

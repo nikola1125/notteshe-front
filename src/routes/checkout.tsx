@@ -1,13 +1,47 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useCallback } from "react";
-import { loadStripe } from "@stripe/stripe-js";
-import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { createServerFn } from "@tanstack/react-start";
-import { eq } from "drizzle-orm";
+import { and, eq, gt, isNull, or } from "drizzle-orm";
+import { z } from "zod";
 import { useCart } from "@/store/cartStore";
 import { useSession } from "@/lib/auth/client";
 import { useAuthStore } from "@/store/authStore";
-import { createPaymentIntent } from "@/lib/payment";
+import { placeOrder } from "@/lib/orders";
+
+// ─── Discount code validation ─────────────────────────────────────────────────
+
+const applyDiscountCode = createServerFn({ method: "POST" })
+  .validator((d: unknown) => z.object({ code: z.string(), subtotal: z.number() }).parse(d))
+  .handler(async ({ data }) => {
+    const { db } = await import("@/db");
+    const { discountCode } = await import("@/db/schema");
+
+    const rows = await db()
+      .select()
+      .from(discountCode)
+      .where(
+        and(
+          eq(discountCode.code, data.code.toUpperCase().trim()),
+          eq(discountCode.isActive, true),
+          or(isNull(discountCode.expiresAt), gt(discountCode.expiresAt, new Date())),
+        )
+      )
+      .limit(1);
+
+    const code = rows[0];
+    if (!code) return { valid: false as const, error: "Invalid or expired code" };
+    if (code.maxUses !== null && code.usedCount >= code.maxUses)
+      return { valid: false as const, error: "This code has reached its usage limit" };
+    if (code.minOrderAmount !== null && data.subtotal < code.minOrderAmount)
+      return { valid: false as const, error: `Minimum order of €${code.minOrderAmount} required` };
+
+    const discountAmount =
+      code.type === "PERCENT"
+        ? Math.round(data.subtotal * (code.value / 100) * 100) / 100
+        : Math.min(code.value, data.subtotal);
+
+    return { valid: true as const, code: code.code, type: code.type, value: code.value, discountAmount };
+  });
 
 const getShipping = createServerFn({ method: "GET" }).handler(async () => {
   const { db } = await import("@/db");
@@ -17,17 +51,31 @@ const getShipping = createServerFn({ method: "GET" }).handler(async () => {
   return { enabled: true, fee: 12, freeThreshold: 200 };
 });
 
+const getCartPrices = createServerFn({ method: "POST" })
+  .validator((d: unknown) => z.object({ productIds: z.array(z.string()) }).parse(d))
+  .handler(async ({ data }) => {
+    const { db } = await import("@/db");
+    const { product } = await import("@/db/schema");
+    const { inArray } = await import("drizzle-orm");
+
+    if (data.productIds.length === 0) return [];
+
+    const products = await db()
+      .select({ id: product.id, price: product.price, originalPrice: product.originalPrice, isSale: product.isSale })
+      .from(product)
+      .where(inArray(product.id, data.productIds));
+
+    return products.map((p) => ({
+      id: p.id,
+      price: p.price ?? 0,
+      originalPrice: p.isSale ? p.originalPrice : null,
+    }));
+  });
+
 export const Route = createFileRoute("/checkout")({
   loader: () => getShipping(),
   component: CheckoutPage,
 });
-
-// Stripe publishable key — safe to expose in client
-const stripePromise = loadStripe(
-  typeof window !== "undefined"
-    ? (import.meta.env["VITE_STRIPE_PUBLISHABLE_KEY"] as string) ?? ""
-    : ""
-);
 
 interface ShippingForm {
   email: string;
@@ -47,16 +95,48 @@ const EMPTY_FORM: ShippingForm = {
 };
 
 function CheckoutPage() {
-  const { items } = useCart();
+  const { items, addItem, removeItem, updateQuantity, clearCart } = useCart();
   const { data: session, isPending: sessionLoading } = useSession();
   const { openAuthModal } = useAuthStore();
   const shippingCfg = Route.useLoaderData();
+  const navigate = useNavigate();
 
   const [form, setForm] = useState<ShippingForm>(EMPTY_FORM);
   const [errors, setErrors] = useState<Partial<ShippingForm>>({});
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [intentLoading, setIntentLoading] = useState(false);
-  const [intentError, setIntentError] = useState<string | null>(null);
+  const [placing, setPlacing] = useState(false);
+  const [placeError, setPlaceError] = useState<string | null>(null);
+
+  const [couponInput, setCouponInput] = useState("");
+  const [couponApplying, setCouponApplying] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [appliedDiscount, setAppliedDiscount] = useState<{
+    code: string; type: string; value: number; discountAmount: number;
+  } | null>(null);
+  const [priceWarning, setPriceWarning] = useState(false);
+
+  // Refresh cart prices from DB on mount — prevents stale localStorage prices
+  useEffect(() => {
+    if (items.length === 0) return;
+    const ids = [...new Set(items.map((i) => i.productId))];
+    getCartPrices({ data: { productIds: ids } }).then((fresh) => {
+      let changed = false;
+      for (const item of items) {
+        const live = fresh.find((p) => p.id === item.productId);
+        if (!live) continue;
+        if (live.price !== item.price || live.originalPrice !== item.originalPrice) {
+          changed = true;
+          removeItem(item.id);
+          addItem({ productId: item.productId, name: item.name, price: live.price, originalPrice: live.originalPrice, image: item.image, size: item.size, colour: item.colour, stock: item.stock });
+          if (item.quantity > 1) {
+            const newId = `${item.productId}-${item.size}-${item.colour}`;
+            updateQuantity(newId, item.quantity - 1);
+          }
+        }
+      }
+      if (changed) setPriceWarning(true);
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Autofill from session
   useEffect(() => {
@@ -77,7 +157,28 @@ function CheckoutPage() {
   const shipping = !shippingCfg.enabled ? 0
     : subtotal >= shippingCfg.freeThreshold ? 0
     : shippingCfg.fee;
-  const total = subtotal + shipping;
+  const discount = appliedDiscount?.discountAmount ?? 0;
+  const total = Math.max(0, subtotal + shipping - discount);
+
+  async function handleApplyCoupon() {
+    const code = couponInput.trim();
+    if (!code) return;
+    setCouponApplying(true);
+    setCouponError(null);
+    try {
+      const result = await applyDiscountCode({ data: { code, subtotal } });
+      if (result.valid) {
+        setAppliedDiscount(result);
+        setCouponInput("");
+      } else {
+        setCouponError(result.error);
+      }
+    } catch {
+      setCouponError("Something went wrong. Try again.");
+    } finally {
+      setCouponApplying(false);
+    }
+  }
 
   function set(field: keyof ShippingForm, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -99,13 +200,23 @@ function CheckoutPage() {
     return Object.keys(next).length === 0;
   }
 
-  const handleProceedToPayment = useCallback(async () => {
+  const handlePlaceOrder = useCallback(async () => {
     if (!validateShipping()) return;
-    setIntentLoading(true);
-    setIntentError(null);
+    setPlacing(true);
+    setPlaceError(null);
     try {
-      const { clientSecret: secret } = await createPaymentIntent({
+      await placeOrder({
         data: {
+          email: form.email,
+          phone: form.phone,
+          firstName: form.firstName,
+          lastName: form.lastName,
+          address: form.address,
+          address2: form.address2 || undefined,
+          city: form.city,
+          postalCode: form.postalCode,
+          country: form.country,
+          discountCode: appliedDiscount?.code,
           items: items.map((i) => ({
             productId: i.productId,
             name: i.name,
@@ -116,34 +227,24 @@ function CheckoutPage() {
             colour: i.colour,
             quantity: i.quantity,
           })),
-          shippingAddress: {
-            email: form.email,
-            phone: form.phone,
-            firstName: form.firstName,
-            lastName: form.lastName,
-            address: form.address,
-            address2: form.address2 || undefined,
-            city: form.city,
-            postalCode: form.postalCode,
-            country: form.country,
-          },
         },
       });
-      setClientSecret(secret);
-    } catch {
-      setIntentError("Something went wrong. Please try again.");
+      clearCart();
+      void navigate({ to: "/order-confirmed" });
+    } catch (err) {
+      const msg =
+        (err as { data?: { message?: string } })?.data?.message ??
+        (err instanceof Error ? err.message : null);
+      setPlaceError(msg ?? "Could not place your order. Please try again.");
     } finally {
-      setIntentLoading(false);
+      setPlacing(false);
     }
-  }, [form, items]);
+  }, [form, items, appliedDiscount]);
 
   if (sessionLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <svg className="animate-spin text-muted-foreground" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-          <path d="M12 2a10 10 0 0 1 10 10" />
-        </svg>
+        <Spinner />
       </div>
     );
   }
@@ -159,7 +260,7 @@ function CheckoutPage() {
         >
           Sign in / Create account
         </button>
-        <Link to="/shop" className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition hover:text-ink">
+        <Link to="/shop" search={{ sale: undefined }} className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition hover:text-ink">
           ← Back to shop
         </Link>
       </div>
@@ -170,7 +271,7 @@ function CheckoutPage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-5 text-center">
         <p className="serif text-3xl text-ink">Your bag is empty.</p>
-        <Link to="/shop" className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition hover:text-ink">
+        <Link to="/shop" search={{ sale: undefined }} className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition hover:text-ink">
           ← Back to shop
         </Link>
       </div>
@@ -180,6 +281,14 @@ function CheckoutPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-[1600px] px-5 pb-24 pt-24 md:px-12 md:pt-32">
+
+        {priceWarning && (
+          <div className="mb-6 border border-clay/30 bg-clay/5 px-5 py-3">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-clay">
+              Some prices were updated to reflect current offers.
+            </p>
+          </div>
+        )}
 
         <div className="mb-10 md:mb-14">
           <button
@@ -229,6 +338,7 @@ function CheckoutPage() {
                   </li>
                 ))}
               </ul>
+
               <div className="mt-6 space-y-3 border-t border-border pt-6">
                 <div className="flex justify-between font-mono text-[11px] text-ink/60">
                   <span>Subtotal</span><span>€{subtotal.toFixed(0)}</span>
@@ -236,16 +346,67 @@ function CheckoutPage() {
                 <div className="flex justify-between font-mono text-[11px] text-ink/60">
                   <span>Shipping</span><span>{shipping === 0 ? "Free" : `€${shipping}`}</span>
                 </div>
+                {appliedDiscount && (
+                  <div className="flex items-center justify-between font-mono text-[11px] text-green-400">
+                    <span className="flex items-center gap-2">
+                      Discount
+                      <button
+                        onClick={() => setAppliedDiscount(null)}
+                        className="font-mono text-[9px] text-muted-foreground/50 hover:text-clay transition-colors"
+                        title="Remove"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                    <span>−€{discount.toFixed(0)}</span>
+                  </div>
+                )}
                 {shippingCfg.enabled && shipping > 0 && (
                   <p className="font-mono text-[9px] text-muted-foreground/40">Free shipping on orders over €{shippingCfg.freeThreshold}</p>
                 )}
               </div>
+
+              {/* Coupon input */}
+              {!appliedDiscount ? (
+                <div className="mt-5 border-t border-border pt-5">
+                  <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Discount code</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={couponInput}
+                      onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError(null); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleApplyCoupon(); }}
+                      placeholder="ENTER CODE"
+                      className="flex-1 border-b border-border bg-transparent pb-2 font-mono text-xs uppercase tracking-widest text-ink outline-none placeholder:text-muted-foreground/30 focus:border-ink/60"
+                    />
+                    <button
+                      onClick={handleApplyCoupon}
+                      disabled={couponApplying || !couponInput.trim()}
+                      className="font-mono text-[10px] uppercase tracking-widest text-ink/70 transition-colors hover:text-ink disabled:opacity-40"
+                    >
+                      {couponApplying ? "…" : "Apply"}
+                    </button>
+                  </div>
+                  {couponError && (
+                    <p className="mt-1.5 font-mono text-[9px] uppercase tracking-widest text-clay">{couponError}</p>
+                  )}
+                </div>
+              ) : (
+                <div className="mt-5 border-t border-border pt-5">
+                  <p className="font-mono text-[9px] uppercase tracking-widest text-green-400">
+                    Code <span className="font-bold">{appliedDiscount.code}</span> applied —{" "}
+                    {appliedDiscount.type === "PERCENT" ? `${appliedDiscount.value}% off` : `€${appliedDiscount.value} off`}
+                  </p>
+                </div>
+              )}
+
               <div className="mt-5 flex items-baseline justify-between border-t border-border pt-5">
                 <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Total</p>
                 <p className="serif text-2xl text-ink">€{total.toFixed(0)}</p>
               </div>
             </div>
-            <Link to="/shop" className="mt-4 hidden items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60 transition hover:text-ink lg:flex">
+
+            <Link to="/shop" search={{ sale: undefined }} className="mt-4 hidden items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60 transition hover:text-ink lg:flex">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1"><path d="M8 1 3 6l5 5" /></svg>
               Continue shopping
             </Link>
@@ -253,78 +414,51 @@ function CheckoutPage() {
 
           {/* Form */}
           <div className="space-y-10 lg:order-first">
-            {!clientSecret ? (
-              <>
-                {/* Contact */}
-                <fieldset>
-                  <legend className="mb-6 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Contact</legend>
-                  <div className="space-y-5">
-                    <Field label="Email address" value={form.email} onChange={(v) => set("email", v)} error={errors.email} type="email" placeholder="you@somewhere.com" />
-                    <Field label="Phone number" value={form.phone} onChange={(v) => set("phone", v)} error={errors.phone} type="tel" placeholder="+355 69 123 4567" inputMode="tel" />
-                  </div>
-                </fieldset>
+            {/* Contact */}
+            <fieldset>
+              <legend className="mb-6 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Contact</legend>
+              <div className="space-y-5">
+                <Field label="Email address" value={form.email} onChange={(v) => set("email", v)} error={errors.email} type="email" placeholder="you@somewhere.com" />
+                <Field label="Phone number" value={form.phone} onChange={(v) => set("phone", v)} error={errors.phone} type="tel" placeholder="+355 69 123 4567" inputMode="tel" />
+              </div>
+            </fieldset>
 
-                {/* Shipping */}
-                <fieldset>
-                  <legend className="mb-6 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Shipping address</legend>
-                  <div className="space-y-5">
-                    <div className="grid grid-cols-2 gap-4">
-                      <Field label="First name" value={form.firstName} onChange={(v) => set("firstName", v)} error={errors.firstName} />
-                      <Field label="Last name" value={form.lastName} onChange={(v) => set("lastName", v)} error={errors.lastName} />
-                    </div>
-                    <Field label="Address" value={form.address} onChange={(v) => set("address", v)} error={errors.address} placeholder="Street and number" />
-                    <Field label="Apartment, suite, etc. (optional)" value={form.address2} onChange={(v) => set("address2", v)} />
-                    <div className="grid grid-cols-2 gap-4">
-                      <Field label="City" value={form.city} onChange={(v) => set("city", v)} error={errors.city} />
-                      <Field label="Postal code" value={form.postalCode} onChange={(v) => set("postalCode", v)} error={errors.postalCode} />
-                    </div>
-                    <Field label="Country" value={form.country} onChange={(v) => set("country", v)} error={errors.country} placeholder="e.g. Italy" />
-                  </div>
-                </fieldset>
+            {/* Shipping */}
+            <fieldset>
+              <legend className="mb-6 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Shipping address</legend>
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="First name" value={form.firstName} onChange={(v) => set("firstName", v)} error={errors.firstName} />
+                  <Field label="Last name" value={form.lastName} onChange={(v) => set("lastName", v)} error={errors.lastName} />
+                </div>
+                <Field label="Address" value={form.address} onChange={(v) => set("address", v)} error={errors.address} placeholder="Street and number" />
+                <Field label="Apartment, suite, etc. (optional)" value={form.address2} onChange={(v) => set("address2", v)} />
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="City" value={form.city} onChange={(v) => set("city", v)} error={errors.city} />
+                  <Field label="Postal code" value={form.postalCode} onChange={(v) => set("postalCode", v)} error={errors.postalCode} />
+                </div>
+                <Field label="Country" value={form.country} onChange={(v) => set("country", v)} error={errors.country} placeholder="e.g. Albania" />
+              </div>
+            </fieldset>
 
-                {intentError && (
-                  <p className="font-mono text-[11px] text-clay">{intentError}</p>
-                )}
-
-                <button
-                  onClick={handleProceedToPayment}
-                  disabled={intentLoading}
-                  className="w-full bg-ink py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-colors hover:bg-ink/90 disabled:opacity-50"
-                >
-                  {intentLoading ? (
-                    <span className="flex items-center justify-center gap-3">
-                      <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-                        <path d="M12 2a10 10 0 0 1 10 10" />
-                      </svg>
-                      Preparing payment…
-                    </span>
-                  ) : (
-                    `Continue to payment — €${total.toFixed(0)}`
-                  )}
-                </button>
-              </>
-            ) : (
-              <Elements
-                stripe={stripePromise}
-                options={{
-                  clientSecret,
-                  appearance: {
-                    theme: "stripe",
-                    variables: {
-                      colorPrimary: "#111111",
-                      colorBackground: "#FAFAFA",
-                      colorText: "#111111",
-                      colorDanger: "#DC2626",
-                      fontFamily: "Montserrat, sans-serif",
-                      borderRadius: "0px",
-                    },
-                  },
-                }}
-              >
-                <PaymentStep total={total} onBack={() => setClientSecret(null)} />
-              </Elements>
+            {placeError && (
+              <p className="font-mono text-[11px] text-clay">{placeError}</p>
             )}
+
+            <button
+              onClick={handlePlaceOrder}
+              disabled={placing}
+              className="w-full bg-ink py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-colors hover:bg-ink/90 disabled:opacity-50"
+            >
+              {placing ? (
+                <span className="flex items-center justify-center gap-3">
+                  <Spinner />
+                  Placing order…
+                </span>
+              ) : (
+                `Place order — €${total.toFixed(0)}`
+              )}
+            </button>
 
             <p className="text-center font-mono text-[9px] uppercase tracking-widest text-muted-foreground/40">
               By placing your order you agree to our{" "}
@@ -338,80 +472,12 @@ function CheckoutPage() {
   );
 }
 
-function PaymentStep({ total, onBack }: { total: number; onBack: () => void }) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const { clearCart } = useCart();
-  const navigate = useNavigate();
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handlePay(e: React.FormEvent) {
-    e.preventDefault();
-    if (!stripe || !elements) return;
-    setSubmitting(true);
-    setError(null);
-
-    const { error: stripeError } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: `${window.location.origin}/order-confirmed`,
-      },
-    });
-
-    if (stripeError) {
-      setError(stripeError.message ?? "Payment failed. Please try again.");
-      setSubmitting(false);
-    } else {
-      clearCart();
-      void navigate({ to: "/order-confirmed" });
-    }
-  }
-
+function Spinner() {
   return (
-    <form onSubmit={handlePay} className="space-y-8">
-      <div>
-        <div className="mb-6 flex items-center justify-between">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Payment</p>
-          <button
-            type="button"
-            onClick={onBack}
-            className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60 transition hover:text-ink"
-          >
-            ← Edit details
-          </button>
-        </div>
-        <PaymentElement />
-      </div>
-
-      {error && <p className="font-mono text-[11px] text-clay">{error}</p>}
-
-      <button
-        type="submit"
-        disabled={!stripe || submitting}
-        className="w-full bg-ink py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-colors hover:bg-ink/90 disabled:opacity-50"
-      >
-        {submitting ? (
-          <span className="flex items-center justify-center gap-3">
-            <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-              <path d="M12 2a10 10 0 0 1 10 10" />
-            </svg>
-            Processing…
-          </span>
-        ) : (
-          `Pay €${total.toFixed(0)}`
-        )}
-      </button>
-
-      <p className="flex items-center justify-center gap-2 font-mono text-[9px] uppercase tracking-widest text-muted-foreground/50">
-        <svg width="10" height="12" viewBox="0 0 10 12" fill="none" stroke="currentColor" strokeWidth="1">
-          <rect x="1" y="5" width="8" height="6" rx="0.5" />
-          <path d="M3 5V3.5a2 2 0 0 1 4 0V5" />
-        </svg>
-        Secured by Stripe · SSL encrypted
-      </p>
-    </form>
+    <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+      <path d="M12 2a10 10 0 0 1 10 10" />
+    </svg>
   );
 }
 

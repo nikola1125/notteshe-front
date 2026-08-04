@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 import { useCart } from "@/store/cartStore";
 
 interface FlyState {
@@ -12,13 +14,63 @@ interface FlyState {
   phase: "start" | "fly";
 }
 
+// Fetch live stock for a list of (productId, sizeLabel) pairs
+const getLiveStock = createServerFn({ method: "POST" })
+  .validator((d: unknown) =>
+    z.object({ items: z.array(z.object({ productId: z.string(), size: z.string() })) }).parse(d)
+  )
+  .handler(async ({ data }) => {
+    if (data.items.length === 0) return [];
+    const { db } = await import("@/db");
+    const { productSize } = await import("@/db/schema");
+    const { inArray, and, eq, or } = await import("drizzle-orm");
+
+    const productIds = [...new Set(data.items.map((i) => i.productId))];
+    const rows = await db()
+      .select({ productId: productSize.productId, label: productSize.label, stock: productSize.stock })
+      .from(productSize)
+      .where(inArray(productSize.productId, productIds));
+
+    return rows.map((r) => ({ productId: r.productId, size: r.label, stock: r.stock }));
+  });
+
 export function CartDrawer() {
-  const { items, isOpen, closeCart, removeItem, updateQuantity, pendingFly, setPendingFly, flyNow } = useCart();
+  const { items, isOpen, closeCart, removeItem, updateQuantity, setPendingFly, flyNow } = useCart();
   const navigate = useNavigate();
   const [fly, setFly] = useState<FlyState | null>(null);
+  // stockMap key: `${productId}::${sizeLabel}` → live stock from DB
+  const [stockMap, setStockMap] = useState<Map<string, number>>(new Map());
+  const lastFetchRef = useRef<string>("");
 
   const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const count = items.reduce((sum, i) => sum + i.quantity, 0);
+
+  // Fetch live stock whenever cart opens (or items change while open)
+  useEffect(() => {
+    if (!isOpen || items.length === 0) return;
+    const key = items.map((i) => `${i.productId}:${i.size}:${i.quantity}`).join(",");
+    if (key === lastFetchRef.current) return;
+    lastFetchRef.current = key;
+
+    getLiveStock({ data: { items: items.map((i) => ({ productId: i.productId, size: i.size })) } })
+      .then((rows) => {
+        const map = new Map<string, number>();
+        for (const r of rows) map.set(`${r.productId}::${r.size}`, r.stock);
+        setStockMap(map);
+
+        // Auto-trim quantities that exceed live stock
+        for (const item of items) {
+          const liveStock = map.get(`${item.productId}::${item.size}`) ?? 0;
+          if (liveStock > 0 && item.quantity > liveStock) {
+            // Reduce to max allowed
+            updateQuantity(item.id, liveStock - item.quantity);
+          } else if (liveStock === 0) {
+            removeItem(item.id);
+          }
+        }
+      })
+      .catch(() => {});
+  }, [isOpen, items]);
 
   useEffect(() => {
     document.body.style.overflow = isOpen ? "hidden" : "";
@@ -30,13 +82,16 @@ export function CartDrawer() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, pendingFly]);
+  }, [isOpen]);
+
+  const { pendingFly } = useCart.getState();
 
   // Immediate fly — cart stays closed, item animates straight to bag icon
   useEffect(() => {
-    if (!flyNow || !pendingFly) return;
+    if (!flyNow) return;
+    const pf = useCart.getState().pendingFly;
+    if (!pf) return;
 
-    const pf = pendingFly;
     setPendingFly(null);
     useCart.setState({ flyNow: false });
 
@@ -60,7 +115,7 @@ export function CartDrawer() {
   }, [flyNow]);
 
   function handleClose() {
-    const pf = pendingFly;
+    const pf = useCart.getState().pendingFly;
     closeCart();
     setPendingFly(null);
 
@@ -89,7 +144,7 @@ export function CartDrawer() {
 
   return (
     <>
-      {/* Fly-to-cart overlay — outside drawer so transform doesn't clip it */}
+      {/* Fly-to-cart overlay */}
       {fly && (
         <div
           className="pointer-events-none fixed z-[200] overflow-hidden rounded-sm"
@@ -157,73 +212,79 @@ export function CartDrawer() {
             </div>
           ) : (
             <ul className="divide-y divide-border">
-              {items.map((item) => (
-                <li key={item.id} className="flex gap-4 px-6 py-5">
-                  {/* Image */}
-                  <div className="aspect-[3/4] w-20 shrink-0 overflow-hidden bg-muted">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex flex-1 flex-col justify-between">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="serif text-[15px] text-ink">{item.name}</p>
-                        <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
-                          {item.size} · {item.colour}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => removeItem(item.id)}
-                        className="mt-0.5 text-muted-foreground/40 hover:text-ink transition-colors"
-                        aria-label="Remove item"
-                      >
-                        <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.1">
-                          <line x1="1" y1="1" x2="10" y2="10" />
-                          <line x1="10" y1="1" x2="1" y2="10" />
-                        </svg>
-                      </button>
+              {items.map((item) => {
+                const liveStock = stockMap.get(`${item.productId}::${item.size}`);
+                const atMax = liveStock !== undefined && item.quantity >= liveStock;
+                return (
+                  <li key={item.id} className="flex gap-4 px-6 py-5">
+                    {/* Image */}
+                    <div className="aspect-[3/4] w-20 shrink-0 overflow-hidden bg-muted">
+                      <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
                     </div>
 
-                    <div className="mt-3 flex items-center justify-between">
-                      {/* Quantity */}
-                      <div className="flex items-center border border-border">
-                        <button
-                          onClick={() => updateQuantity(item.id, -1)}
-                          className="flex h-11 w-11 items-center justify-center text-ink/60 hover:text-ink transition-colors"
-                        >
-                          −
-                        </button>
-                        <span className="font-mono text-[12px] text-ink w-5 text-center">
-                          {item.quantity}
-                        </span>
-                        <button
-                          onClick={() => updateQuantity(item.id, 1)}
-                          className="flex h-11 w-11 items-center justify-center text-ink/60 hover:text-ink transition-colors"
-                        >
-                          +
-                        </button>
-                      </div>
-
-                      {/* Price */}
-                      <div className="text-right">
-                        {item.originalPrice && (
-                          <p className="font-mono text-[10px] text-muted-foreground line-through">
-                            €{item.originalPrice}
+                    {/* Info */}
+                    <div className="flex flex-1 flex-col justify-between">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="serif text-[15px] text-ink">{item.name}</p>
+                          <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
+                            {item.size} · {item.colour}
                           </p>
-                        )}
-                        <p className={`font-mono text-[13px] ${item.originalPrice ? "text-clay" : "text-ink"}`}>
-                          €{(item.price * item.quantity).toFixed(0)}
-                        </p>
+                          {liveStock !== undefined && liveStock <= 3 && (
+                            <p className="mt-1 font-mono text-[9px] uppercase tracking-widest text-clay">
+                              {liveStock === 0 ? "Out of stock" : `Only ${liveStock} left`}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => removeItem(item.id)}
+                          className="mt-0.5 text-muted-foreground/40 hover:text-ink transition-colors"
+                          aria-label="Remove item"
+                        >
+                          <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.1">
+                            <line x1="1" y1="1" x2="10" y2="10" />
+                            <line x1="10" y1="1" x2="1" y2="10" />
+                          </svg>
+                        </button>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between">
+                        {/* Quantity */}
+                        <div className="flex items-center border border-border">
+                          <button
+                            onClick={() => updateQuantity(item.id, -1)}
+                            className="flex h-11 w-11 items-center justify-center text-ink/60 hover:text-ink transition-colors"
+                          >
+                            −
+                          </button>
+                          <span className="font-mono text-[12px] text-ink w-5 text-center">
+                            {item.quantity}
+                          </span>
+                          <button
+                            onClick={() => updateQuantity(item.id, 1)}
+                            disabled={atMax}
+                            className="flex h-11 w-11 items-center justify-center text-ink/60 hover:text-ink transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        {/* Price */}
+                        <div className="text-right">
+                          {item.originalPrice && (
+                            <p className="font-mono text-[10px] text-muted-foreground line-through">
+                              €{item.originalPrice}
+                            </p>
+                          )}
+                          <p className={`font-mono text-[13px] ${item.originalPrice ? "text-clay" : "text-ink"}`}>
+                            €{(item.price * item.quantity).toFixed(0)}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

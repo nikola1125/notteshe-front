@@ -3,6 +3,7 @@ import { z } from "zod";
 
 const PlaceOrderSchema = z.object({
   email: z.string().email(),
+  phone: z.string(),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   address: z.string().min(1),
@@ -10,6 +11,7 @@ const PlaceOrderSchema = z.object({
   city: z.string().min(1),
   postalCode: z.string().min(1),
   country: z.string().min(1),
+  discountCode: z.string().optional(),
   items: z.array(z.object({
     productId: z.string(),
     name: z.string(),
@@ -27,21 +29,66 @@ export const placeOrder = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { requireAuth } = await import("@/lib/auth/session");
     const { db } = await import("@/db");
-    const { orders, orderItem, shippingConfig } = await import("@/db/schema");
+    const { orders, orderItem, shippingConfig, discountCode, productSize } = await import("@/db/schema");
+    const { eq, and, or, isNull, gt, sql, inArray } = await import("drizzle-orm");
     const { randomUUID } = await import("node:crypto");
 
     const session = await requireAuth();
 
-    // Load shipping config
+    // Stock check — prevent overselling
+    const productIds = [...new Set(data.items.map((i) => i.productId))];
+    const sizeRows = await db()
+      .select({ productId: productSize.productId, label: productSize.label, stock: productSize.stock })
+      .from(productSize)
+      .where(inArray(productSize.productId, productIds));
+
+    for (const item of data.items) {
+      const row = sizeRows.find((s) => s.productId === item.productId && s.label === item.size);
+      if (!row || row.stock < item.quantity) {
+        throw new Error(`"${item.name}" size ${item.size} has insufficient stock.`);
+      }
+    }
+
     const [config] = await db().select().from(shippingConfig).limit(1);
+    const subtotal = data.items.reduce((s, i) => s + i.price * i.quantity, 0);
     const fee = config?.enabled
-      ? (data.items.reduce((s, i) => s + i.price * i.quantity, 0) >= (config.freeThreshold ?? 200)
-        ? 0
-        : (config.fee ?? 12))
+      ? (subtotal >= (config.freeThreshold ?? 200) ? 0 : (config.fee ?? 12))
       : 0;
 
-    const subtotal = data.items.reduce((s, i) => s + i.price * i.quantity, 0);
-    const total = subtotal + fee;
+    // Re-validate discount server-side
+    let discountAmount = 0;
+    let validatedCode: string | null = null;
+    if (data.discountCode) {
+      const rows = await db()
+        .select()
+        .from(discountCode)
+        .where(
+          and(
+            eq(discountCode.code, data.discountCode.toUpperCase().trim()),
+            eq(discountCode.isActive, true),
+            or(isNull(discountCode.expiresAt), gt(discountCode.expiresAt, new Date())),
+          )
+        )
+        .limit(1);
+      const code = rows[0];
+      if (
+        code &&
+        (code.maxUses === null || code.usedCount < code.maxUses) &&
+        (code.minOrderAmount === null || subtotal >= code.minOrderAmount)
+      ) {
+        discountAmount =
+          code.type === "PERCENT"
+            ? Math.round(subtotal * (code.value / 100) * 100) / 100
+            : Math.min(code.value, subtotal);
+        validatedCode = code.code;
+        await db()
+          .update(discountCode)
+          .set({ usedCount: sql`used_count + 1` })
+          .where(eq(discountCode.code, code.code));
+      }
+    }
+
+    const total = Math.max(0, subtotal + fee - discountAmount);
 
     const orderId = randomUUID();
     const shippingAddress = {
@@ -52,6 +99,7 @@ export const placeOrder = createServerFn({ method: "POST" })
       city: data.city,
       postalCode: data.postalCode,
       country: data.country,
+      phone: data.phone,
       email: data.email,
     };
 
@@ -83,5 +131,5 @@ export const placeOrder = createServerFn({ method: "POST" })
 
     await db().insert(orderItem).values(itemRows);
 
-    return { orderId };
+    return { orderId, discountCode: validatedCode };
   });

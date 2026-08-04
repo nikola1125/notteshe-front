@@ -29,7 +29,7 @@ interface ProductDetail {
   category: string | null;
   collection: string | null;
   images: string[];
-  sizes: Array<{ label: string; available: boolean }>;
+  sizes: Array<{ label: string; available: boolean; stock: number }>;
   colours: Array<{ name: string; hex: string }>;
 }
 
@@ -71,7 +71,7 @@ const getProduct = createServerFn({ method: "GET" })
         .where(eq(productImage.productId, p.id))
         .orderBy(productImage.order),
       database
-        .select({ label: productSize.label, available: productSize.available })
+        .select({ label: productSize.label, available: productSize.available, stock: productSize.stock })
         .from(productSize)
         .where(eq(productSize.productId, p.id)),
       database
@@ -191,6 +191,7 @@ function ProductPage() {
   const [selectedColour, setSelectedColour] = useState(product.colours[0]?.name ?? "");
   const [sizeError, setSizeError] = useState(false);
   const [added, setAdded] = useState(false);
+  const [stockError, setStockError] = useState<string | null>(null);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const galleryRef = useRef<HTMLDivElement>(null);
@@ -208,6 +209,16 @@ function ProductPage() {
   function handleAddToBag() {
     if (!selectedSize) { setSizeError(true); return; }
     setSizeError(false);
+    setStockError(null);
+
+    const sizeData = product.sizes.find((s) => s.label === selectedSize);
+    const stock = sizeData?.stock ?? 0;
+    const cartKey = `${product.id}-${selectedSize}-${selectedColour}`;
+    const inCart = cartItems.find((i) => i.id === cartKey)?.quantity ?? 0;
+    if (inCart >= stock) {
+      setStockError(stock === 0 ? "Out of stock" : `Only ${stock} in stock`);
+      return;
+    }
 
     const cartWasEmpty = cartItems.length === 0;
     addItem({
@@ -218,6 +229,7 @@ function ProductPage() {
       image: product.images[0] ?? "",
       size: selectedSize,
       colour: selectedColour,
+      stock,
     });
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
@@ -379,22 +391,28 @@ function ProductPage() {
                 </button>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                {product.sizes.map((size) => (
-                  <button
-                    key={size.label}
-                    disabled={!size.available}
-                    onClick={() => { setSelectedSize(size.label); setSizeError(false); }}
-                    className={`min-w-[48px] border px-3 py-2.5 font-mono text-[11px] uppercase tracking-widest transition-all duration-150 ${
-                      !size.available
-                        ? "cursor-not-allowed border-border/40 text-muted-foreground/30 line-through"
-                        : selectedSize === size.label
-                        ? "border-ink bg-ink text-background"
-                        : "border-border text-ink/70 hover:border-ink hover:text-ink"
-                    }`}
-                  >
-                    {size.label}
-                  </button>
-                ))}
+                {product.sizes.map((size) => {
+                  const outOfStock = !size.available || size.stock === 0;
+                  const low = !outOfStock && size.stock <= 3;
+                  return (
+                    <div key={size.label} className="flex flex-col items-center gap-1">
+                      <button
+                        disabled={outOfStock}
+                        onClick={() => { setSelectedSize(size.label); setSizeError(false); setStockError(null); }}
+                        className={`min-w-[48px] border px-3 py-2.5 font-mono text-[11px] uppercase tracking-widest transition-all duration-150 ${
+                          outOfStock
+                            ? "cursor-not-allowed border-border/40 text-muted-foreground/30 line-through"
+                            : selectedSize === size.label
+                            ? "border-ink bg-ink text-background"
+                            : "border-border text-ink/70 hover:border-ink hover:text-ink"
+                        }`}
+                      >
+                        {size.label}
+                      </button>
+                      {low && <span className="font-mono text-[8px] uppercase tracking-widest text-clay">{size.stock} left</span>}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -406,6 +424,9 @@ function ProductPage() {
           >
             {added ? "Added to bag ✓" : "Add to bag"}
           </button>
+          {stockError && (
+            <p className="mt-2 font-mono text-[10px] uppercase tracking-widest text-clay">{stockError}</p>
+          )}
 
           <div className="my-8 h-px bg-border" />
 

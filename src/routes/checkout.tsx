@@ -1,7 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useCallback } from "react";
 import { createServerFn } from "@tanstack/react-start";
-import { and, eq, gt, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import { useCart } from "@/store/cartStore";
 import { useSession } from "@/lib/auth/client";
@@ -15,6 +14,7 @@ const applyDiscountCode = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { db } = await import("@/db");
     const { discountCode } = await import("@/db/schema");
+    const { and, eq, gt, isNull, or } = await import("drizzle-orm");
 
     const rows = await db()
       .select()
@@ -46,6 +46,7 @@ const applyDiscountCode = createServerFn({ method: "POST" })
 const getShipping = createServerFn({ method: "GET" }).handler(async () => {
   const { db } = await import("@/db");
   const { shippingConfig } = await import("@/db/schema");
+  const { eq } = await import("drizzle-orm");
   const rows = await db().select().from(shippingConfig).where(eq(shippingConfig.id, "default")).limit(1);
   if (rows[0]) return { enabled: rows[0].enabled, fee: rows[0].fee, freeThreshold: rows[0].freeThreshold };
   return { enabled: true, fee: 12, freeThreshold: 200 };
@@ -57,6 +58,7 @@ const getCartPrices = createServerFn({ method: "POST" })
     const { db } = await import("@/db");
     const { product } = await import("@/db/schema");
     const { inArray } = await import("drizzle-orm");
+
 
     if (data.productIds.length === 0) return [];
 

@@ -105,20 +105,13 @@ function Index() {
   const router = useRouter();
   const [introDone, setIntroDone] = useState(() => _introShown);
 
-  // Refetch when the tab becomes visible (switching from admin) or every 60s
+  // Refetch when the tab becomes visible (e.g. switching back from admin)
   useEffect(() => {
-    function refresh() {
-      router.invalidate();
-    }
     function onVisibility() {
-      if (document.visibilityState === "visible") refresh();
+      if (document.visibilityState === "visible") router.invalidate();
     }
     document.addEventListener("visibilitychange", onVisibility);
-    const interval = setInterval(refresh, 60_000);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisibility);
-      clearInterval(interval);
-    };
+    return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [router]);
 
   useEffect(() => {

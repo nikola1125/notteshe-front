@@ -311,20 +311,6 @@ export function ProductForm({
         {isSale ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="pf-orig" className={labelClass}>Original Price (€) *</label>
-              <input
-                id="pf-orig"
-                type="number"
-                step="0.01"
-                min="0"
-                required
-                value={originalPrice}
-                onChange={(e) => setOriginalPrice(e.target.value)}
-                className={inputClass}
-                placeholder="e.g. 200"
-              />
-            </div>
-            <div>
               <label htmlFor="pf-price" className={labelClass}>Sale Price (€) *</label>
               <input
                 id="pf-price"
@@ -336,6 +322,20 @@ export function ProductForm({
                 onChange={(e) => setPrice(e.target.value)}
                 className={inputClass}
                 placeholder="e.g. 150"
+              />
+            </div>
+            <div>
+              <label htmlFor="pf-orig" className={labelClass}>Original Price (€) — shown crossed out</label>
+              <input
+                id="pf-orig"
+                type="number"
+                step="0.01"
+                min="0"
+                required
+                value={originalPrice}
+                onChange={(e) => setOriginalPrice(e.target.value)}
+                className={inputClass}
+                placeholder="e.g. 200"
               />
             </div>
           </div>

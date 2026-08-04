@@ -98,6 +98,7 @@ export function ProductForm({
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const coverImage = images.find((img) => img.isCover) ?? null;
   const galleryImages = images.filter((img) => !img.isCover);
@@ -178,6 +179,7 @@ export function ProductForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    setSaved(false);
     try {
       await onSave({
         name,
@@ -197,6 +199,9 @@ export function ProductForm({
         colours,
         images,
       });
+      toast.success("Changes saved");
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
     } finally {
       setSaving(false);
     }
@@ -303,7 +308,38 @@ export function ProductForm({
         <p className="mb-4 font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
           Pricing
         </p>
-        <div className="grid gap-4 sm:grid-cols-2">
+        {isSale ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="pf-orig" className={labelClass}>Original Price (€) *</label>
+              <input
+                id="pf-orig"
+                type="number"
+                step="0.01"
+                min="0"
+                required
+                value={originalPrice}
+                onChange={(e) => setOriginalPrice(e.target.value)}
+                className={inputClass}
+                placeholder="e.g. 200"
+              />
+            </div>
+            <div>
+              <label htmlFor="pf-price" className={labelClass}>Sale Price (€) *</label>
+              <input
+                id="pf-price"
+                type="number"
+                step="0.01"
+                min="0"
+                required
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                className={inputClass}
+                placeholder="e.g. 150"
+              />
+            </div>
+          </div>
+        ) : (
           <div>
             <label htmlFor="pf-price" className={labelClass}>Price (€) *</label>
             <input
@@ -317,22 +353,7 @@ export function ProductForm({
               className={inputClass}
             />
           </div>
-          <div>
-            <label htmlFor="pf-orig" className={labelClass}>
-              Original Price (€) — sets Sale
-            </label>
-            <input
-              id="pf-orig"
-              type="number"
-              step="0.01"
-              min="0"
-              value={originalPrice}
-              onChange={(e) => setOriginalPrice(e.target.value)}
-              className={inputClass}
-              placeholder="Leave blank if no sale"
-            />
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Toggles */}
@@ -599,9 +620,11 @@ export function ProductForm({
         <button
           type="submit"
           disabled={saving || uploadingCover || uploadingGallery}
-          className="rounded bg-[var(--color-clay)] px-6 py-2.5 font-mono text-xs uppercase tracking-widest text-white transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+          className={`rounded px-6 py-2.5 font-mono text-xs uppercase tracking-widest text-white transition-all hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50 ${
+            saved ? "bg-green-600" : "bg-[var(--color-clay)]"
+          }`}
         >
-          {saving ? "Saving…" : "Save Product"}
+          {saving ? "Saving…" : saved ? "Saved ✓" : "Save Product"}
         </button>
       </div>
     </form>

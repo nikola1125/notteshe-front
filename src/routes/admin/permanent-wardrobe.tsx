@@ -15,19 +15,36 @@ import { logAudit } from "@/lib/admin/audit";
 const getWardrobeData = createServerFn({ method: "GET" }).handler(async () => {
   await requireAdmin();
 
-  const all = await db()
-    .select({
-      id: product.id,
-      name: product.name,
-      slug: product.slug,
-      coverImageUrl: product.coverImageUrl,
-      isNew: product.isNew,
-      isSale: product.isSale,
-      inStock: product.inStock,
-      isPermanentWardrobe: product.isPermanentWardrobe,
-    })
-    .from(product)
-    .orderBy(desc(product.createdAt));
+  let all: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    coverImageUrl: string | null;
+    isNew: boolean;
+    isSale: boolean;
+    inStock: boolean;
+    isVisible: boolean;
+    isPermanentWardrobe: boolean;
+  }> = [];
+
+  try {
+    all = await db()
+      .select({
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        coverImageUrl: product.coverImageUrl,
+        isNew: product.isNew,
+        isSale: product.isSale,
+        inStock: product.inStock,
+        isVisible: product.isVisible,
+        isPermanentWardrobe: product.isPermanentWardrobe,
+      })
+      .from(product)
+      .orderBy(desc(product.createdAt));
+  } catch (err) {
+    console.error("wardrobe: failed to query products", err);
+  }
 
   const wardrobe = all
     .filter((p) => p.isPermanentWardrobe)
@@ -67,6 +84,7 @@ type ProductItem = {
   isNew: boolean;
   isSale: boolean;
   inStock: boolean;
+  isVisible: boolean;
   isPermanentWardrobe: boolean;
 };
 

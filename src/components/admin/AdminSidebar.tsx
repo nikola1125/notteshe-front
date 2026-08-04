@@ -1,4 +1,5 @@
 import { Link, useLocation, useRouter } from "@tanstack/react-router";
+import { clearAdminCache } from "@/routes/admin";
 import {
   LayoutDashboard,
   Package,
@@ -48,6 +49,7 @@ export function AdminSidebar({ adminName, adminRole }: AdminSidebarProps) {
 
   async function handleLogout() {
     try {
+      clearAdminCache();
       await logoutAdminFn();
       await router.navigate({ to: "/admin-login" });
     } catch {

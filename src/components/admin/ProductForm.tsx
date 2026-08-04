@@ -36,6 +36,7 @@ export interface ProductFormData {
   isSale: boolean;
   isVisible: boolean;
   inStock: boolean;
+  isPermanentWardrobe: boolean;
   sizes: SizeEntry[];
   colours: ColourEntry[];
   images: ImageEntry[];
@@ -84,6 +85,7 @@ export function ProductForm({
   const [isSale, setIsSale] = useState(initialData?.isSale ?? false);
   const [isVisible, setIsVisible] = useState(initialData?.isVisible ?? true);
   const [inStock, setInStock] = useState(initialData?.inStock ?? true);
+  const [isPermanentWardrobe, setIsPermanentWardrobe] = useState(initialData?.isPermanentWardrobe ?? false);
 
   const [sizes, setSizes] = useState<SizeEntry[]>(() => {
     if (initialData?.sizes?.length) return initialData.sizes;
@@ -190,6 +192,7 @@ export function ProductForm({
         isSale,
         isVisible,
         inStock,
+        isPermanentWardrobe,
         sizes,
         colours,
         images,
@@ -344,6 +347,7 @@ export function ProductForm({
               { label: "Sale", state: isSale, setter: setIsSale },
               { label: "Visible", state: isVisible, setter: setIsVisible },
               { label: "In Stock", state: inStock, setter: setInStock },
+              { label: "Permanent Wardrobe", state: isPermanentWardrobe, setter: setIsPermanentWardrobe },
             ] as const
           ).map(({ label, state, setter }) => (
             <label key={label} className="flex cursor-pointer items-center gap-2">

@@ -130,6 +130,7 @@ export const product = pgTable("product", {
   inStock: boolean("in_stock").notNull().default(true),
   isNew: boolean("is_new").notNull().default(false),
   isSale: boolean("is_sale").notNull().default(false),
+  isPermanentWardrobe: boolean("is_permanent_wardrobe").notNull().default(false),
   isVisible: boolean("is_visible").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

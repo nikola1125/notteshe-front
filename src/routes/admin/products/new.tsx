@@ -56,6 +56,7 @@ const createProduct = createServerFn({ method: "POST" })
       isSale: data.isSale,
       isVisible: data.isVisible,
       inStock: data.inStock,
+      isPermanentWardrobe: data.isPermanentWardrobe,
     });
 
     // Sizes

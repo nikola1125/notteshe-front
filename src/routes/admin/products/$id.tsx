@@ -74,6 +74,7 @@ const getProductEdit = createServerFn({ method: "GET" })
         isSale: p.isSale,
         isVisible: p.isVisible,
         inStock: p.inStock,
+        isPermanentWardrobe: p.isPermanentWardrobe,
         sizes: sizes.map((s) => ({
           id: s.id,
           label: s.label,
@@ -128,6 +129,7 @@ const updateProduct = createServerFn({ method: "POST" })
         isSale: fields.isSale,
         isVisible: fields.isVisible,
         inStock: fields.inStock,
+        isPermanentWardrobe: fields.isPermanentWardrobe,
         updatedAt: new Date(),
       })
       .where(eq(product.id, id));

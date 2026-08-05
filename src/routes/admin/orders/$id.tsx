@@ -196,9 +196,7 @@ const updateOrderStatus = createServerFn({ method: "POST" })
     const total = Number(current?.total ?? 0);
 
     // POK uses autoCapture: true — money is taken at checkout, no capture step needed.
-    // Admin confirm is a pure status update. Cancellations/refunds call pokRefund.
-    let pokWarning: string | null = null;
-
+    // Admin confirm is a pure status update. Cancellations/refunds call pokRefund (blocking).
     if (pokOrderId) {
       const { pokRefund } = await import("@/lib/pok");
 
@@ -210,12 +208,13 @@ const updateOrderStatus = createServerFn({ method: "POST" })
         prevStatus !== "CANCELLED" && prevStatus !== "REFUNDED";
 
       if (needsRefund && wasCharged) {
-        // Non-blocking: try to refund; warn admin if it fails so they can handle it in POK dashboard
-        try {
-          await pokRefund(pokOrderId, total, data.status === "REFUNDED" ? "Customer refund request" : "Order cancelled by merchant");
-        } catch (err) {
-          pokWarning = err instanceof Error ? err.message : "POK refund call failed — process manually in POK dashboard";
-        }
+        // Blocking: if POK refund fails, throw so the DB is NOT updated and admin sees the error.
+        // Customer should not be left without money back on a silent failure.
+        await pokRefund(
+          pokOrderId,
+          total,
+          data.status === "REFUNDED" ? "Customer refund request" : "Order cancelled by merchant"
+        );
       }
     }
 
@@ -251,29 +250,10 @@ const updateOrderStatus = createServerFn({ method: "POST" })
 
     await logAudit(admin.id, "order.status_change", "order", data.id, {
       before: { status: prevStatus },
-      after: { status: data.status, pokOrderId: pokOrderId ?? undefined, pokWarning: pokWarning ?? undefined },
+      after: { status: data.status, pokOrderId: pokOrderId ?? undefined },
     });
 
-    if (pokWarning) {
-      const { randomUUID } = await import("node:crypto");
-      await db().insert(auditLog).values({
-        id: randomUUID(),
-        adminId: admin.id,
-        action: "payment.pok_action_failed",
-        entityType: "payment",
-        entityId: pokOrderId ?? data.id,
-        diff: {
-          after: {
-            orderId: data.id,
-            attemptedStatus: data.status,
-            prevStatus,
-            errorMessage: pokWarning,
-          },
-        },
-      });
-    }
-
-    return { success: true, pokWarning };
+    return { success: true };
   });
 
 const saveAdminNote = createServerFn({ method: "POST" })
@@ -310,7 +290,7 @@ function OrderDetail() {
   async function handleStatusChange(newStatus: OrderStatus) {
     setSavingStatus(newStatus);
     try {
-      const result = await updateOrderStatus({
+      await updateOrderStatus({
         data: {
           id: data.order.id,
           status: newStatus,
@@ -324,11 +304,7 @@ function OrderDetail() {
       }));
       setStatusFlash(true);
       setTimeout(() => setStatusFlash(false), 1800);
-      if (result.pokWarning) {
-        toast.warning(`Order ${newStatus.toLowerCase()}. POK refund failed — handle manually in POK dashboard: ${result.pokWarning}`, { duration: 12000 });
-      } else {
-        toast.success(`Order marked as ${newStatus.toLowerCase()}`);
-      }
+      toast.success(`Order marked as ${newStatus.toLowerCase()}`);
       await router.invalidate();
     } catch (err) {
       const msg =

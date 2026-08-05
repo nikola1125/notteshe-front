@@ -195,21 +195,20 @@ function Shipping() {
               <span className="font-mono text-xs text-[var(--color-foreground)]">Percentage fee</span>
               <Toggle value={percentEnabled} onChange={setPercentEnabled} />
             </div>
-            {percentEnabled && (
-              <div>
-                <label htmlFor="pf-percent" className={labelClass}>Percentage (%)</label>
-                <input
-                  id="pf-percent"
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="100"
-                  value={paymentFeePercent}
-                  onChange={(e) => setPaymentFeePercent(e.target.value)}
-                  className={inputClass}
-                />
-              </div>
-            )}
+            <div>
+              <label htmlFor="pf-percent" className={labelClass}>Percentage (%)</label>
+              <input
+                id="pf-percent"
+                type="number"
+                step="0.1"
+                min="0"
+                max="100"
+                value={paymentFeePercent}
+                onChange={(e) => setPaymentFeePercent(e.target.value)}
+                disabled={!percentEnabled}
+                className={`${inputClass} disabled:opacity-40`}
+              />
+            </div>
           </div>
 
           {/* Fixed fee toggle row */}
@@ -218,20 +217,19 @@ function Shipping() {
               <span className="font-mono text-xs text-[var(--color-foreground)]">Fixed fee per transaction</span>
               <Toggle value={fixedEnabled} onChange={setFixedEnabled} />
             </div>
-            {fixedEnabled && (
-              <div>
-                <label htmlFor="pf-fixed" className={labelClass}>Fixed amount (L)</label>
-                <input
-                  id="pf-fixed"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={paymentFeeFixed}
-                  onChange={(e) => setPaymentFeeFixed(e.target.value)}
-                  className={inputClass}
-                />
-              </div>
-            )}
+            <div>
+              <label htmlFor="pf-fixed" className={labelClass}>Fixed amount (L)</label>
+              <input
+                id="pf-fixed"
+                type="number"
+                step="0.01"
+                min="0"
+                value={paymentFeeFixed}
+                onChange={(e) => setPaymentFeeFixed(e.target.value)}
+                disabled={!fixedEnabled}
+                className={`${inputClass} disabled:opacity-40`}
+              />
+            </div>
           </div>
 
           {(percentEnabled || fixedEnabled) && (

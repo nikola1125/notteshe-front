@@ -3,7 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { eq, desc } from "drizzle-orm";
 import { toast } from "sonner";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Trash2, Share2, X, Download, Copy } from "lucide-react";
 import { db } from "@/db";
 import { discountCode } from "@/db/schema";
@@ -162,24 +162,31 @@ function CouponShareModal({ code, onClose }: { code: DiscountCode; onClose: () =
     setTimeout(() => setCopying(false), 1500);
   }
 
-  return (
-    <div
-      className="fixed inset-0 z-[300] overflow-y-auto bg-black/80 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      {/* Close button — fixed top-right, always above navbar */}
-      <button
-        onClick={onClose}
-        className="fixed right-4 top-4 z-[301] flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/60 backdrop-blur-sm transition-colors hover:bg-white/20 hover:text-white"
-      >
-        <X size={16} />
-      </button>
+  // Lock background scroll while modal is open
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
 
+  return (
+    <div className="fixed inset-0 z-[300] flex flex-col bg-black/90 backdrop-blur-sm">
+
+      {/* ── Fixed header — always visible, never scrolls ── */}
+      <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 py-4">
+        <p className="font-mono text-[10px] uppercase tracking-widest text-white/40">Share coupon</p>
+        <button
+          onClick={onClose}
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/60 transition-colors hover:bg-white/20 hover:text-white"
+        >
+          <X size={15} />
+        </button>
+      </div>
+
+      {/* ── Scrollable body — only this scrolls, background stays locked ── */}
+      <div className="flex-1 overflow-y-auto overscroll-contain">
       <div
-        className="mx-auto flex min-h-full w-full max-w-sm flex-col items-center justify-center px-4 py-20"
-        onClick={(e) => e.stopPropagation()}
+        className="mx-auto w-full max-w-sm px-4 py-6"
       >
-        <p className="mb-5 self-start font-mono text-[10px] uppercase tracking-widest text-white/40">Share coupon</p>
 
         {/* ── Coupon card ── captured by html-to-image ── */}
         <div
@@ -385,6 +392,7 @@ function CouponShareModal({ code, onClose }: { code: DiscountCode; onClose: () =
           {copying ? "Copied!" : `Copy code: ${code.code}`}
         </button>
       </div>
+      </div>{/* end scrollable body */}
     </div>
   );
 }

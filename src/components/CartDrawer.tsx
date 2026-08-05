@@ -15,62 +15,102 @@ interface FlyState {
 }
 
 // Fetch live stock for a list of (productId, sizeLabel) pairs
-const getLiveStock = createServerFn({ method: "POST" })
+const getLiveCartData = createServerFn({ method: "POST" })
   .validator((d: unknown) =>
     z.object({ items: z.array(z.object({ productId: z.string(), size: z.string() })) }).parse(d)
   )
   .handler(async ({ data }) => {
-    if (data.items.length === 0) return [];
+    if (data.items.length === 0) return { sizes: [], prices: [] };
     const { db } = await import("@/db");
-    const { productSize } = await import("@/db/schema");
-    const { inArray, and, eq, or } = await import("drizzle-orm");
+    const { productSize, product } = await import("@/db/schema");
+    const { inArray } = await import("drizzle-orm");
 
     const productIds = [...new Set(data.items.map((i) => i.productId))];
-    const rows = await db()
-      .select({ productId: productSize.productId, label: productSize.label, stock: productSize.stock })
-      .from(productSize)
-      .where(inArray(productSize.productId, productIds));
 
-    return rows.map((r) => ({ productId: r.productId, size: r.label, stock: r.stock }));
+    const [sizeRows, priceRows] = await Promise.all([
+      db()
+        .select({ productId: productSize.productId, label: productSize.label, stock: productSize.stock })
+        .from(productSize)
+        .where(inArray(productSize.productId, productIds)),
+      db()
+        .select({ id: product.id, price: product.price, originalPrice: product.originalPrice, isSale: product.isSale })
+        .from(product)
+        .where(inArray(product.id, productIds)),
+    ]);
+
+    return {
+      sizes: sizeRows.map((r) => ({ productId: r.productId, size: r.label, stock: r.stock })),
+      prices: priceRows.map((p) => ({
+        id: p.id,
+        price: p.price ?? 0,
+        originalPrice: p.isSale ? p.originalPrice : null,
+      })),
+    };
   });
 
 export function CartDrawer() {
-  const { items, isOpen, closeCart, removeItem, updateQuantity, setPendingFly, flyNow } = useCart();
+  const { items, isOpen, closeCart, removeItem, updateQuantity, addItem, setPendingFly, flyNow } = useCart();
   const navigate = useNavigate();
   const [fly, setFly] = useState<FlyState | null>(null);
-  // stockMap key: `${productId}::${sizeLabel}` → live stock from DB
   const [stockMap, setStockMap] = useState<Map<string, number>>(new Map());
+  const [priceUpdated, setPriceUpdated] = useState(false);
   const lastFetchRef = useRef<string>("");
 
   const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const count = items.reduce((sum, i) => sum + i.quantity, 0);
 
-  // Fetch live stock whenever cart opens (or items change while open)
-  useEffect(() => {
-    if (!isOpen || items.length === 0) return;
-    const key = items.map((i) => `${i.productId}:${i.size}:${i.quantity}`).join(",");
-    if (key === lastFetchRef.current) return;
+  function syncCartData(force = false) {
+    const { items: currentItems } = useCart.getState();
+    if (currentItems.length === 0) return;
+    const key = currentItems.map((i) => `${i.productId}:${i.size}`).join(",");
+    if (!force && key === lastFetchRef.current) return;
     lastFetchRef.current = key;
 
-    getLiveStock({ data: { items: items.map((i) => ({ productId: i.productId, size: i.size })) } })
-      .then((rows) => {
-        const map = new Map<string, number>();
-        for (const r of rows) map.set(`${r.productId}::${r.size}`, r.stock);
-        setStockMap(map);
+    getLiveCartData({ data: { items: currentItems.map((i) => ({ productId: i.productId, size: i.size })) } })
+      .then(({ sizes, prices }) => {
+        const stockM = new Map<string, number>();
+        for (const r of sizes) stockM.set(`${r.productId}::${r.size}`, r.stock);
+        setStockMap(stockM);
 
-        // Auto-trim quantities that exceed live stock
-        for (const item of items) {
-          const liveStock = map.get(`${item.productId}::${item.size}`) ?? 0;
-          if (liveStock > 0 && item.quantity > liveStock) {
-            // Reduce to max allowed
-            updateQuantity(item.id, liveStock - item.quantity);
-          } else if (liveStock === 0) {
+        // Update prices if changed
+        let priceChanged = false;
+        for (const item of currentItems) {
+          const live = prices.find((p) => p.id === item.productId);
+          if (live && (live.price !== item.price || live.originalPrice !== item.originalPrice)) {
             removeItem(item.id);
+            addItem({ productId: item.productId, name: item.name, price: live.price, originalPrice: live.originalPrice, image: item.image, size: item.size, colour: item.colour, stock: item.stock });
+            if (item.quantity > 1) updateQuantity(`${item.productId}-${item.size}-${item.colour}`, item.quantity - 1);
+            priceChanged = true;
           }
+        }
+        if (priceChanged) setPriceUpdated(true);
+
+        // Trim quantities exceeding live stock
+        for (const item of currentItems) {
+          const liveStock = stockM.get(`${item.productId}::${item.size}`) ?? 0;
+          if (liveStock > 0 && item.quantity > liveStock) updateQuantity(item.id, liveStock - item.quantity);
+          else if (liveStock === 0) removeItem(item.id);
         }
       })
       .catch(() => {});
-  }, [isOpen, items]);
+  }
+
+  // Sync on cart open
+  useEffect(() => {
+    if (!isOpen || items.length === 0) return;
+    syncCartData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // Sync silently when user returns to tab
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === "visible") syncCartData(true);
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     document.body.style.overflow = isOpen ? "hidden" : "";
@@ -196,6 +236,16 @@ export function CartDrawer() {
             </svg>
           </button>
         </div>
+        {priceUpdated && (
+          <div className="flex items-center justify-between border-b border-clay/30 bg-clay/5 px-6 py-2.5">
+            <p className="font-mono text-[9px] uppercase tracking-widest text-clay">Prices updated to reflect current offers</p>
+            <button onClick={() => setPriceUpdated(false)} className="text-clay/60 hover:text-clay">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
+                <line x1="1" y1="1" x2="9" y2="9"/><line x1="9" y1="1" x2="1" y2="9"/>
+              </svg>
+            </button>
+          </div>
+        )}
 
         {/* Items */}
         <div className="flex-1 overflow-y-auto">

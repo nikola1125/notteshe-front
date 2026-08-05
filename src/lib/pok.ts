@@ -252,7 +252,7 @@ export const createPokOrder = createServerFn({ method: "POST" })
         quantity: i.quantity,
         price: Math.round(i.price),
       })),
-      shippingCost: Math.round(shippingFee),
+      shippingCost: Math.round(shippingFee + paymentFee),
       merchantCustomReference: data.merchantReference,
       expiresAfterMinutes: 30,
     };

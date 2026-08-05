@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { getAdminUserFn, logoutAdminFn } from "@/lib/admin/auth";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import type { AdminUser } from "@/db/schema";
+import { Toaster } from "sonner";
 
 // Client-side cache — avoids a server round-trip on every sidebar navigation.
 // Cleared on logout; refreshed at most once per 5 minutes.
@@ -41,6 +42,7 @@ function AdminLayout() {
           <Outlet />
         </main>
       </div>
+      <Toaster richColors position="top-right" />
     </div>
   );
 }

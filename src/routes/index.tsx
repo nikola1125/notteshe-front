@@ -465,7 +465,7 @@ function Index() {
       {/* ─── Philosophy ─── */}
       <section className="mx-auto mt-20 max-w-[1600px] px-5 md:mt-32 md:px-12">
         <div className="grid grid-cols-12 gap-8 md:gap-12">
-          <div className="reveal col-span-12 md:col-span-5">
+          <div className="col-span-12 md:col-span-5">
             <div className="aspect-[3/4] overflow-hidden bg-muted md:aspect-[4/5] md:sticky md:top-24">
               <img
                 src={philosophy}
@@ -477,7 +477,7 @@ function Index() {
               />
             </div>
           </div>
-          <div className="reveal col-span-12 flex flex-col justify-center md:col-span-7 md:pl-6 md:pt-6" style={{ transitionDelay: "100ms" }}>
+          <div className="col-span-12 flex flex-col justify-center md:col-span-7 md:pl-6 md:pt-6">
             <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Philosophy</p>
             <p className="serif mt-6 text-2xl leading-[1.25] text-ink md:text-[2.8rem] md:leading-[1.1]">
               We believe <em className="italic text-clay">restraint</em> is the most radical thing a garment can wear.

@@ -195,38 +195,24 @@ const updateOrderStatus = createServerFn({ method: "POST" })
     const pokOrderId = current?.pokOrderId ?? null;
     const total = Number(current?.total ?? 0);
 
-    // POK payment actions — capture and void are blocking (wrong state = don't update DB).
-    // Refunds on already-captured orders are non-blocking: update DB regardless and warn admin.
+    // POK uses autoCapture: true — money is taken at checkout, no capture step needed.
+    // Admin confirm is a pure status update. Cancellations/refunds call pokRefund.
     let pokWarning: string | null = null;
 
     if (pokOrderId) {
-      const { pokCapture, pokCancel, pokRefund } = await import("@/lib/pok");
+      const { pokRefund } = await import("@/lib/pok");
 
-      if (data.status === "CONFIRMED" && prevStatus === "PENDING") {
-        // Non-blocking: capture the payment; warn admin if it fails (e.g. order expired on POK)
+      const needsRefund =
+        data.status === "CANCELLED" ||
+        data.status === "REFUNDED";
+
+      const wasCharged =
+        prevStatus !== "CANCELLED" && prevStatus !== "REFUNDED";
+
+      if (needsRefund && wasCharged) {
+        // Non-blocking: try to refund; warn admin if it fails so they can handle it in POK dashboard
         try {
-          await pokCapture(pokOrderId, total);
-        } catch (err) {
-          pokWarning = err instanceof Error ? err.message : "POK capture failed — collect payment manually in POK dashboard";
-        }
-      } else if (data.status === "CANCELLED" && prevStatus === "PENDING") {
-        // Non-blocking: void the authorization hold
-        try {
-          await pokCancel(pokOrderId, "Order rejected by merchant");
-        } catch (err) {
-          pokWarning = err instanceof Error ? err.message : "POK void failed — check POK dashboard";
-        }
-      } else if (data.status === "CANCELLED" && (prevStatus === "CONFIRMED" || prevStatus === "SHIPPED")) {
-        // Non-blocking: payment already captured — try to refund but don't fail the cancel
-        try {
-          await pokRefund(pokOrderId, total, "Order cancelled by merchant");
-        } catch (err) {
-          pokWarning = err instanceof Error ? err.message : "POK refund call failed — process manually in POK dashboard";
-        }
-      } else if (data.status === "REFUNDED" && prevStatus === "DELIVERED") {
-        // Non-blocking: same reason
-        try {
-          await pokRefund(pokOrderId, total, "Customer refund request");
+          await pokRefund(pokOrderId, total, data.status === "REFUNDED" ? "Customer refund request" : "Order cancelled by merchant");
         } catch (err) {
           pokWarning = err instanceof Error ? err.message : "POK refund call failed — process manually in POK dashboard";
         }
@@ -339,7 +325,7 @@ function OrderDetail() {
       setStatusFlash(true);
       setTimeout(() => setStatusFlash(false), 1800);
       if (result.pokWarning) {
-        toast.warning(`Order ${newStatus.toLowerCase()}. POK refund failed — process manually: ${result.pokWarning}`, { duration: 12000 });
+        toast.warning(`Order ${newStatus.toLowerCase()}. POK refund failed — handle manually in POK dashboard: ${result.pokWarning}`, { duration: 12000 });
       } else {
         toast.success(`Order marked as ${newStatus.toLowerCase()}`);
       }

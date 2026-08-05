@@ -240,7 +240,7 @@ export const createPokOrder = createServerFn({ method: "POST" })
     const pokBody: Record<string, unknown> = {
       amount: Math.round(total),        // NUMBER, not string — POK API expects integer
       currencyCode: "ALL",
-      autoCapture: false,
+      autoCapture: true,
       products: itemsWithPrices.map((i) => ({
         name: i.name,
         quantity: i.quantity,

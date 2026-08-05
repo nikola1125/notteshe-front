@@ -82,12 +82,28 @@ export const Route = createFileRoute("/admin/shipping")({
   component: Shipping,
 });
 
+function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div
+      role="checkbox"
+      aria-checked={value}
+      tabIndex={0}
+      onClick={() => onChange(!value)}
+      onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") onChange(!value); }}
+      className={`h-5 w-9 cursor-pointer rounded-full transition-colors ${value ? "bg-[var(--color-clay)]" : "bg-[var(--color-muted)]"}`}
+    >
+      <div className={`mt-0.5 ml-0.5 h-4 w-4 rounded-full bg-white transition-transform ${value ? "translate-x-4" : "translate-x-0"}`} />
+    </div>
+  );
+}
+
 function Shipping() {
   const config = Route.useLoaderData();
   const [enabled, setEnabled] = useState(config.enabled);
   const [fee, setFee] = useState(String(config.fee));
   const [threshold, setThreshold] = useState(String(config.freeThreshold));
-  const [paymentFeeEnabled, setPaymentFeeEnabled] = useState(config.paymentFeeEnabled ?? false);
+  const [percentEnabled, setPercentEnabled] = useState((config.paymentFeeEnabled ?? false) && (config.paymentFeePercent ?? 0) > 0);
+  const [fixedEnabled, setFixedEnabled] = useState((config.paymentFeeEnabled ?? false) && (config.paymentFeeFixed ?? 0) > 0);
   const [paymentFeePercent, setPaymentFeePercent] = useState(String(config.paymentFeePercent ?? 0));
   const [paymentFeeFixed, setPaymentFeeFixed] = useState(String(config.paymentFeeFixed ?? 0));
   const [saving, setSaving] = useState(false);
@@ -101,9 +117,9 @@ function Shipping() {
           enabled,
           fee: parseFloat(fee) || 0,
           freeThreshold: parseFloat(threshold) || 0,
-          paymentFeeEnabled,
-          paymentFeePercent: parseFloat(paymentFeePercent) || 0,
-          paymentFeeFixed: parseFloat(paymentFeeFixed) || 0,
+          paymentFeeEnabled: percentEnabled || fixedEnabled,
+          paymentFeePercent: percentEnabled ? (parseFloat(paymentFeePercent) || 0) : 0,
+          paymentFeeFixed: fixedEnabled ? (parseFloat(paymentFeeFixed) || 0) : 0,
         },
       });
       toast.success("Shipping config saved");
@@ -131,23 +147,8 @@ function Shipping() {
       >
         {/* Enabled toggle */}
         <div className="flex items-center justify-between">
-          <span className="font-mono text-xs text-[var(--color-foreground)]">
-            Shipping enabled
-          </span>
-          <div
-            role="checkbox"
-            aria-checked={enabled}
-            tabIndex={0}
-            onClick={() => setEnabled((v) => !v)}
-            onKeyDown={(e) => {
-              if (e.key === " " || e.key === "Enter") setEnabled((v) => !v);
-            }}
-            className={`h-5 w-9 cursor-pointer rounded-full transition-colors ${enabled ? "bg-[var(--color-clay)]" : "bg-[var(--color-muted)]"}`}
-          >
-            <div
-              className={`mt-0.5 ml-0.5 h-4 w-4 rounded-full bg-white transition-transform ${enabled ? "translate-x-4" : "translate-x-0"}`}
-            />
-          </div>
+          <span className="font-mono text-xs text-[var(--color-foreground)]">Shipping enabled</span>
+          <Toggle value={enabled} onChange={setEnabled} />
         </div>
 
         <div>
@@ -183,67 +184,63 @@ function Shipping() {
           </p>
         </div>
 
-        <div className="border-t border-[var(--color-border)] pt-5">
-          <p className="mb-4 font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
+        <div className="border-t border-[var(--color-border)] pt-5 space-y-4">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
             Payment Processing Fee
           </p>
 
-          <div className="mb-4 flex items-center justify-between">
-            <span className="font-mono text-xs text-[var(--color-foreground)]">
-              Charge fee to customer
-            </span>
-            <div
-              role="checkbox"
-              aria-checked={paymentFeeEnabled}
-              tabIndex={0}
-              onClick={() => setPaymentFeeEnabled((v) => !v)}
-              onKeyDown={(e) => {
-                if (e.key === " " || e.key === "Enter") setPaymentFeeEnabled((v) => !v);
-              }}
-              className={`h-5 w-9 cursor-pointer rounded-full transition-colors ${paymentFeeEnabled ? "bg-[var(--color-clay)]" : "bg-[var(--color-muted)]"}`}
-            >
-              <div
-                className={`mt-0.5 ml-0.5 h-4 w-4 rounded-full bg-white transition-transform ${paymentFeeEnabled ? "translate-x-4" : "translate-x-0"}`}
-              />
+          {/* Percentage toggle row */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-xs text-[var(--color-foreground)]">Percentage fee</span>
+              <Toggle value={percentEnabled} onChange={setPercentEnabled} />
             </div>
+            {percentEnabled && (
+              <div>
+                <label htmlFor="pf-percent" className={labelClass}>Percentage (%)</label>
+                <input
+                  id="pf-percent"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="100"
+                  value={paymentFeePercent}
+                  onChange={(e) => setPaymentFeePercent(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="pf-percent" className={labelClass}>
-                Percentage (%)
-              </label>
-              <input
-                id="pf-percent"
-                type="number"
-                step="0.1"
-                min="0"
-                max="100"
-                value={paymentFeePercent}
-                onChange={(e) => setPaymentFeePercent(e.target.value)}
-                disabled={!paymentFeeEnabled}
-                className={`${inputClass} disabled:opacity-40`}
-              />
+          {/* Fixed fee toggle row */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-xs text-[var(--color-foreground)]">Fixed fee per transaction</span>
+              <Toggle value={fixedEnabled} onChange={setFixedEnabled} />
             </div>
-            <div>
-              <label htmlFor="pf-fixed" className={labelClass}>
-                Fixed amount (L)
-              </label>
-              <input
-                id="pf-fixed"
-                type="number"
-                step="0.01"
-                min="0"
-                value={paymentFeeFixed}
-                onChange={(e) => setPaymentFeeFixed(e.target.value)}
-                disabled={!paymentFeeEnabled}
-                className={`${inputClass} disabled:opacity-40`}
-              />
-            </div>
+            {fixedEnabled && (
+              <div>
+                <label htmlFor="pf-fixed" className={labelClass}>Fixed amount (L)</label>
+                <input
+                  id="pf-fixed"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={paymentFeeFixed}
+                  onChange={(e) => setPaymentFeeFixed(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+            )}
           </div>
-          {paymentFeeEnabled && (
-            <p className="mt-2 font-mono text-[10px] text-[var(--color-muted-foreground)]">
-              Fee = {paymentFeePercent}% of order total + {paymentFeeFixed} L per transaction
+
+          {(percentEnabled || fixedEnabled) && (
+            <p className="font-mono text-[10px] text-[var(--color-muted-foreground)]">
+              Fee per order:{" "}
+              {[
+                percentEnabled && `${paymentFeePercent}% of total`,
+                fixedEnabled && `${paymentFeeFixed} L fixed`,
+              ].filter(Boolean).join(" + ")}
             </p>
           )}
         </div>

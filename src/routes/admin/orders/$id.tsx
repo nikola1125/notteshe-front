@@ -186,14 +186,13 @@ const updateOrderStatus = createServerFn({ method: "POST" })
     const database = db();
 
     const [current] = await database
-      .select({ status: orders.status, pokOrderId: orders.pokOrderId, total: orders.total })
+      .select({ status: orders.status, pokOrderId: orders.pokOrderId })
       .from(orders)
       .where(eq(orders.id, data.id))
       .limit(1);
 
     const prevStatus = current?.status as OrderStatus | undefined;
     const pokOrderId = current?.pokOrderId ?? null;
-    const total = Number(current?.total ?? 0);
 
     // Authorize-capture flow (autoCapture: false):
     //   PENDING → CONFIRMED  : capture the frozen authorization → money goes through
@@ -205,7 +204,7 @@ const updateOrderStatus = createServerFn({ method: "POST" })
       const { pokCapture, pokCancel, pokRefund } = await import("@/lib/pok");
 
       if (data.status === "CONFIRMED" && prevStatus === "PENDING") {
-        await pokCapture(pokOrderId, total);
+        await pokCapture(pokOrderId);
       } else if (data.status === "CANCELLED" && prevStatus === "PENDING") {
         await pokCancel(pokOrderId, "Order rejected by merchant");
       } else if (data.status === "CANCELLED" && (prevStatus === "CONFIRMED" || prevStatus === "SHIPPED")) {

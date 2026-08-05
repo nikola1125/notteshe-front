@@ -5,7 +5,11 @@ const POK_BASE = process.env.POK_ENV === "production"
   ? "https://api.pokpay.io/"
   : "https://api-staging.pokpay.io/"; // staging is default; set POK_ENV=production for live
 
+let _cachedToken: string | null = null;
+let _tokenExpiresAt = 0;
+
 async function pokAuth(): Promise<string> {
+  if (_cachedToken && Date.now() < _tokenExpiresAt) return _cachedToken;
   const res = await fetch(`${POK_BASE}auth/sdk/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -21,6 +25,8 @@ async function pokAuth(): Promise<string> {
   const json = await res.json();
   const token = json?.data?.accessToken as string | undefined;
   if (!token) throw new Error("POK auth returned no access token");
+  _cachedToken = token;
+  _tokenExpiresAt = Date.now() + 50 * 60 * 1000; // cache for 50 min
   return token;
 }
 
@@ -328,8 +334,8 @@ async function pokAction(
   }
 }
 
-export async function pokCapture(pokOrderId: string, amount: number): Promise<void> {
-  await pokAction(`${pokOrderId}/capture`, { amount: Math.round(amount) });
+export async function pokCapture(pokOrderId: string): Promise<void> {
+  await pokAction(`${pokOrderId}/capture`, {});
 }
 
 export async function pokCancel(pokOrderId: string, reason?: string): Promise<void> {

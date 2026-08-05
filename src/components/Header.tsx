@@ -45,7 +45,6 @@ export function Header() {
           </Link>
           <Link to="/shop" // eslint-disable-next-line @typescript-eslint/no-explicit-any
             search={(() => ({ sale: "1" })) as any} className="relative text-[14px] text-clay after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-clay/80 hover:after:scale-x-100">Sale</Link>
-          <Link to="/lookbook" className="relative text-[14px] text-ink/75 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100">Lookbook</Link>
           <Link to="/about" className="relative text-[14px] text-ink/75 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100">Story</Link>
           <Link to="/contact" className="relative text-[14px] text-ink/75 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100">Contact</Link>
         </nav>
@@ -195,7 +194,6 @@ export function Header() {
           </Link>
           <Link to="/shop" // eslint-disable-next-line @typescript-eslint/no-explicit-any
             search={(() => ({ sale: "1" })) as any} onClick={() => setMenuOpen(false)} className="border-b border-border/30 py-4 font-mono text-[11px] uppercase tracking-[0.25em] text-clay transition-colors">Sale</Link>
-          <Link to="/lookbook" onClick={() => setMenuOpen(false)} className="border-b border-border/30 py-4 font-mono text-[11px] uppercase tracking-[0.25em] text-ink/70 transition-colors hover:text-ink">Lookbook</Link>
           <Link to="/about" onClick={() => setMenuOpen(false)} className="border-b border-border/30 py-4 font-mono text-[11px] uppercase tracking-[0.25em] text-ink/70 transition-colors hover:text-ink">Story</Link>
           <Link to="/contact" onClick={() => setMenuOpen(false)} className="border-b border-border/30 py-4 font-mono text-[11px] uppercase tracking-[0.25em] text-ink/70 transition-colors hover:text-ink">Contact</Link>
           <a

@@ -603,23 +603,23 @@ function NewsletterForm() {
   return (
     <form onSubmit={handleSubmit} className="col-span-12 md:col-span-6">
       <label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Your address</label>
-      <div className="mt-3 flex items-center gap-4 border-b border-ink/20 pb-3 transition-colors focus-within:border-ink/50">
+      <div className="mt-3 border-b border-ink/20 pb-3 transition-colors focus-within:border-ink/50">
         <input
           ref={inputRef}
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@somewhere.com"
-          className="flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-muted-foreground/35"
+          className="w-full bg-transparent text-[15px] text-ink outline-none placeholder:text-muted-foreground/35"
         />
-        <button
-          type="submit"
-          disabled={status === "sending"}
-          className="relative min-h-[44px] shrink-0 font-mono text-[10px] uppercase tracking-widest text-clay transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100 disabled:opacity-50"
-        >
-          {status === "sending" ? "…" : "Subscribe →"}
-        </button>
       </div>
+      <button
+        type="submit"
+        disabled={status === "sending"}
+        className="mt-5 font-mono text-[10px] uppercase tracking-widest text-clay transition-colors duration-200 hover:text-ink disabled:opacity-50"
+      >
+        {status === "sending" ? "…" : "Subscribe →"}
+      </button>
       {status === "error" && (
         <p className="mt-2 font-mono text-[9px] uppercase tracking-widest text-clay">Something went wrong. Try again.</p>
       )}

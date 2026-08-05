@@ -480,23 +480,22 @@ function Index() {
           <div className="col-span-12 flex flex-col justify-center md:col-span-7 md:pl-6 md:pt-6">
             <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Philosophy</p>
             <p className="serif mt-6 text-2xl leading-[1.25] text-ink md:text-[2.8rem] md:leading-[1.1]">
-              We believe <em className="italic text-clay">restraint</em> is the most radical thing a garment can wear.
+              Notteshe — <em className="italic text-clay">Grua e Fortë.</em>
             </p>
             <div className="mt-8 space-y-4 border-l-2 border-border pl-6">
               <p className="text-[13px] leading-relaxed text-muted-foreground">
-                No trend cycles. No noise. Every piece is designed once, made well, and left alone to do its quiet work — season after season, drawer after drawer.
+                Notteshe is not just a name. It is a declaration.
               </p>
               <p className="text-[13px] leading-relaxed text-muted-foreground">
-                Fabric sourced from six mills across Italy and Japan. Cut in ateliers we visit ourselves. Sold slowly, and only when we are certain.
+                In Albanian, grua e fortë — the strong woman. Not strong in the way the world demands of her: loud, unyielding, armored. Strong in the way she has always known herself to be: quiet, certain, unbreakable.
+              </p>
+              <p className="text-[13px] leading-relaxed text-muted-foreground">
+                We design for the woman who moves through a room and leaves something behind. Who dresses not to be seen, but because she sees herself. Every silhouette is sculpted with intention — from the sun-warmed streets of Tirana to wherever she chooses to stand.
               </p>
             </div>
-            <div className="mt-12 grid grid-cols-3 divide-x divide-border border-t border-border pt-8">
-              {[{ k: "Mills", v: "06" }, { k: "Seasons", v: "Two" }, { k: "Made in", v: "IT · JP" }].map((s) => (
-                <div key={s.k} className="pl-6 first:pl-0">
-                  <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{s.k}</p>
-                  <p className="serif mt-2 text-2xl text-ink">{s.v}</p>
-                </div>
-              ))}
+            <div className="mt-10 space-y-1">
+              <p className="serif text-xl text-ink md:text-2xl">Notteshe is born in Albania. Worn by the world.</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">This is not fashion. This is identity, cut in cloth.</p>
             </div>
           </div>
         </div>

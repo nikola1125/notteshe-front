@@ -8,11 +8,35 @@ import { eq, desc } from "drizzle-orm";
 const getMyOrders = createServerFn({ method: "GET" }).handler(async () => {
   const session = await requireAuth();
   const rows = await db()
-    .select()
+    .select({
+      id: orders.id,
+      status: orders.status,
+      subtotal: orders.subtotal,
+      shippingFee: orders.shippingFee,
+      total: orders.total,
+      shippingAddress: orders.shippingAddress,
+      trackingNumber: orders.trackingNumber,
+      createdAt: orders.createdAt,
+    })
     .from(orders)
     .where(eq(orders.userId, session.user.id))
     .orderBy(desc(orders.createdAt));
-  return rows;
+
+  // Fetch discount fields separately — survives before migration
+  const discountMap = new Map<string, { code: string | null; amount: number }>();
+  try {
+    const dr = await db()
+      .select({ id: orders.id, discountCode: orders.discountCode, discountAmount: orders.discountAmount })
+      .from(orders)
+      .where(eq(orders.userId, session.user.id));
+    for (const r of dr) discountMap.set(r.id, { code: r.discountCode ?? null, amount: Number(r.discountAmount ?? 0) });
+  } catch { /* column not yet migrated */ }
+
+  return rows.map((r) => ({
+    ...r,
+    discountCode: discountMap.get(r.id)?.code ?? null,
+    discountAmount: discountMap.get(r.id)?.amount ?? 0,
+  }));
 });
 
 export const Route = createFileRoute("/account/orders")({

@@ -90,8 +90,18 @@ const getOrderDetail = createServerFn({ method: "GET" })
     const [orderRows, itemRows, historyRows] = await Promise.all([
       database
         .select({
-          order: orders,
-          customer: user,
+          order: {
+            id: orders.id,
+            status: orders.status,
+            subtotal: orders.subtotal,
+            shippingFee: orders.shippingFee,
+            total: orders.total,
+            shippingAddress: orders.shippingAddress,
+            adminNote: orders.adminNote,
+            trackingNumber: orders.trackingNumber,
+            createdAt: orders.createdAt,
+          },
+          customer: { name: user.name, email: user.email },
         })
         .from(orders)
         .innerJoin(user, eq(orders.userId, user.id))
@@ -117,14 +127,27 @@ const getOrderDetail = createServerFn({ method: "GET" })
     if (!orderRows[0]) throw new Error("Order not found");
     const { order: o, customer } = orderRows[0];
 
+    // Discount columns added later — query separately so page works before migration
+    let discountCode: string | null = null;
+    let discountAmount = 0;
+    try {
+      const dr = await database
+        .select({ discountCode: orders.discountCode, discountAmount: orders.discountAmount })
+        .from(orders)
+        .where(eq(orders.id, data.id))
+        .limit(1);
+      discountCode = dr[0]?.discountCode ?? null;
+      discountAmount = Number(dr[0]?.discountAmount ?? 0);
+    } catch { /* column not yet migrated */ }
+
     return {
       order: {
         id: o.id,
         status: o.status as OrderStatus,
         subtotal: Number(o.subtotal),
         shippingFee: Number(o.shippingFee),
-        discountCode: o.discountCode ?? null,
-        discountAmount: Number(o.discountAmount ?? 0),
+        discountCode,
+        discountAmount,
         total: Number(o.total),
         shippingAddress: o.shippingAddress as ShippingAddress,
         adminNote: o.adminNote,

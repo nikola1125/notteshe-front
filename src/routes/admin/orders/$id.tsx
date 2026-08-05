@@ -19,7 +19,7 @@ type OrderStatus =
 const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PENDING: ["CONFIRMED", "CANCELLED"],
   CONFIRMED: ["SHIPPED", "CANCELLED"],
-  SHIPPED: ["DELIVERED"],
+  SHIPPED: ["DELIVERED", "CANCELLED"],
   DELIVERED: ["REFUNDED"],
   CANCELLED: [],
   REFUNDED: [],

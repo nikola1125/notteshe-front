@@ -1,3 +1,4 @@
+import React from "react";
 import { Link, useLocation, useRouter } from "@tanstack/react-router";
 import { clearAdminCache } from "@/routes/admin";
 import {
@@ -27,7 +28,7 @@ interface AdminSidebarProps {
   adminRole: string;
 }
 
-const NAV_ITEMS = [
+const NAV_ITEMS: Array<{ label: string; href: string; icon: React.ElementType; exact?: boolean }> = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard, exact: true },
   { label: "Products", href: "/admin/products", icon: Package },
   { label: "Inventory", href: "/admin/inventory", icon: Warehouse },
@@ -37,7 +38,7 @@ const NAV_ITEMS = [
   { label: "Shipping", href: "/admin/shipping", icon: Truck },
   { label: "Discounts", href: "/admin/discounts", icon: Tag },
   { label: "Newsletter", href: "/admin/newsletter", icon: Mail },
-] as const;
+];
 
 const LOG_SUB_ITEMS = [
   { label: "Payment Log", href: "/admin/audit", icon: CreditCard },

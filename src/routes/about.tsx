@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import aboutHero from "@/assets/about-hero.jpg";
 
 export const Route = createFileRoute("/about")({
@@ -117,12 +117,12 @@ function AboutPage() {
         <h2 className="serif mt-4 text-3xl font-light text-ink md:text-4xl">
           Wear the night.
         </h2>
-        <Link
-          to="/shop"
+        <a
+          href="/shop"
           className="mt-8 inline-block border border-ink px-10 py-3 font-mono text-[11px] uppercase tracking-widest text-ink transition-colors hover:bg-ink hover:text-white"
         >
           Shop now
-        </Link>
+        </a>
       </section>
 
     </div>

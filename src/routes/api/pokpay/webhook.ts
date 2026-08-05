@@ -95,7 +95,7 @@ async function handleWebhook(body: unknown) {
       originalPrice: number | null; image: string;
       size: string; colour: string; quantity: number;
     }>;
-    subtotal: number; shippingFee: number; total: number;
+    subtotal: number; shippingFee: number; paymentFee?: number; total: number;
   };
   const orderData = pending.orderData as OrderData;
 
@@ -149,6 +149,7 @@ async function handleWebhook(body: unknown) {
       status: "PENDING",
       subtotal: orderData.subtotal,
       shippingFee: orderData.shippingFee,
+      paymentFee: orderData.paymentFee ?? 0,
       discountCode: orderData.discountCode,
       discountAmount: orderData.discountAmount,
       total: orderData.total,

@@ -129,8 +129,15 @@ const getShipping = createServerFn({ method: "GET" }).handler(async () => {
   const { shippingConfig } = await import("@/db/schema");
   const { eq } = await import("drizzle-orm");
   const rows = await db().select().from(shippingConfig).where(eq(shippingConfig.id, "default")).limit(1);
-  if (rows[0]) return { enabled: rows[0].enabled, fee: rows[0].fee, freeThreshold: rows[0].freeThreshold };
-  return { enabled: true, fee: 12, freeThreshold: 200 };
+  if (rows[0]) return {
+    enabled: rows[0].enabled,
+    fee: rows[0].fee,
+    freeThreshold: rows[0].freeThreshold,
+    paymentFeeEnabled: rows[0].paymentFeeEnabled ?? false,
+    paymentFeePercent: rows[0].paymentFeePercent ?? 0,
+    paymentFeeFixed: rows[0].paymentFeeFixed ?? 0,
+  };
+  return { enabled: true, fee: 12, freeThreshold: 200, paymentFeeEnabled: false, paymentFeePercent: 0, paymentFeeFixed: 0 };
 });
 
 const getCartPrices = createServerFn({ method: "POST" })
@@ -255,7 +262,10 @@ function CheckoutPage() {
     : subtotal >= shippingCfg.freeThreshold ? 0
     : shippingCfg.fee;
   const discount = appliedDiscount?.discountAmount ?? 0;
-  const total = Math.max(0, subtotal + shipping - discount);
+  const paymentFee = shippingCfg.paymentFeeEnabled
+    ? Math.round(((subtotal + shipping - discount) * (shippingCfg.paymentFeePercent / 100) + shippingCfg.paymentFeeFixed) * 100) / 100
+    : 0;
+  const total = Math.max(0, subtotal + shipping - discount + paymentFee);
 
   async function handleApplyCoupon() {
     const code = couponInput.trim();
@@ -541,6 +551,17 @@ function CheckoutPage() {
                       )}
                     </span>
                     <span>−{discount.toFixed(0)} L</span>
+                  </div>
+                )}
+                {paymentFee > 0 && (
+                  <div className="flex justify-between font-mono text-[11px] text-ink/60">
+                    <span className="flex items-center gap-1">
+                      Payment fee
+                      <span className="font-mono text-[9px] text-muted-foreground/50">
+                        ({shippingCfg.paymentFeePercent > 0 && `${shippingCfg.paymentFeePercent}%`}{shippingCfg.paymentFeePercent > 0 && shippingCfg.paymentFeeFixed > 0 && " + "}{shippingCfg.paymentFeeFixed > 0 && `${shippingCfg.paymentFeeFixed} L`})
+                      </span>
+                    </span>
+                    <span>{paymentFee.toFixed(2)} L</span>
                   </div>
                 )}
                 {shippingCfg.enabled && shipping > 0 && (

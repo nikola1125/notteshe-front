@@ -199,6 +199,7 @@ export const orders = pgTable("orders", {
   status: orderStatusEnum("status").notNull().default("PENDING"),
   subtotal: real("subtotal").notNull(),
   shippingFee: real("shipping_fee").notNull().default(0),
+  paymentFee: real("payment_fee").notNull().default(0),
   discountCode: text("discount_code"),
   discountAmount: real("discount_amount").notNull().default(0),
   total: real("total").notNull(),
@@ -236,6 +237,10 @@ export const shippingConfig = pgTable("shipping_config", {
   enabled: boolean("enabled").notNull().default(true),
   fee: real("fee").notNull().default(12),
   freeThreshold: real("free_threshold").notNull().default(200),
+  // Payment processing fee passed to customer
+  paymentFeeEnabled: boolean("payment_fee_enabled").notNull().default(false),
+  paymentFeePercent: real("payment_fee_percent").notNull().default(0),
+  paymentFeeFixed: real("payment_fee_fixed").notNull().default(0),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 

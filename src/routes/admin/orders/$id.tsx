@@ -56,6 +56,7 @@ interface OrderDetailData {
     status: OrderStatus;
     subtotal: number;
     shippingFee: number;
+    paymentFee: number;
     discountCode: string | null;
     discountAmount: number;
     total: number;
@@ -127,17 +128,19 @@ const getOrderDetail = createServerFn({ method: "GET" })
     if (!orderRows[0]) throw new Error("Order not found");
     const { order: o, customer } = orderRows[0];
 
-    // Discount columns added later — query separately so page works before migration
+    // Extra columns added later — query separately so page works before migration
     let discountCode: string | null = null;
     let discountAmount = 0;
+    let paymentFee = 0;
     try {
       const dr = await database
-        .select({ discountCode: orders.discountCode, discountAmount: orders.discountAmount })
+        .select({ discountCode: orders.discountCode, discountAmount: orders.discountAmount, paymentFee: orders.paymentFee })
         .from(orders)
         .where(eq(orders.id, data.id))
         .limit(1);
       discountCode = dr[0]?.discountCode ?? null;
       discountAmount = Number(dr[0]?.discountAmount ?? 0);
+      paymentFee = Number(dr[0]?.paymentFee ?? 0);
     } catch { /* column not yet migrated */ }
 
     return {
@@ -146,6 +149,7 @@ const getOrderDetail = createServerFn({ method: "GET" })
         status: o.status as OrderStatus,
         subtotal: Number(o.subtotal),
         shippingFee: Number(o.shippingFee),
+        paymentFee,
         discountCode,
         discountAmount,
         total: Number(o.total),
@@ -405,6 +409,12 @@ function OrderDetail() {
                 <span className="text-[var(--color-muted-foreground)]">Shipping</span>
                 <span>{data.order.shippingFee === 0 ? "Free" : fmt(data.order.shippingFee)}</span>
               </div>
+              {data.order.paymentFee > 0 && (
+                <div className="flex justify-between font-mono text-xs">
+                  <span className="text-[var(--color-muted-foreground)]">Payment fee</span>
+                  <span>{fmt(data.order.paymentFee)}</span>
+                </div>
+              )}
               {data.order.discountCode && (
                 <div className="flex justify-between font-mono text-xs text-green-400">
                   <span>Discount <span className="ml-1 rounded bg-green-500/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider">{data.order.discountCode}</span></span>

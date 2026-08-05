@@ -73,6 +73,7 @@ export type OrderDataPayload = {
   }>;
   subtotal: number;
   shippingFee: number;
+  paymentFee: number;
   total: number;
 };
 
@@ -161,6 +162,7 @@ export const createPokOrder = createServerFn({ method: "POST" })
       : 0;
 
     // Validate discount server-side (read-only check — increment happens in placeOrder)
+
     let discountAmount = 0;
     let validatedDiscountCode: string | null = null;
     if (data.discountCode) {
@@ -189,7 +191,15 @@ export const createPokOrder = createServerFn({ method: "POST" })
       }
     }
 
-    const total = Math.max(0, subtotal + shippingFee - discountAmount);
+    // Payment processing fee charged to customer
+    const paymentFee = cfg?.paymentFeeEnabled
+      ? Math.round(
+          ((subtotal + shippingFee - discountAmount) * ((cfg.paymentFeePercent ?? 0) / 100) + (cfg.paymentFeeFixed ?? 0))
+          * 100
+        ) / 100
+      : 0;
+
+    const total = Math.max(0, subtotal + shippingFee - discountAmount + paymentFee);
 
     // ── Build authoritative order payload stored in pendingOrder ───────────────
     const orderPayload: OrderDataPayload = {
@@ -207,6 +217,7 @@ export const createPokOrder = createServerFn({ method: "POST" })
       items: itemsWithPrices,
       subtotal,
       shippingFee,
+      paymentFee,
       total,
     };
 

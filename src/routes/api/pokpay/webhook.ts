@@ -189,12 +189,17 @@ async function handleWebhook(body: unknown) {
     }))
   );
 
-  // Increment discount code usage counter
+  // Increment discount code usage counter — atomic guard prevents over-redemption
   if (orderData.discountCode) {
     await db()
       .update(discountCodeTable)
       .set({ usedCount: sql`used_count + 1` })
-      .where(eq(discountCodeTable.code, orderData.discountCode));
+      .where(
+        and(
+          eq(discountCodeTable.code, orderData.discountCode),
+          sql`(max_uses IS NULL OR used_count < max_uses)`,
+        )
+      );
   }
 
   await db().delete(pendingOrder).where(eq(pendingOrder.pokOrderId, pokOrderId));

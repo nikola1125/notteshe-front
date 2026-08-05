@@ -139,12 +139,23 @@ export const placeOrder = createServerFn({ method: "POST" })
       }))
     );
 
-    // Increment discount code usage counter
+    // Increment discount code usage counter — atomic guard prevents over-redemption
     if (orderData.discountCode) {
-      await db()
+      const updated = await db()
         .update(discountCodeTable)
         .set({ usedCount: sql`used_count + 1` })
-        .where(eq(discountCodeTable.code, orderData.discountCode));
+        .where(
+          and(
+            eq(discountCodeTable.code, orderData.discountCode),
+            sql`(max_uses IS NULL OR used_count < max_uses)`,
+          )
+        )
+        .returning({ id: discountCodeTable.id });
+
+      if (updated.length === 0) {
+        // Code hit its limit between reservation and finalisation — order still goes through
+        console.warn(`[placeOrder] discount code ${orderData.discountCode} exhausted at finalisation`);
+      }
     }
 
     // Release the pending order reservation

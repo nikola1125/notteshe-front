@@ -12,24 +12,40 @@ import type { ShippingConfig } from "@/db/schema";
 const getShippingConfig = createServerFn({ method: "GET" }).handler(
   async (): Promise<ShippingConfig> => {
     await requireAdmin();
-    const rows = await db()
-      .select()
+    const database = db();
+
+    const rows = await database
+      .select({ id: shippingConfig.id, enabled: shippingConfig.enabled, fee: shippingConfig.fee, freeThreshold: shippingConfig.freeThreshold, updatedAt: shippingConfig.updatedAt })
       .from(shippingConfig)
       .where(eq(shippingConfig.id, "default"))
       .limit(1);
 
-    if (rows[0]) return rows[0];
+    if (!rows[0]) {
+      const defaults: ShippingConfig = {
+        id: "default", enabled: true, fee: 12, freeThreshold: 200,
+        paymentFeeEnabled: false, paymentFeePercent: 0, paymentFeeFixed: 0,
+        updatedAt: new Date(),
+      };
+      await database.insert(shippingConfig).values(defaults);
+      return defaults;
+    }
 
-    // Create default row if not present
-    const defaults: ShippingConfig = {
-      id: "default",
-      enabled: true,
-      fee: 12,
-      freeThreshold: 200,
-      updatedAt: new Date(),
-    };
-    await db().insert(shippingConfig).values(defaults);
-    return defaults;
+    // Payment fee columns added in migration 0003 — read separately so page works before migration
+    let paymentFeeEnabled = false;
+    let paymentFeePercent = 0;
+    let paymentFeeFixed = 0;
+    try {
+      const pf = await database
+        .select({ paymentFeeEnabled: shippingConfig.paymentFeeEnabled, paymentFeePercent: shippingConfig.paymentFeePercent, paymentFeeFixed: shippingConfig.paymentFeeFixed })
+        .from(shippingConfig)
+        .where(eq(shippingConfig.id, "default"))
+        .limit(1);
+      paymentFeeEnabled = pf[0]?.paymentFeeEnabled ?? false;
+      paymentFeePercent = pf[0]?.paymentFeePercent ?? 0;
+      paymentFeeFixed = pf[0]?.paymentFeeFixed ?? 0;
+    } catch { /* columns not yet migrated */ }
+
+    return { ...rows[0], paymentFeeEnabled, paymentFeePercent, paymentFeeFixed };
   }
 );
 
@@ -40,13 +56,23 @@ const saveShippingConfig = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const admin = await requireAdmin();
-    await db()
+    const database = db();
+
+    // Always save core fields
+    await database
       .update(shippingConfig)
-      .set({ ...data, updatedAt: new Date() })
+      .set({ enabled: data.enabled, fee: data.fee, freeThreshold: data.freeThreshold, updatedAt: new Date() })
       .where(eq(shippingConfig.id, "default"));
-    await logAudit(admin.id, "shipping.update", "shipping_config", "default", {
-      after: data,
-    });
+
+    // Save payment fee fields only if migration has been run
+    try {
+      await database
+        .update(shippingConfig)
+        .set({ paymentFeeEnabled: data.paymentFeeEnabled, paymentFeePercent: data.paymentFeePercent, paymentFeeFixed: data.paymentFeeFixed })
+        .where(eq(shippingConfig.id, "default"));
+    } catch { /* columns not yet migrated */ }
+
+    await logAudit(admin.id, "shipping.update", "shipping_config", "default", { after: data });
     return { success: true };
   });
 

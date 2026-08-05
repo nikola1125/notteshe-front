@@ -46,15 +46,13 @@ const applyDiscountCode = createServerFn({ method: "POST" })
       .where(inArray(product.id, productIds));
     const saleProductIds = new Set(productRows.filter((p) => p.isSale).map((p) => p.id));
 
-    // Discount applies only to non-sale items (silent rule, no message shown to customer)
-    const eligibleSubtotal = data.items
-      .filter((i) => !saleProductIds.has(i.productId))
-      .reduce((s, i) => s + i.price * i.quantity, 0);
+    if (data.items.some((i) => saleProductIds.has(i.productId)))
+      return { valid: false as const, error: "Discount codes cannot be applied to sale items" };
 
     const discountAmount =
       code.type === "PERCENT"
-        ? Math.round(eligibleSubtotal * (code.value / 100) * 100) / 100
-        : Math.min(code.value, eligibleSubtotal);
+        ? Math.round(data.subtotal * (code.value / 100) * 100) / 100
+        : Math.min(code.value, data.subtotal);
 
     return { valid: true as const, code: code.code, type: code.type, value: code.value, discountAmount };
   });

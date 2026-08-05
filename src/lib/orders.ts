@@ -73,19 +73,25 @@ export const placeOrder = createServerFn({ method: "POST" })
         (code.maxUses === null || code.usedCount < code.maxUses) &&
         (code.minOrderAmount === null || subtotal >= code.minOrderAmount)
       ) {
-        // Discount applies only to non-sale items (silent rule)
-        const eligibleSubtotal = data.items
-          .filter((i) => i.originalPrice === null)
-          .reduce((s, i) => s + i.price * i.quantity, 0);
-        discountAmount =
-          code.type === "PERCENT"
-            ? Math.round(eligibleSubtotal * (code.value / 100) * 100) / 100
-            : Math.min(code.value, eligibleSubtotal);
-        validatedCode = code.code;
-        await db()
-          .update(discountCode)
-          .set({ usedCount: sql`used_count + 1` })
-          .where(eq(discountCode.code, code.code));
+        // Codes cannot apply when any cart item is on sale — re-verify server-side
+        const itemProductIds = [...new Set(data.items.map((i) => i.productId))];
+        const { product: productTable } = await import("@/db/schema");
+        const saleCheck = await db()
+          .select({ id: productTable.id, isSale: productTable.isSale })
+          .from(productTable)
+          .where(inArray(productTable.id, itemProductIds));
+        const hasSaleItem = saleCheck.some((p) => p.isSale);
+        if (!hasSaleItem) {
+          discountAmount =
+            code.type === "PERCENT"
+              ? Math.round(subtotal * (code.value / 100) * 100) / 100
+              : Math.min(code.value, subtotal);
+          validatedCode = code.code;
+          await db()
+            .update(discountCode)
+            .set({ usedCount: sql`used_count + 1` })
+            .where(eq(discountCode.code, code.code));
+        }
       }
     }
 

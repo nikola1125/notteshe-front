@@ -216,7 +216,7 @@ function Index() {
         {/* Mobile: horizontal scroll · Desktop: grid */}
         <div
           className="-mx-5 flex gap-4 overflow-x-auto scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide overscroll-x-contain md:mx-0 md:grid md:grid-cols-4 md:gap-x-6 md:overflow-visible md:px-0 md:pb-0 md:snap-none md:scroll-pl-0"
-          style={{ touchAction: "pan-x pinch-zoom" }}
+          style={{ touchAction: "pan-y pinch-zoom" }}
         >
           {wardrobe.length === 0 ? (
             <p className="col-span-4 py-16 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
@@ -238,6 +238,7 @@ function Index() {
                     width={900}
                     height={1200}
                     loading={i < 2 ? "eager" : "lazy"}
+                    draggable={false}
                     className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
                   />
                 ) : (
@@ -405,7 +406,7 @@ function Index() {
         {/* Mobile: horizontal scroll · Desktop: grid */}
         <div
           className="-mx-5 flex gap-4 overflow-x-auto scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide overscroll-x-contain md:mx-0 md:grid md:grid-cols-4 md:gap-x-6 md:overflow-visible md:px-0 md:pb-0 md:snap-none md:scroll-pl-0"
-          style={{ touchAction: "pan-x pinch-zoom" }}
+          style={{ touchAction: "pan-y pinch-zoom" }}
         >
           {sale.length === 0 ? (
             <p className="col-span-4 py-16 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
@@ -427,6 +428,7 @@ function Index() {
                     width={900}
                     height={1200}
                     loading="lazy"
+                    draggable={false}
                     className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
                   />
                 ) : (

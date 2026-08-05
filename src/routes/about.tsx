@@ -126,7 +126,7 @@ function AboutPage() {
           </p>
 
           <h2 className="serif mt-8 text-5xl font-light leading-[1.05] md:text-7xl">
-            Grua e fortë.
+            Notteshe — Grua e Fortë.
           </h2>
 
           <div className="mt-12 space-y-6 md:mt-16">

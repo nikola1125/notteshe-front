@@ -186,33 +186,32 @@ const updateOrderStatus = createServerFn({ method: "POST" })
     const database = db();
 
     const [current] = await database
-      .select({ status: orders.status, pokOrderId: orders.pokOrderId })
+      .select({ status: orders.status, pokOrderId: orders.pokOrderId, total: orders.total })
       .from(orders)
       .where(eq(orders.id, data.id))
       .limit(1);
 
     const prevStatus = current?.status as OrderStatus | undefined;
     const pokOrderId = current?.pokOrderId ?? null;
+    const total = Number(current?.total ?? 0);
 
-    // POK uses autoCapture: true — money is taken at checkout, no capture step needed.
-    // Admin confirm is a pure status update. Cancellations/refunds call pokRefund (blocking).
+    // Authorize-capture flow (autoCapture: false):
+    //   PENDING → CONFIRMED  : capture the frozen authorization → money goes through
+    //   PENDING → CANCELLED  : void the hold → no charge
+    //   CONFIRMED/SHIPPED → CANCELLED : refund already-captured payment
+    //   DELIVERED → REFUNDED : refund
+    // All calls are blocking — if POK rejects, DB is NOT updated and admin sees the error.
     if (pokOrderId) {
-      const { pokRefund } = await import("@/lib/pok");
+      const { pokCapture, pokCancel, pokRefund } = await import("@/lib/pok");
 
-      const needsRefund =
-        data.status === "CANCELLED" ||
-        data.status === "REFUNDED";
-
-      const wasCharged =
-        prevStatus !== "CANCELLED" && prevStatus !== "REFUNDED";
-
-      if (needsRefund && wasCharged) {
-        // Blocking: if POK refund fails, throw so the DB is NOT updated and admin sees the error.
-        // Customer should not be left without money back on a silent failure.
-        await pokRefund(
-          pokOrderId,
-          data.status === "REFUNDED" ? "Customer refund request" : "Order cancelled by merchant"
-        );
+      if (data.status === "CONFIRMED" && prevStatus === "PENDING") {
+        await pokCapture(pokOrderId, total);
+      } else if (data.status === "CANCELLED" && prevStatus === "PENDING") {
+        await pokCancel(pokOrderId, "Order rejected by merchant");
+      } else if (data.status === "CANCELLED" && (prevStatus === "CONFIRMED" || prevStatus === "SHIPPED")) {
+        await pokRefund(pokOrderId, "Order cancelled by merchant");
+      } else if (data.status === "REFUNDED" && prevStatus === "DELIVERED") {
+        await pokRefund(pokOrderId, "Customer refund request");
       }
     }
 

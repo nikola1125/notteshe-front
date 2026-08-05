@@ -265,8 +265,27 @@ const updateOrderStatus = createServerFn({ method: "POST" })
 
     await logAudit(admin.id, "order.status_change", "order", data.id, {
       before: { status: prevStatus },
-      after: { status: data.status, pokWarning: pokWarning ?? undefined },
+      after: { status: data.status, pokOrderId: pokOrderId ?? undefined, pokWarning: pokWarning ?? undefined },
     });
+
+    if (pokWarning) {
+      const { randomUUID } = await import("node:crypto");
+      await db().insert(auditLog).values({
+        id: randomUUID(),
+        adminId: admin.id,
+        action: "payment.pok_action_failed",
+        entityType: "payment",
+        entityId: pokOrderId ?? data.id,
+        diff: {
+          after: {
+            orderId: data.id,
+            attemptedStatus: data.status,
+            prevStatus,
+            errorMessage: pokWarning,
+          },
+        },
+      });
+    }
 
     return { success: true, pokWarning };
   });

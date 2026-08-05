@@ -57,25 +57,27 @@ export const Route = createFileRoute("/admin/audit")({
   component: AuditLogPage,
 });
 
-type FilterType = "ALL" | "payment.initiated" | "payment.success" | "payment.failure" | "payment.order_error" | "payment.webhook_recovery" | "order.status_change";
+type FilterType = "ALL" | "payment.initiated" | "payment.success" | "payment.failure" | "payment.order_error" | "payment.webhook_recovery" | "payment.pok_action_failed" | "order.status_change";
 
 const EVENT_META: Record<string, { label: string; color: string; bg: string }> = {
-  "payment.initiated":        { label: "Initiated",        color: "text-[var(--color-muted-foreground)]", bg: "bg-[var(--color-muted)]/40" },
-  "payment.success":          { label: "Success",          color: "text-green-400",                        bg: "bg-green-500/10" },
-  "payment.failure":          { label: "Failed",           color: "text-[var(--color-clay)]",              bg: "bg-[var(--color-clay)]/10" },
-  "payment.order_error":      { label: "Order Error",      color: "text-orange-400",                       bg: "bg-orange-500/10" },
-  "payment.webhook_recovery": { label: "Webhook Recovery", color: "text-yellow-400",                       bg: "bg-yellow-500/10" },
-  "order.status_change":      { label: "Status Change",    color: "text-blue-400",                         bg: "bg-blue-500/10" },
+  "payment.initiated":          { label: "Initiated",        color: "text-[var(--color-muted-foreground)]", bg: "bg-[var(--color-muted)]/40" },
+  "payment.success":            { label: "Success",          color: "text-green-400",                        bg: "bg-green-500/10" },
+  "payment.failure":            { label: "Failed",           color: "text-[var(--color-clay)]",              bg: "bg-[var(--color-clay)]/10" },
+  "payment.order_error":        { label: "Order Error",      color: "text-orange-400",                       bg: "bg-orange-500/10" },
+  "payment.webhook_recovery":   { label: "Webhook Recovery", color: "text-yellow-400",                       bg: "bg-yellow-500/10" },
+  "payment.pok_action_failed":  { label: "POK Failed",       color: "text-orange-400",                       bg: "bg-orange-500/10" },
+  "order.status_change":        { label: "Status Change",    color: "text-blue-400",                         bg: "bg-blue-500/10" },
 };
 
 const FILTER_TABS: { key: FilterType; label: string }[] = [
-  { key: "ALL",                      label: "All" },
-  { key: "payment.success",          label: "Success" },
-  { key: "payment.failure",          label: "Failed" },
-  { key: "payment.initiated",        label: "Initiated" },
-  { key: "payment.order_error",      label: "Errors" },
-  { key: "payment.webhook_recovery", label: "Webhook" },
-  { key: "order.status_change",      label: "Status Changes" },
+  { key: "ALL",                        label: "All" },
+  { key: "payment.success",            label: "Success" },
+  { key: "payment.failure",            label: "Failed" },
+  { key: "payment.initiated",          label: "Initiated" },
+  { key: "payment.order_error",        label: "Errors" },
+  { key: "payment.pok_action_failed",  label: "POK Failed" },
+  { key: "payment.webhook_recovery",   label: "Webhook" },
+  { key: "order.status_change",        label: "Status Changes" },
 ];
 
 function fmtDate(iso: string) {

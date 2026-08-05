@@ -14,6 +14,9 @@ import {
   LogOut,
   Menu,
   X,
+  ChevronDown,
+  Activity,
+  CreditCard,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -34,13 +37,20 @@ const NAV_ITEMS = [
   { label: "Shipping", href: "/admin/shipping", icon: Truck },
   { label: "Discounts", href: "/admin/discounts", icon: Tag },
   { label: "Newsletter", href: "/admin/newsletter", icon: Mail },
-  { label: "Audit Log", href: "/admin/audit", icon: ScrollText },
+] as const;
+
+const LOG_SUB_ITEMS = [
+  { label: "Payment Log", href: "/admin/audit", icon: CreditCard },
+  { label: "Activities", href: "/admin/activities", icon: Activity },
 ] as const;
 
 export function AdminSidebar({ adminName, adminRole }: AdminSidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const router = useRouter();
+
+  const logsActive = LOG_SUB_ITEMS.some((item) => location.pathname.startsWith(item.href));
+  const [logsOpen, setLogsOpen] = useState(logsActive);
 
   function isActive(href: string, exact?: boolean) {
     if (exact) return location.pathname === href;
@@ -90,6 +100,48 @@ export function AdminSidebar({ adminName, adminRole }: AdminSidebarProps) {
             </Link>
           );
         })}
+
+        {/* Logs dropdown */}
+        <button
+          onClick={() => setLogsOpen((v) => !v)}
+          className={[
+            "flex w-full items-center gap-3 rounded px-3 py-2.5 text-sm transition-colors",
+            logsActive
+              ? "bg-[var(--color-clay)]/15 text-[var(--color-clay)]"
+              : "text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]",
+          ].join(" ")}
+        >
+          <ScrollText size={16} strokeWidth={1.5} />
+          <span className="flex-1 text-left font-mono text-xs tracking-wide">Logs</span>
+          <ChevronDown
+            size={12}
+            strokeWidth={1.5}
+            className={`transition-transform ${logsOpen ? "rotate-180" : ""}`}
+          />
+        </button>
+        {logsOpen && (
+          <div className="ml-4 space-y-0.5 border-l border-[var(--color-border)] pl-3">
+            {LOG_SUB_ITEMS.map(({ label, href, icon: Icon }) => {
+              const active = isActive(href);
+              return (
+                <Link
+                  key={href}
+                  to={href}
+                  onClick={() => setMobileOpen(false)}
+                  className={[
+                    "flex items-center gap-3 rounded px-3 py-2 text-sm transition-colors",
+                    active
+                      ? "bg-[var(--color-clay)]/15 text-[var(--color-clay)]"
+                      : "text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]",
+                  ].join(" ")}
+                >
+                  <Icon size={14} strokeWidth={1.5} />
+                  <span className="font-mono text-xs tracking-wide">{label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </nav>
 
       {/* Footer */}

@@ -3,8 +3,8 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { eq, desc } from "drizzle-orm";
 import { toast } from "sonner";
-import { useState } from "react";
-import { Trash2 } from "lucide-react";
+import { useState, useRef } from "react";
+import { Trash2, Share2, X, Download, Copy } from "lucide-react";
 import { db } from "@/db";
 import { discountCode } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
@@ -88,11 +88,204 @@ const EMPTY_FORM = {
   expiresAt: "",
 };
 
+function CouponShareModal({ code, onClose }: { code: DiscountCode; onClose: () => void }) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [copying, setCopying] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  const discountLabel =
+    code.type === "PERCENT" ? `${code.value}% OFF` : `€${code.value.toFixed(0)} OFF`;
+
+  async function captureImage(): Promise<Blob | null> {
+    if (!cardRef.current) return null;
+    const { toPng } = await import("html-to-image");
+    const dataUrl = await toPng(cardRef.current, { pixelRatio: 3 });
+    const res = await fetch(dataUrl);
+    return res.blob();
+  }
+
+  async function handleDownload() {
+    setDownloading(true);
+    try {
+      const blob = await captureImage();
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `notteshe-${code.code.toLowerCase()}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Failed to download image");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  async function handleShare(platform: "instagram-post" | "instagram-story" | "whatsapp" | "native") {
+    try {
+      const blob = await captureImage();
+      if (!blob) return;
+      const file = new File([blob], `notteshe-${code.code.toLowerCase()}.png`, { type: "image/png" });
+
+      if (platform === "native" || platform === "instagram-post" || platform === "instagram-story") {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: `Notteshe — ${discountLabel}`,
+            text: `Use code ${code.code} for ${discountLabel} on notteshe.com`,
+          });
+          return;
+        }
+        // Fallback: download
+        await handleDownload();
+        toast("Image downloaded — share it manually on Instagram");
+        return;
+      }
+
+      if (platform === "whatsapp") {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], text: `Use code *${code.code}* for ${discountLabel} at notteshe.com` });
+        } else {
+          const text = encodeURIComponent(`🛍️ Use code *${code.code}* for ${discountLabel} at notteshe.com`);
+          window.open(`https://wa.me/?text=${text}`, "_blank");
+        }
+      }
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") toast.error("Share failed");
+    }
+  }
+
+  async function handleCopy() {
+    setCopying(true);
+    await navigator.clipboard.writeText(code.code);
+    setTimeout(() => setCopying(false), 1500);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="mb-4 flex items-center justify-between">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-white/60">Share coupon</p>
+          <button onClick={onClose} className="text-white/40 transition-colors hover:text-white">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Coupon card — this gets captured */}
+        <div
+          ref={cardRef}
+          className="relative overflow-hidden rounded-none bg-[#111111] p-8"
+          style={{ fontFamily: "monospace" }}
+        >
+          {/* Decorative corner lines */}
+          <div className="absolute left-4 top-4 h-5 w-px bg-white/20" />
+          <div className="absolute left-4 top-4 h-px w-5 bg-white/20" />
+          <div className="absolute right-4 top-4 h-5 w-px bg-white/20" />
+          <div className="absolute right-4 top-4 h-px w-5 bg-white/20" />
+          <div className="absolute bottom-4 left-4 h-5 w-px bg-white/20" />
+          <div className="absolute bottom-4 left-4 h-px w-5 bg-white/20" />
+          <div className="absolute bottom-4 right-4 h-5 w-px bg-white/20" />
+          <div className="absolute bottom-4 right-4 h-px w-5 bg-white/20" />
+
+          <div className="text-center">
+            <p style={{ fontSize: 9, letterSpacing: "0.3em", color: "#6b6b6b", textTransform: "uppercase", marginBottom: 20 }}>
+              Notteshe
+            </p>
+            <p style={{ fontSize: 48, fontWeight: 300, color: "#ffffff", letterSpacing: "-0.02em", lineHeight: 1, marginBottom: 8 }}>
+              {discountLabel}
+            </p>
+            <p style={{ fontSize: 9, color: "#6b6b6b", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 24 }}>
+              {code.type === "PERCENT" ? "Percent discount" : "Fixed discount"}
+            </p>
+            <div style={{ borderTop: "1px solid #2a2a2a", paddingTop: 20, marginBottom: 8 }}>
+              <p style={{ fontSize: 9, color: "#6b6b6b", letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: 8 }}>
+                Use code
+              </p>
+              <p style={{ fontSize: 22, letterSpacing: "0.25em", color: "#ffffff", textTransform: "uppercase" }}>
+                {code.code}
+              </p>
+            </div>
+            {code.minOrderAmount && (
+              <p style={{ fontSize: 9, color: "#6b6b6b", letterSpacing: "0.15em", textTransform: "uppercase", marginTop: 12 }}>
+                Min. order €{code.minOrderAmount}
+              </p>
+            )}
+            {code.expiresAt && (
+              <p style={{ fontSize: 9, color: "#6b6b6b", letterSpacing: "0.15em", textTransform: "uppercase", marginTop: 6 }}>
+                Valid until {new Date(code.expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+              </p>
+            )}
+            <p style={{ fontSize: 8, color: "#3a3a3a", letterSpacing: "0.2em", textTransform: "uppercase", marginTop: 24 }}>
+              notteshe.com
+            </p>
+          </div>
+        </div>
+
+        {/* Share options */}
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button
+            onClick={() => handleShare("instagram-post")}
+            className="flex items-center justify-center gap-2 rounded border border-white/10 bg-white/5 px-4 py-3 font-mono text-[10px] uppercase tracking-widest text-white/70 transition-colors hover:border-white/20 hover:text-white"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <rect x="2" y="2" width="20" height="20" rx="5" />
+              <circle cx="12" cy="12" r="5" />
+              <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+            </svg>
+            IG Post
+          </button>
+          <button
+            onClick={() => handleShare("instagram-story")}
+            className="flex items-center justify-center gap-2 rounded border border-white/10 bg-white/5 px-4 py-3 font-mono text-[10px] uppercase tracking-widest text-white/70 transition-colors hover:border-white/20 hover:text-white"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <rect x="2" y="2" width="20" height="20" rx="5" />
+              <circle cx="12" cy="12" r="5" />
+              <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+            </svg>
+            IG Story
+          </button>
+          <button
+            onClick={() => handleShare("whatsapp")}
+            className="flex items-center justify-center gap-2 rounded border border-white/10 bg-white/5 px-4 py-3 font-mono text-[10px] uppercase tracking-widest text-white/70 transition-colors hover:border-white/20 hover:text-white"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+            </svg>
+            WhatsApp
+          </button>
+          <button
+            onClick={handleDownload}
+            disabled={downloading}
+            className="flex items-center justify-center gap-2 rounded border border-white/10 bg-white/5 px-4 py-3 font-mono text-[10px] uppercase tracking-widest text-white/70 transition-colors hover:border-white/20 hover:text-white disabled:opacity-40"
+          >
+            <Download size={13} />
+            {downloading ? "…" : "Download"}
+          </button>
+        </div>
+
+        {/* Copy code */}
+        <button
+          onClick={handleCopy}
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded border border-white/10 bg-white/5 px-4 py-3 font-mono text-[10px] uppercase tracking-widest text-white/50 transition-colors hover:text-white/80"
+        >
+          <Copy size={12} />
+          {copying ? "Copied!" : `Copy code: ${code.code}`}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Discounts() {
   const loaderData = Route.useLoaderData();
   const [codes, setCodes] = useState<DiscountCode[]>(loaderData);
   const [form, setForm] = useState(EMPTY_FORM);
   const [creating, setCreating] = useState(false);
+  const [sharingCode, setSharingCode] = useState<DiscountCode | null>(null);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -276,7 +469,7 @@ function Discounts() {
         <table className="w-full">
           <thead>
             <tr className="border-b border-[var(--color-border)] bg-[var(--color-paper)]">
-              {["Code", "Type", "Value", "Uses", "Active", "Expires", ""].map(
+              {["Code", "Type", "Value", "Uses", "Active", "Expires", "", ""].map(
                 (h, i) => (
                   <th
                     key={i}
@@ -333,6 +526,15 @@ function Discounts() {
                 </td>
                 <td className="px-4 py-3">
                   <button
+                    onClick={() => setSharingCode(c)}
+                    className="text-[var(--color-muted-foreground)] transition-colors hover:text-white"
+                    aria-label="Share code"
+                  >
+                    <Share2 size={14} />
+                  </button>
+                </td>
+                <td className="px-4 py-3">
+                  <button
                     onClick={() => handleDelete(c.id)}
                     className="text-[var(--color-muted-foreground)] transition-colors hover:text-red-400"
                     aria-label="Delete code"
@@ -345,6 +547,10 @@ function Discounts() {
           </tbody>
         </table>
       </div>
+
+      {sharingCode && (
+        <CouponShareModal code={sharingCode} onClose={() => setSharingCode(null)} />
+      )}
     </div>
   );
 }

@@ -92,33 +92,34 @@ export const placeOrder = createServerFn({ method: "POST" })
     };
 
     // Insert order — catch unique constraint if webhook raced the browser callback
+    const orderValues = {
+      id: orderId,
+      userId,
+      status: "PENDING" as const,
+      subtotal: orderData.subtotal,
+      shippingFee: orderData.shippingFee,
+      discountCode: orderData.discountCode,
+      discountAmount: orderData.discountAmount,
+      total: orderData.total,
+      shippingAddress,
+      pokOrderId: data.pokOrderId,
+    };
+
     try {
-      await db().insert(orders).values({
-        id: orderId,
-        userId,
-        status: "PENDING",
-        subtotal: orderData.subtotal,
-        shippingFee: orderData.shippingFee,
-        paymentFee: orderData.paymentFee ?? 0,
-        discountCode: orderData.discountCode,
-        discountAmount: orderData.discountAmount,
-        total: orderData.total,
-        shippingAddress,
-        pokOrderId: data.pokOrderId,
-      });
+      await db().insert(orders).values({ ...orderValues, paymentFee: orderData.paymentFee ?? 0 });
     } catch (err) {
-      const isUniqueViolation =
-        (err as { code?: string })?.code === "23505" ||
-        String((err as Error)?.message).toLowerCase().includes("unique");
+      const msg = String((err as Error)?.message ?? "");
+      const isUniqueViolation = (err as { code?: string })?.code === "23505" || msg.toLowerCase().includes("unique");
       if (isUniqueViolation) {
-        const [found] = await db()
-          .select({ id: orders.id })
-          .from(orders)
-          .where(eq(orders.pokOrderId, data.pokOrderId))
-          .limit(1);
+        const [found] = await db().select({ id: orders.id }).from(orders).where(eq(orders.pokOrderId, data.pokOrderId)).limit(1);
         if (found) return { orderId: found.id };
       }
-      throw err;
+      // payment_fee column not yet migrated — retry without it
+      if (msg.includes("payment_fee")) {
+        await db().insert(orders).values(orderValues);
+      } else {
+        throw err;
+      }
     }
 
     // Insert order items

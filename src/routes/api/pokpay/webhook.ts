@@ -142,30 +142,34 @@ async function handleWebhook(body: unknown) {
   };
 
   // Insert order — use authoritative totals from pendingOrder.orderData
+  const orderValues = {
+    id: orderId,
+    userId: pending.userId,
+    status: "PENDING" as const,
+    subtotal: orderData.subtotal,
+    shippingFee: orderData.shippingFee,
+    discountCode: orderData.discountCode,
+    discountAmount: orderData.discountAmount,
+    total: orderData.total,
+    shippingAddress,
+    pokOrderId,
+  };
+
   try {
-    await db().insert(orders).values({
-      id: orderId,
-      userId: pending.userId,
-      status: "PENDING",
-      subtotal: orderData.subtotal,
-      shippingFee: orderData.shippingFee,
-      paymentFee: orderData.paymentFee ?? 0,
-      discountCode: orderData.discountCode,
-      discountAmount: orderData.discountAmount,
-      total: orderData.total,
-      shippingAddress,
-      pokOrderId,
-    });
+    await db().insert(orders).values({ ...orderValues, paymentFee: orderData.paymentFee ?? 0 });
   } catch (err) {
-    // Unique constraint — browser callback raced us and won; clean up and exit
-    const isUniqueViolation =
-      (err as { code?: string })?.code === "23505" ||
-      String((err as Error)?.message).toLowerCase().includes("unique");
+    const msg = String((err as Error)?.message ?? "");
+    const isUniqueViolation = (err as { code?: string })?.code === "23505" || msg.toLowerCase().includes("unique");
     if (isUniqueViolation) {
       await db().delete(pendingOrder).where(eq(pendingOrder.pokOrderId, pokOrderId));
       return;
     }
-    throw err;
+    // payment_fee column not yet migrated — retry without it
+    if (msg.includes("payment_fee")) {
+      await db().insert(orders).values(orderValues);
+    } else {
+      throw err;
+    }
   }
 
   // Insert order items

@@ -16,6 +16,7 @@ import { Header } from "@/components/Header";
 import { CartDrawer } from "@/components/CartDrawer";
 import { AuthModal } from "@/components/AuthModal";
 import { useAuthStore } from "@/store/authStore";
+import { useSmoothScroll } from "@/hooks/useSmoothScroll";
 
 
 
@@ -124,6 +125,7 @@ function RootComponent() {
   const { authModalOpen, authModalMode, authModalCallback, closeAuthModal } = useAuthStore();
   const location = useLocation();
   const isAdmin = location.pathname.startsWith("/admin");
+  useSmoothScroll();
 
   return (
     <QueryClientProvider client={queryClient}>

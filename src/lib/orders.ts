@@ -30,7 +30,7 @@ export const placeOrder = createServerFn({ method: "POST" })
     const { requireAuth } = await import("@/lib/auth/session");
     const { db } = await import("@/db");
     const { orders, orderItem, shippingConfig, discountCode, productSize } = await import("@/db/schema");
-    const { eq, sql, inArray } = await import("drizzle-orm");
+    const { eq, sql, inArray, and } = await import("drizzle-orm");
     const { randomUUID } = await import("node:crypto");
 
     const session = await requireAuth();
@@ -139,6 +139,14 @@ export const placeOrder = createServerFn({ method: "POST" })
     }));
 
     await db().insert(orderItem).values(itemRows);
+
+    // Decrement stock for each ordered item
+    for (const item of data.items) {
+      await db()
+        .update(productSize)
+        .set({ stock: sql`stock - ${item.quantity}` })
+        .where(and(eq(productSize.productId, item.productId), eq(productSize.label, item.size)));
+    }
 
     return { orderId, discountCode: validatedCode };
   });

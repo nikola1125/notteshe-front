@@ -1,10 +1,10 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql, and } from "drizzle-orm";
 import { toast } from "sonner";
 import { useState } from "react";
 import { db } from "@/db";
-import { orders, orderItem, user, auditLog, adminUser } from "@/db/schema";
+import { orders, orderItem, productSize, user, auditLog, adminUser } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAudit } from "@/lib/admin/audit";
 
@@ -199,6 +199,25 @@ const updateOrderStatus = createServerFn({ method: "POST" })
       .update(orders)
       .set(updateData)
       .where(eq(orders.id, data.id));
+
+    // Restore stock when an order is cancelled or refunded
+    if (data.status === "CANCELLED" || data.status === "REFUNDED") {
+      const prevStatus = before[0]?.status;
+      // Only restore if it wasn't already cancelled/refunded (avoid double-restore)
+      if (prevStatus !== "CANCELLED" && prevStatus !== "REFUNDED") {
+        const items = await database
+          .select({ productId: orderItem.productId, size: orderItem.size, quantity: orderItem.quantity })
+          .from(orderItem)
+          .where(eq(orderItem.orderId, data.id));
+        for (const item of items) {
+          if (!item.productId) continue;
+          await database
+            .update(productSize)
+            .set({ stock: sql`stock + ${item.quantity}` })
+            .where(and(eq(productSize.productId, item.productId), eq(productSize.label, item.size)));
+        }
+      }
+    }
 
     await logAudit(admin.id, "order.status_change", "order", data.id, {
       before: { status: before[0]?.status },

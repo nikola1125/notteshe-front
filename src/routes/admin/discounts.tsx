@@ -262,14 +262,9 @@ function CouponShareModal({ code, onClose }: { code: DiscountCode; onClose: () =
                   Min. order €{code.minOrderAmount}
                 </span>
               ) : null}
-              {code.expiresAt ? (
+              {!code.minOrderAmount ? (
                 <span style={{ fontFamily: "monospace", fontSize: 7, color: "#444", letterSpacing: "0.2em", textTransform: "uppercase" }}>
-                  Valid until {new Date(code.expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                </span>
-              ) : null}
-              {!code.minOrderAmount && !code.expiresAt ? (
-                <span style={{ fontFamily: "monospace", fontSize: 7, color: "#444", letterSpacing: "0.2em", textTransform: "uppercase" }}>
-                  No expiry · Limited offer
+                  Limited offer
                 </span>
               ) : null}
             </div>

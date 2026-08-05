@@ -272,6 +272,7 @@ function OrderDetail() {
   );
   const [note, setNote] = useState(data.order.adminNote ?? "");
   const [savingStatus, setSavingStatus] = useState<OrderStatus | null>(null);
+  const [statusFlash, setStatusFlash] = useState(false);
 
   const transitions =
     STATUS_TRANSITIONS[data.order.status] ?? [];
@@ -291,6 +292,8 @@ function OrderDetail() {
         ...prev,
         order: { ...prev.order, status: newStatus },
       }));
+      setStatusFlash(true);
+      setTimeout(() => setStatusFlash(false), 1800);
       toast.success(`Order marked as ${newStatus.toLowerCase()}`);
       await router.invalidate();
     } catch {
@@ -326,7 +329,9 @@ function OrderDetail() {
           Order #{data.order.id.slice(0, 8)}
         </h1>
         <span
-          className={`rounded px-2 py-1 font-mono text-xs uppercase tracking-widest ${STATUS_COLORS[data.order.status] ?? ""}`}
+          key={data.order.status}
+          className={`rounded px-2 py-1 font-mono text-xs uppercase tracking-widest transition-all duration-300 ${STATUS_COLORS[data.order.status] ?? ""} ${statusFlash ? "scale-110 ring-2 ring-white/30" : "scale-100"}`}
+          style={statusFlash ? { animation: "status-pop 0.4s cubic-bezier(0.34,1.56,0.64,1) both" } : undefined}
         >
           {data.order.status}
         </span>

@@ -34,7 +34,7 @@ function AboutPage() {
       </section>
 
       {/* ── 2. MANIFESTO BAR ─────────────────────────────────────────── */}
-      <section className="bg-ink px-8 py-16 md:px-14 md:py-20">
+      <section className="bg-muted px-8 py-16 md:px-14 md:py-20">
         <p className="serif text-2xl font-light leading-[1.4] text-white md:text-4xl md:leading-[1.3] max-w-3xl">
           "Notteshe was born from a belief that clothing should feel like a second skin — unhurried, intentional, and made to last far beyond a single season."
         </p>
@@ -91,7 +91,7 @@ function AboutPage() {
       </section>
 
       {/* ── 5. PHILOSOPHY ────────────────────────────────────────────── */}
-      <section className="bg-ink text-white">
+      <section className="bg-muted text-white">
         <div className="px-8 py-20 md:px-14 md:py-32">
           <p className="font-mono text-[9px] uppercase tracking-[0.35em] text-white/25">Philosophy</p>
           <h2 className="serif mt-8 text-[clamp(2.5rem,7vw,5.5rem)] font-light leading-[1.05] max-w-5xl">
@@ -153,7 +153,7 @@ function AboutPage() {
       </section>
 
       {/* ── 7. CTA ───────────────────────────────────────────────────── */}
-      <section className="bg-ink px-8 py-24 md:px-14 md:py-36">
+      <section className="bg-muted px-8 py-24 md:px-14 md:py-36">
         <div className="flex flex-col gap-14 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="font-mono text-[9px] uppercase tracking-[0.35em] text-white/25">Explore the collection</p>

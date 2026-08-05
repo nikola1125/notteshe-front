@@ -34,8 +34,8 @@ function AdminLayout() {
   const { admin } = Route.useRouteContext() as { admin: AdminUser };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--color-background)] text-[var(--color-foreground)]">
-      <div className="flex h-full flex-col lg:flex-row w-full">
+    <div className="flex h-[100dvh] overflow-hidden bg-[var(--color-background)] text-[var(--color-foreground)]">
+      <div className="flex h-full w-full flex-col lg:flex-row">
         <AdminSidebar adminName={admin.name} adminRole={admin.role} />
         <main className="flex-1 overflow-y-auto">
           <Outlet />

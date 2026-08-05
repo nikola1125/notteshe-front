@@ -118,8 +118,8 @@ export function AdminSidebar({ adminName, adminRole }: AdminSidebarProps) {
         {sidebarContent}
       </aside>
 
-      {/* Mobile topbar */}
-      <div className="flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-paper)] px-4 py-3 lg:hidden">
+      {/* Mobile topbar — sticky so it never scrolls away */}
+      <div className="sticky top-0 z-40 flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-paper)] px-4 py-3 lg:hidden">
         <p className="font-serif text-base italic text-[var(--color-foreground)]">
           Notteshe Admin
         </p>

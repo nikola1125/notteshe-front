@@ -9,14 +9,6 @@ import {
   and,
   gte,
 } from "drizzle-orm";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
 import { db } from "@/db";
 import { orders, orderItem, user } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
@@ -168,162 +160,119 @@ const STATUS_COLORS: Record<string, string> = {
   REFUNDED: "bg-orange-500/20 text-orange-400",
 };
 
-function StatCard({
-  label,
-  value,
-  sub,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-}) {
-  return (
-    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-5">
-      <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
-        {label}
-      </p>
-      <p className="mt-2 font-serif text-2xl italic text-[var(--color-foreground)]">
-        {value}
-      </p>
-      {sub && (
-        <p className="mt-0.5 font-mono text-[10px] text-[var(--color-muted-foreground)]">
-          {sub}
-        </p>
-      )}
-    </div>
-  );
-}
-
 function AdminDashboard() {
   const data = Route.useLoaderData();
 
   function fmt(n: number) {
-    return `€${n.toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `€${n.toLocaleString("en", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   }
 
-  return (
-    <div className="p-6 lg:p-8">
-      <h1 className="mb-6 font-serif text-2xl italic text-[var(--color-foreground)]">
-        Dashboard
-      </h1>
+  const maxRevenue = Math.max(...data.chartData.map((d) => d.revenue), 1);
 
-      {/* Stats grid */}
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <div className="xl:col-span-2">
-          <StatCard
-            label="Total Revenue"
-            value={fmt(data.totalRevenue)}
-            sub={`${data.totalOrders} orders all time`}
-          />
-        </div>
-        <div className="xl:col-span-2">
-          <StatCard
-            label="Today's Revenue"
-            value={fmt(data.todayRevenue)}
-            sub={`${data.todayOrders} orders today`}
-          />
-        </div>
-        <StatCard
-          label="Pending Orders"
-          value={String(data.pendingOrders)}
-        />
-        <StatCard
-          label="Customers"
-          value={String(data.totalCustomers)}
-        />
+  return (
+    <div className="min-h-full p-6 lg:p-10">
+
+      {/* Page header */}
+      <div className="mb-8 border-b border-[var(--color-border)] pb-6">
+        <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
+          Overview
+        </p>
+        <h1 className="mt-1 font-serif text-3xl italic text-[var(--color-foreground)]">
+          Dashboard
+        </h1>
       </div>
 
-      {/* Chart */}
-      <div className="mb-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-5">
-        <p className="mb-4 font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
-          Revenue — Last 30 Days
-        </p>
+      {/* Stat cards */}
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {[
+          { label: "Total Revenue", value: fmt(data.totalRevenue), sub: `${data.totalOrders} orders` },
+          { label: "Today", value: fmt(data.todayRevenue), sub: `${data.todayOrders} orders today` },
+          { label: "Pending", value: String(data.pendingOrders), sub: "awaiting action" },
+          { label: "Customers", value: String(data.totalCustomers), sub: "registered" },
+        ].map((s) => (
+          <div key={s.label} className="border border-[var(--color-border)] bg-[var(--color-paper)] p-5">
+            <p className="font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
+              {s.label}
+            </p>
+            <p className="mt-3 font-serif text-3xl italic text-[var(--color-foreground)]">
+              {s.value}
+            </p>
+            <p className="mt-1 font-mono text-[9px] text-[var(--color-muted-foreground)]/60">
+              {s.sub}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* Revenue chart — bar style, static height */}
+      <div className="mb-8 border border-[var(--color-border)] bg-[var(--color-paper)] p-5">
+        <div className="mb-5 flex items-baseline justify-between">
+          <p className="font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
+            Revenue — Last 30 Days
+          </p>
+          {data.chartData.length > 0 && (
+            <p className="font-mono text-[10px] text-[var(--color-muted-foreground)]">
+              {fmt(data.chartData.reduce((s, d) => s + d.revenue, 0))} total
+            </p>
+          )}
+        </div>
         {data.chartData.length === 0 ? (
-          <p className="py-8 text-center font-mono text-xs text-[var(--color-muted-foreground)]">
+          <p className="py-10 text-center font-mono text-[10px] text-[var(--color-muted-foreground)]/50">
             No data yet
           </p>
         ) : (
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={data.chartData}>
-              <XAxis
-                dataKey="date"
-                tick={{
-                  fontSize: 10,
-                  fontFamily: "JetBrains Mono",
-                  fill: "var(--color-muted-foreground)",
-                }}
-                tickLine={false}
-                axisLine={false}
+          <div className="flex h-28 items-end gap-[3px]">
+            {data.chartData.map((d) => (
+              <div
+                key={d.date}
+                title={`${d.date}: ${fmt(d.revenue)}`}
+                className="flex-1 min-w-0 bg-[var(--color-clay)]/60 hover:bg-[var(--color-clay)] transition-colors"
+                style={{ height: `${Math.max(4, (d.revenue / maxRevenue) * 100)}%` }}
               />
-              <YAxis
-                tick={{
-                  fontSize: 10,
-                  fontFamily: "JetBrains Mono",
-                  fill: "var(--color-muted-foreground)",
-                }}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(v) => `€${v}`}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: "var(--color-paper)",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: 4,
-                  fontSize: 11,
-                  fontFamily: "JetBrains Mono",
-                }}
-                formatter={(v: number) => [`€${v.toFixed(2)}`, "Revenue"]}
-              />
-              <Line
-                type="monotone"
-                dataKey="revenue"
-                stroke="var(--color-clay)"
-                strokeWidth={1.5}
-                dot={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+            ))}
+          </div>
         )}
       </div>
 
+      {/* Bottom two panels */}
       <div className="grid gap-6 lg:grid-cols-2">
+
         {/* Recent orders */}
-        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-5">
-          <p className="mb-4 font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
-            Recent Orders
-          </p>
+        <div className="border border-[var(--color-border)] bg-[var(--color-paper)]">
+          <div className="border-b border-[var(--color-border)] px-5 py-4">
+            <p className="font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
+              Recent Orders
+            </p>
+          </div>
           {data.recentOrders.length === 0 ? (
-            <p className="font-mono text-xs text-[var(--color-muted-foreground)]">
+            <p className="px-5 py-8 font-mono text-[10px] text-[var(--color-muted-foreground)]/50">
               No orders yet
             </p>
           ) : (
             <table className="w-full">
               <tbody className="divide-y divide-[var(--color-border)]">
                 {data.recentOrders.map((o) => (
-                  <tr key={o.id} className="group">
-                    <td className="py-2.5 pr-3">
+                  <tr key={o.id} className="group transition-colors hover:bg-[var(--color-muted)]/20">
+                    <td className="px-5 py-3">
                       <a
                         href={`/admin/orders/${o.id}`}
-                        className="font-mono text-xs text-[var(--color-clay)] hover:underline"
+                        className="font-mono text-[11px] text-[var(--color-clay)] hover:underline"
                       >
-                        #{o.id.slice(0, 8)}
+                        #{o.id.slice(0, 8).toUpperCase()}
                       </a>
                     </td>
-                    <td className="py-2.5 pr-3">
-                      <span className="text-xs text-[var(--color-muted-foreground)]">
+                    <td className="px-5 py-3">
+                      <span className="font-mono text-[11px] text-[var(--color-muted-foreground)] truncate block max-w-[120px]">
                         {o.email}
                       </span>
                     </td>
-                    <td className="py-2.5 pr-3 text-right">
-                      <span className="font-mono text-xs text-[var(--color-foreground)]">
+                    <td className="px-5 py-3 text-right">
+                      <span className="font-mono text-[11px] text-[var(--color-foreground)]">
                         {fmt(o.total)}
                       </span>
                     </td>
-                    <td className="py-2.5 text-right">
-                      <span
-                        className={`rounded px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide ${STATUS_COLORS[o.status] ?? ""}`}
-                      >
+                    <td className="px-5 py-3 text-right">
+                      <span className={`rounded px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wide ${STATUS_COLORS[o.status] ?? ""}`}>
                         {o.status}
                       </span>
                     </td>
@@ -335,34 +284,49 @@ function AdminDashboard() {
         </div>
 
         {/* Top products */}
-        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-5">
-          <p className="mb-4 font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
-            Top Products by Revenue
-          </p>
+        <div className="border border-[var(--color-border)] bg-[var(--color-paper)]">
+          <div className="border-b border-[var(--color-border)] px-5 py-4">
+            <p className="font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
+              Top Products
+            </p>
+          </div>
           {data.topProducts.length === 0 ? (
-            <p className="font-mono text-xs text-[var(--color-muted-foreground)]">
+            <p className="px-5 py-8 font-mono text-[10px] text-[var(--color-muted-foreground)]/50">
               No sales yet
             </p>
           ) : (
-            <ul className="space-y-3">
-              {data.topProducts.map((p, i) => (
-                <li key={i} className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-[10px] text-[var(--color-muted-foreground)]">
-                      {String(i + 1).padStart(2, "0")}
-                    </span>
-                    <span className="text-xs text-[var(--color-foreground)]">
-                      {p.name}
-                    </span>
-                  </div>
-                  <span className="font-mono text-xs text-[var(--color-clay)]">
-                    {fmt(p.revenue)}
-                  </span>
-                </li>
-              ))}
+            <ul className="divide-y divide-[var(--color-border)]">
+              {data.topProducts.map((p, i) => {
+                const maxRev = data.topProducts[0]?.revenue ?? 1;
+                return (
+                  <li key={i} className="px-5 py-3">
+                    <div className="flex items-center justify-between gap-4 mb-1.5">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="font-mono text-[9px] text-[var(--color-muted-foreground)] shrink-0">
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
+                        <span className="font-mono text-[11px] text-[var(--color-foreground)] truncate">
+                          {p.name}
+                        </span>
+                      </div>
+                      <span className="font-mono text-[11px] text-[var(--color-clay)] shrink-0">
+                        {fmt(p.revenue)}
+                      </span>
+                    </div>
+                    {/* Revenue bar */}
+                    <div className="h-px w-full bg-[var(--color-border)]">
+                      <div
+                        className="h-px bg-[var(--color-clay)]/50"
+                        style={{ width: `${(p.revenue / maxRev) * 100}%` }}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
+
       </div>
     </div>
   );

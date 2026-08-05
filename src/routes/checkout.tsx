@@ -128,16 +128,34 @@ const getShipping = createServerFn({ method: "GET" }).handler(async () => {
   const { db } = await import("@/db");
   const { shippingConfig } = await import("@/db/schema");
   const { eq } = await import("drizzle-orm");
-  const rows = await db().select().from(shippingConfig).where(eq(shippingConfig.id, "default")).limit(1);
-  if (rows[0]) return {
-    enabled: rows[0].enabled,
-    fee: rows[0].fee,
-    freeThreshold: rows[0].freeThreshold,
-    paymentFeeEnabled: rows[0].paymentFeeEnabled ?? false,
-    paymentFeePercent: rows[0].paymentFeePercent ?? 0,
-    paymentFeeFixed: rows[0].paymentFeeFixed ?? 0,
-  };
-  return { enabled: true, fee: 12, freeThreshold: 200, paymentFeeEnabled: false, paymentFeePercent: 0, paymentFeeFixed: 0 };
+  const database = db();
+
+  const rows = await database
+    .select({ enabled: shippingConfig.enabled, fee: shippingConfig.fee, freeThreshold: shippingConfig.freeThreshold })
+    .from(shippingConfig)
+    .where(eq(shippingConfig.id, "default"))
+    .limit(1);
+
+  const base = rows[0]
+    ? { enabled: rows[0].enabled, fee: rows[0].fee, freeThreshold: rows[0].freeThreshold }
+    : { enabled: true, fee: 12, freeThreshold: 200 };
+
+  // Payment fee columns added in migration 0003
+  let paymentFeeEnabled = false;
+  let paymentFeePercent = 0;
+  let paymentFeeFixed = 0;
+  try {
+    const pf = await database
+      .select({ paymentFeeEnabled: shippingConfig.paymentFeeEnabled, paymentFeePercent: shippingConfig.paymentFeePercent, paymentFeeFixed: shippingConfig.paymentFeeFixed })
+      .from(shippingConfig)
+      .where(eq(shippingConfig.id, "default"))
+      .limit(1);
+    paymentFeeEnabled = pf[0]?.paymentFeeEnabled ?? false;
+    paymentFeePercent = pf[0]?.paymentFeePercent ?? 0;
+    paymentFeeFixed = pf[0]?.paymentFeeFixed ?? 0;
+  } catch { /* columns not yet migrated */ }
+
+  return { ...base, paymentFeeEnabled, paymentFeePercent, paymentFeeFixed };
 });
 
 const getCartPrices = createServerFn({ method: "POST" })

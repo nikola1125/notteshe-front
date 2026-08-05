@@ -65,14 +65,15 @@ const getShopData = createServerFn({ method: "GET" }).handler(
     ]);
 
     const CATEGORY_ORDER = [
+      "coats & jackets",
       "coats and jackets",
       "knitwear",
       "dresses",
+      "shorts & skirts",
       "shorts and skirts",
       "lingerie",
       "swimwear",
       "hats",
-      "sales",
     ];
     cats.sort((a, b) => {
       const ai = CATEGORY_ORDER.indexOf(a.name.toLowerCase());
@@ -292,7 +293,8 @@ function ShopPage() {
                       src={p.coverImage}
                       alt={p.name}
                       loading={i < 4 ? "eager" : "lazy"}
-                      className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
+                      draggable={false}
+                      className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05] touch-pan-y"
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center">

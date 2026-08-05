@@ -122,31 +122,39 @@ function AboutPage() {
       <section className="border-t border-border bg-ink text-white">
         <div className="mx-auto max-w-[900px] px-8 py-24 md:px-16 md:py-36">
           <p className="font-mono text-[9px] uppercase tracking-[0.35em] text-white/30">
-            The philosophy
+            Philosophy
           </p>
 
           <h2 className="serif mt-8 text-5xl font-light leading-[1.05] md:text-7xl">
-            Notteshe — Grua e Fortë.
+            We believe{" "}
+            <em className="not-italic text-clay">restraint</em>{" "}
+            is the most radical thing a garment can wear.
           </h2>
 
-          <div className="mt-12 space-y-6 md:mt-16">
+          <div className="mt-12 space-y-5 border-l border-white/10 pl-6 md:mt-16">
             <p className="text-[15px] font-light leading-relaxed text-white/60 md:text-base">
-              <em className="not-italic text-white">Notteshe</em> is not just a name. It is a declaration.
+              No trend cycles. No noise. Every piece is designed once, made well, and left alone to do its quiet work — season after season, drawer after drawer.
             </p>
             <p className="text-[15px] font-light leading-relaxed text-white/60 md:text-base">
-              In Albanian, <em className="not-italic text-white/90">grua e fortë</em> — the strong woman. Not strong in the way the world demands of her: loud, unyielding, armored. Strong in the way she has always known herself to be: quiet, certain, unbreakable.
+              Fabric sourced from six mills across Italy and Japan. Cut in ateliers we visit ourselves. Sold slowly, and only when we are certain.
             </p>
-            <p className="text-[15px] font-light leading-relaxed text-white/60 md:text-base">
-              We design for the woman who moves through a room and leaves something behind. Who dresses not to be seen, but because she sees herself. Every silhouette is sculpted with intention — from the sun-warmed streets of Tirana to wherever she chooses to stand.
-            </p>
-            <div className="pt-4 space-y-2">
-              <p className="serif text-2xl font-light text-white md:text-3xl">
-                Notteshe is born in Albania. Worn by the world.
-              </p>
-              <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-white/40">
-                This is not fashion. This is identity, cut in cloth.
-              </p>
-            </div>
+          </div>
+
+          <div className="mt-16 grid grid-cols-3 divide-x divide-white/10 border-t border-white/10 pt-10">
+            {[
+              { label: "Mills", value: "06" },
+              { label: "Seasons", value: "Two" },
+              { label: "Made in", value: "IT · JP" },
+            ].map((stat) => (
+              <div key={stat.label} className="px-6 first:pl-0 last:pr-0">
+                <p className="font-mono text-[9px] uppercase tracking-[0.3em] text-white/30">
+                  {stat.label}
+                </p>
+                <p className="serif mt-2 text-2xl font-light text-white md:text-3xl">
+                  {stat.value}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </section>

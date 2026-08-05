@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { eq, desc, count, and } from "drizzle-orm";
+import { eq, desc, count, and, ilike, or } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, orderItem, user } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
@@ -29,6 +29,7 @@ interface OrdersData {
   total: number;
   page: number;
   status: OrderStatus;
+  search: string;
 }
 
 const PAGE_SIZE = 30;
@@ -54,10 +55,11 @@ const STATUS_TABS: OrderStatus[] = [
 
 const getOrders = createServerFn({ method: "GET" })
   .validator((input: unknown) => {
-    const d = input as { page?: number; status?: string };
+    const d = input as { page?: number; status?: string; search?: string };
     return {
       page: Number(d?.page ?? 1),
       status: (d?.status ?? "ALL") as OrderStatus,
+      search: (d?.search ?? "").trim(),
     };
   })
   .handler(async ({ data }): Promise<OrdersData> => {
@@ -65,10 +67,18 @@ const getOrders = createServerFn({ method: "GET" })
     const database = db();
     const offset = (data.page - 1) * PAGE_SIZE;
 
-    const whereClause =
+    const statusFilter =
       data.status !== "ALL"
         ? eq(orders.status, data.status as "PENDING" | "CONFIRMED" | "SHIPPED" | "DELIVERED" | "CANCELLED" | "REFUNDED")
         : undefined;
+
+    const searchFilter = data.search
+      ? ilike(orders.id, `${data.search}%`)
+      : undefined;
+
+    const whereClause =
+      statusFilter && searchFilter ? and(statusFilter, searchFilter)
+      : statusFilter ?? searchFilter;
 
     const [rows, totalResult] = await Promise.all([
       database
@@ -106,26 +116,36 @@ const getOrders = createServerFn({ method: "GET" })
       total: Number(totalResult[0]?.count ?? 0),
       page: data.page,
       status: data.status,
+      search: data.search,
     };
   });
 
 export const Route = createFileRoute("/admin/orders/")({
   loaderDeps: ({ search }) => {
     const s = search as Record<string, string>;
-    return { page: Number(s.page ?? 1), status: (s.status ?? "ALL") as OrderStatus };
+    return {
+      page: Number(s.page ?? 1),
+      status: (s.status ?? "ALL") as OrderStatus,
+      search: s.search ?? "",
+    };
   },
   loader: ({ deps }) => getOrders({ data: deps }),
   component: OrderList,
 });
 
 function OrderList() {
-  const loaderData = Route.useLoaderData();
+  const data = Route.useLoaderData();
   const navigate = useNavigate();
-  const [data] = useState(loaderData);
+  const [searchInput, setSearchInput] = useState(data.search);
+
   const totalPages = Math.ceil(data.total / PAGE_SIZE);
 
   function setStatus(status: OrderStatus) {
-    navigate({ to: "/admin/orders", search: { status, page: "1" } });
+    navigate({ to: "/admin/orders", search: { status, page: "1", search: data.search } });
+  }
+
+  function submitSearch(value: string) {
+    navigate({ to: "/admin/orders", search: { status: data.status, page: "1", search: value.trim() } });
   }
 
   function fmt(n: number) {
@@ -160,6 +180,32 @@ function OrderList() {
             {s}
           </button>
         ))}
+      </div>
+
+      {/* Search by order ID */}
+      <div className="mb-4 flex gap-2">
+        <input
+          type="text"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") submitSearch(searchInput); }}
+          placeholder="Search by order ID…"
+          className="w-64 border border-[var(--color-border)] bg-[var(--color-paper)] px-3 py-2 font-mono text-xs text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-muted-foreground)]/40 focus:border-[var(--color-clay)]"
+        />
+        <button
+          onClick={() => submitSearch(searchInput)}
+          className="border border-[var(--color-border)] px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)] transition-colors hover:text-[var(--color-foreground)]"
+        >
+          Search
+        </button>
+        {data.search && (
+          <button
+            onClick={() => { setSearchInput(""); submitSearch(""); }}
+            className="font-mono text-[10px] uppercase tracking-widest text-[var(--color-clay)] transition-colors hover:opacity-70"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-[var(--color-border)]">
@@ -238,7 +284,7 @@ function OrderList() {
             <Link
               key={pg}
               to="/admin/orders"
-              search={{ page: String(pg), status: data.status }}
+              search={{ page: String(pg), status: data.status, search: data.search }}
               className={`flex h-8 w-8 items-center justify-center rounded font-mono text-xs transition-colors ${data.page === pg ? "bg-[var(--color-clay)] text-white" : "bg-[var(--color-paper)] text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"}`}
             >
               {pg}

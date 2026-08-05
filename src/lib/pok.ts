@@ -156,7 +156,20 @@ export const createPokOrder = createServerFn({ method: "POST" })
     // ── Compute totals server-side ─────────────────────────────────────────────
     const subtotal = itemsWithPrices.reduce((s, i) => s + i.price * i.quantity, 0);
 
-    const [cfg] = await db().select().from(shippingConfig).limit(1);
+    const [cfg] = await db()
+      .select({ enabled: shippingConfig.enabled, fee: shippingConfig.fee, freeThreshold: shippingConfig.freeThreshold })
+      .from(shippingConfig)
+      .limit(1);
+
+    // Payment fee columns added in migration 0003 — read separately so order creation works before migration
+    let paymentFeeCfg = { paymentFeeEnabled: false, paymentFeePercent: 0, paymentFeeFixed: 0 };
+    try {
+      const [pf] = await db()
+        .select({ paymentFeeEnabled: shippingConfig.paymentFeeEnabled, paymentFeePercent: shippingConfig.paymentFeePercent, paymentFeeFixed: shippingConfig.paymentFeeFixed })
+        .from(shippingConfig)
+        .limit(1);
+      if (pf) paymentFeeCfg = { paymentFeeEnabled: pf.paymentFeeEnabled ?? false, paymentFeePercent: pf.paymentFeePercent ?? 0, paymentFeeFixed: pf.paymentFeeFixed ?? 0 };
+    } catch { /* columns not yet migrated */ }
     const shippingFee = cfg?.enabled
       ? (subtotal >= (cfg.freeThreshold ?? 200) ? 0 : (cfg.fee ?? 12))
       : 0;
@@ -192,9 +205,9 @@ export const createPokOrder = createServerFn({ method: "POST" })
     }
 
     // Payment processing fee charged to customer
-    const paymentFee = cfg?.paymentFeeEnabled
+    const paymentFee = paymentFeeCfg.paymentFeeEnabled
       ? Math.round(
-          ((subtotal + shippingFee - discountAmount) * ((cfg.paymentFeePercent ?? 0) / 100) + (cfg.paymentFeeFixed ?? 0))
+          ((subtotal + shippingFee - discountAmount) * (paymentFeeCfg.paymentFeePercent / 100) + paymentFeeCfg.paymentFeeFixed)
           * 100
         ) / 100
       : 0;

@@ -682,7 +682,7 @@ function CheckoutPage() {
                       orderId={pokOrderId}
                       onSuccess={handlePokSuccess}
                       onError={handlePokError}
-                      options={{ env: (import.meta.env.VITE_POK_ENV as "production" | "sandbox") ?? "sandbox", locale: "al", countrySelect: "modal" }}
+                      options={{ env: (import.meta.env.VITE_POK_ENV as "production" | "staging") ?? "staging", locale: "al", countrySelect: "modal" }}
                     />
                   </Suspense>
                 )}

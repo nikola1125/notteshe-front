@@ -3,7 +3,7 @@ import { z } from "zod";
 
 const POK_BASE = process.env.POK_ENV === "production"
   ? "https://api.pokpay.io/"
-  : "https://api-staging.pokpay.io/";
+  : "https://api-staging.pokpay.io/"; // staging is default; set POK_ENV=production for live
 
 async function pokAuth(): Promise<string> {
   const res = await fetch(`${POK_BASE}auth/sdk/login`, {

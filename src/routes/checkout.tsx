@@ -682,7 +682,24 @@ function CheckoutPage() {
                       orderId={pokOrderId}
                       onSuccess={handlePokSuccess}
                       onError={handlePokError}
-                      options={{ env: (import.meta.env.VITE_POK_ENV as "production" | "staging") ?? "staging", locale: "al", countrySelect: "modal" }}
+                      options={{
+                        env: (import.meta.env.VITE_POK_ENV as "production" | "staging") ?? "staging",
+                        locale: "al",
+                        countrySelect: "modal",
+                        initialState: {
+                          email: form.email,
+                          holdersName: `${form.firstName} ${form.lastName}`.trim(),
+                          address1: form.address,
+                          locality: form.city,
+                          postalCode: form.postalCode,
+                          phoneNumber: form.phone,
+                          countryCode: form.country,
+                          cardNumber: "",
+                          expiration: "",
+                          securityCode: "",
+                          administrativeArea: "",
+                        },
+                      }}
                     />
                   </Suspense>
                 )}

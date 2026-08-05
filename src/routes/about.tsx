@@ -118,6 +118,39 @@ function AboutPage() {
         </div>
       </div>
 
+      {/* ── Philosophy ───────────────────────────────────────────────── */}
+      <section className="border-t border-border bg-ink text-white">
+        <div className="mx-auto max-w-[900px] px-8 py-24 md:px-16 md:py-36">
+          <p className="font-mono text-[9px] uppercase tracking-[0.35em] text-white/30">
+            The philosophy
+          </p>
+
+          <h2 className="serif mt-8 text-5xl font-light leading-[1.05] md:text-7xl">
+            Grua e fortë.
+          </h2>
+
+          <div className="mt-12 space-y-6 md:mt-16">
+            <p className="text-[15px] font-light leading-relaxed text-white/60 md:text-base">
+              <em className="not-italic text-white">Notteshe</em> is not just a name. It is a declaration.
+            </p>
+            <p className="text-[15px] font-light leading-relaxed text-white/60 md:text-base">
+              In Albanian, <em className="not-italic text-white/90">grua e fortë</em> — the strong woman. Not strong in the way the world demands of her: loud, unyielding, armored. Strong in the way she has always known herself to be: quiet, certain, unbreakable.
+            </p>
+            <p className="text-[15px] font-light leading-relaxed text-white/60 md:text-base">
+              We design for the woman who moves through a room and leaves something behind. Who dresses not to be seen, but because she sees herself. Every silhouette is sculpted with intention — from the sun-warmed streets of Tirana to wherever she chooses to stand.
+            </p>
+            <div className="pt-4 space-y-2">
+              <p className="serif text-2xl font-light text-white md:text-3xl">
+                Notteshe is born in Albania. Worn by the world.
+              </p>
+              <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-white/40">
+                This is not fashion. This is identity, cut in cloth.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── Values ────────────────────────────────────────────────────── */}
       <section className="border-t border-border">
         <div className="mx-auto max-w-[1200px] px-8 py-20 md:px-16 md:py-28">

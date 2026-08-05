@@ -296,8 +296,12 @@ function OrderDetail() {
       setTimeout(() => setStatusFlash(false), 1800);
       toast.success(`Order marked as ${newStatus.toLowerCase()}`);
       await router.invalidate();
-    } catch {
-      toast.error("Failed to update status");
+    } catch (err) {
+      const msg =
+        (err as { data?: { message?: string } })?.data?.message ??
+        (err instanceof Error ? err.message : null) ??
+        "Failed to update status";
+      toast.error(msg, { duration: 8000 });
     } finally {
       setSavingStatus(null);
     }

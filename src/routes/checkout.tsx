@@ -10,13 +10,18 @@ import { placeOrder } from "@/lib/orders";
 // ─── Discount code validation ─────────────────────────────────────────────────
 
 const applyDiscountCode = createServerFn({ method: "POST" })
-  .validator((d: unknown) => z.object({ code: z.string(), subtotal: z.number() }).parse(d))
+  .validator((d: unknown) =>
+    z.object({
+      code: z.string(),
+      subtotal: z.number(),
+      items: z.array(z.object({ productId: z.string(), price: z.number(), quantity: z.number() })),
+    }).parse(d)
+  )
   .handler(async ({ data }) => {
     const { db } = await import("@/db");
-    const { discountCode } = await import("@/db/schema");
-    const { eq } = await import("drizzle-orm");
+    const { discountCode, product } = await import("@/db/schema");
+    const { eq, inArray } = await import("drizzle-orm");
 
-    // Fetch by code only — do all other checks in JS to avoid drizzle SQL edge cases
     const rows = await db()
       .select()
       .from(discountCode)
@@ -33,10 +38,23 @@ const applyDiscountCode = createServerFn({ method: "POST" })
     if (code.minOrderAmount !== null && data.subtotal < code.minOrderAmount)
       return { valid: false as const, error: `Minimum order of €${code.minOrderAmount} required` };
 
+    // Look up which products are currently on sale — never trust client-sent sale status
+    const productIds = [...new Set(data.items.map((i) => i.productId))];
+    const productRows = await db()
+      .select({ id: product.id, isSale: product.isSale })
+      .from(product)
+      .where(inArray(product.id, productIds));
+    const saleProductIds = new Set(productRows.filter((p) => p.isSale).map((p) => p.id));
+
+    // Discount applies only to non-sale items (silent rule, no message shown to customer)
+    const eligibleSubtotal = data.items
+      .filter((i) => !saleProductIds.has(i.productId))
+      .reduce((s, i) => s + i.price * i.quantity, 0);
+
     const discountAmount =
       code.type === "PERCENT"
-        ? Math.round(data.subtotal * (code.value / 100) * 100) / 100
-        : Math.min(code.value, data.subtotal);
+        ? Math.round(eligibleSubtotal * (code.value / 100) * 100) / 100
+        : Math.min(code.value, eligibleSubtotal);
 
     return { valid: true as const, code: code.code, type: code.type, value: code.value, discountAmount };
   });
@@ -166,7 +184,13 @@ function CheckoutPage() {
     setCouponApplying(true);
     setCouponError(null);
     try {
-      const result = await applyDiscountCode({ data: { code, subtotal } });
+      const result = await applyDiscountCode({
+        data: {
+          code,
+          subtotal,
+          items: items.map((i) => ({ productId: i.productId, price: i.price, quantity: i.quantity })),
+        },
+      });
       if (result.valid) {
         setAppliedDiscount(result);
         setCouponInput("");

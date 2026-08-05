@@ -73,10 +73,14 @@ export const placeOrder = createServerFn({ method: "POST" })
         (code.maxUses === null || code.usedCount < code.maxUses) &&
         (code.minOrderAmount === null || subtotal >= code.minOrderAmount)
       ) {
+        // Discount applies only to non-sale items (silent rule)
+        const eligibleSubtotal = data.items
+          .filter((i) => i.originalPrice === null)
+          .reduce((s, i) => s + i.price * i.quantity, 0);
         discountAmount =
           code.type === "PERCENT"
-            ? Math.round(subtotal * (code.value / 100) * 100) / 100
-            : Math.min(code.value, subtotal);
+            ? Math.round(eligibleSubtotal * (code.value / 100) * 100) / 100
+            : Math.min(code.value, eligibleSubtotal);
         validatedCode = code.code;
         await db()
           .update(discountCode)

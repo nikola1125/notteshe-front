@@ -280,11 +280,26 @@ function OrderDetail() {
   const [note, setNote] = useState(data.order.adminNote ?? "");
   const [savingStatus, setSavingStatus] = useState<OrderStatus | null>(null);
   const [statusFlash, setStatusFlash] = useState(false);
+  const [confirm, setConfirm] = useState<{ status: OrderStatus; message: string } | null>(null);
 
   const transitions =
     STATUS_TRANSITIONS[data.order.status] ?? [];
 
+  function requestStatusChange(newStatus: OrderStatus) {
+    const prevStatus = data.order.status;
+    if (newStatus === "REFUNDED") {
+      setConfirm({ status: newStatus, message: "This will issue a full refund to the customer. Are you sure?" });
+      return;
+    }
+    if (newStatus === "CANCELLED" && (prevStatus === "CONFIRMED" || prevStatus === "SHIPPED")) {
+      setConfirm({ status: newStatus, message: "The payment has already been captured. Cancelling will refund the customer in full. Continue?" });
+      return;
+    }
+    void handleStatusChange(newStatus);
+  }
+
   async function handleStatusChange(newStatus: OrderStatus) {
+    setConfirm(null);
     setSavingStatus(newStatus);
     try {
       await updateOrderStatus({
@@ -443,7 +458,7 @@ function OrderDetail() {
                   {transitions.map((status) => (
                     <button
                       key={status}
-                      onClick={() => handleStatusChange(status)}
+                      onClick={() => requestStatusChange(status)}
                       disabled={savingStatus !== null}
                       className="rounded border border-[var(--color-border)] px-4 py-2 font-mono text-xs uppercase tracking-widest text-[var(--color-foreground)] transition-colors hover:border-[var(--color-clay)] hover:text-[var(--color-clay)] disabled:opacity-50"
                     >
@@ -556,6 +571,34 @@ function OrderDetail() {
           )}
         </div>
       </div>
+
+      {/* Confirmation dialog */}
+      {confirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-sm rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-6 shadow-xl">
+            <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
+              Confirm action
+            </p>
+            <p className="mb-6 text-sm text-[var(--color-foreground)]">{confirm.message}</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirm(null)}
+                disabled={savingStatus !== null}
+                className="rounded border border-[var(--color-border)] px-4 py-2 font-mono text-xs uppercase tracking-widest text-[var(--color-muted-foreground)] transition-colors hover:text-[var(--color-foreground)] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => void handleStatusChange(confirm.status)}
+                disabled={savingStatus !== null}
+                className="rounded bg-[var(--color-clay)] px-4 py-2 font-mono text-xs uppercase tracking-widest text-white transition-opacity hover:opacity-80 disabled:opacity-50"
+              >
+                {savingStatus !== null ? "…" : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

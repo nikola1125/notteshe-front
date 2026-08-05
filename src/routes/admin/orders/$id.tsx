@@ -181,11 +181,32 @@ const updateOrderStatus = createServerFn({ method: "POST" })
     const admin = await requireAdmin();
     const database = db();
 
-    const before = await database
-      .select({ status: orders.status })
+    const [current] = await database
+      .select({ status: orders.status, pokOrderId: orders.pokOrderId, total: orders.total })
       .from(orders)
       .where(eq(orders.id, data.id))
       .limit(1);
+
+    const prevStatus = current?.status as OrderStatus | undefined;
+    const pokOrderId = current?.pokOrderId ?? null;
+    const total = Number(current?.total ?? 0);
+
+    // Call POK before updating DB — if POK fails, DB stays unchanged and admin sees the error
+    if (pokOrderId) {
+      const { pokCapture, pokCancel, pokRefund } = await import("@/lib/pok");
+
+      if (data.status === "CONFIRMED" && prevStatus === "PENDING") {
+        await pokCapture(pokOrderId, total);
+      } else if (data.status === "CANCELLED") {
+        if (prevStatus === "PENDING") {
+          await pokCancel(pokOrderId, "Order rejected by merchant");
+        } else if (prevStatus === "CONFIRMED" || prevStatus === "SHIPPED") {
+          await pokRefund(pokOrderId, total, "Order cancelled by merchant");
+        }
+      } else if (data.status === "REFUNDED" && prevStatus === "DELIVERED") {
+        await pokRefund(pokOrderId, total, "Customer refund request");
+      }
+    }
 
     const updateData: Record<string, unknown> = {
       status: data.status,
@@ -202,8 +223,6 @@ const updateOrderStatus = createServerFn({ method: "POST" })
 
     // Restore stock when an order is cancelled or refunded
     if (data.status === "CANCELLED" || data.status === "REFUNDED") {
-      const prevStatus = before[0]?.status;
-      // Only restore if it wasn't already cancelled/refunded (avoid double-restore)
       if (prevStatus !== "CANCELLED" && prevStatus !== "REFUNDED") {
         const items = await database
           .select({ productId: orderItem.productId, size: orderItem.size, quantity: orderItem.quantity })
@@ -220,7 +239,7 @@ const updateOrderStatus = createServerFn({ method: "POST" })
     }
 
     await logAudit(admin.id, "order.status_change", "order", data.id, {
-      before: { status: before[0]?.status },
+      before: { status: prevStatus },
       after: { status: data.status },
     });
 

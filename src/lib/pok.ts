@@ -216,7 +216,7 @@ export const createPokOrder = createServerFn({ method: "POST" })
     const pokBody: Record<string, unknown> = {
       amount: Math.round(total),        // NUMBER, not string — POK API expects integer
       currencyCode: "ALL",
-      autoCapture: true,
+      autoCapture: false,
       products: itemsWithPrices.map((i) => ({
         name: i.name,
         quantity: i.quantity,
@@ -282,3 +282,39 @@ export const createPokOrder = createServerFn({ method: "POST" })
 
     return { pokOrderId };
   });
+
+// ─── POK payment actions (called server-side from admin) ──────────────────────
+
+async function pokAction(
+  path: string,
+  body: Record<string, unknown>
+): Promise<void> {
+  const token = await pokAuth();
+  const res = await fetch(
+    `${POK_BASE}merchants/${process.env.POK_MERCHANT_ID}/sdk-orders/${path}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    }
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`POK ${path.split("/").pop()} failed (${res.status}): ${text}`);
+  }
+}
+
+export async function pokCapture(pokOrderId: string, amount: number): Promise<void> {
+  await pokAction(`${pokOrderId}/capture`, { amount: Math.round(amount) });
+}
+
+export async function pokCancel(pokOrderId: string, reason?: string): Promise<void> {
+  await pokAction(`${pokOrderId}/cancel`, { cancellationReason: reason ?? "Cancelled by merchant" });
+}
+
+export async function pokRefund(pokOrderId: string, amount?: number, reason?: string): Promise<void> {
+  const body: Record<string, unknown> = {};
+  if (reason) body.refundReason = reason;
+  if (amount !== undefined) body.refundAmount = Math.round(amount);
+  await pokAction(`${pokOrderId}/refund`, body);
+}

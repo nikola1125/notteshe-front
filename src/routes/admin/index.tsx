@@ -164,7 +164,7 @@ function AdminDashboard() {
   const data = Route.useLoaderData();
 
   function fmt(n: number) {
-    return `€${n.toLocaleString("en", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    return `${n.toLocaleString("en", { minimumFractionDigits: 0, maximumFractionDigits: 0 })} L`;
   }
 
   const maxRevenue = Math.max(...data.chartData.map((d) => d.revenue), 1);

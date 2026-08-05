@@ -51,6 +51,7 @@ function LookbookPage() {
           <h2 className="serif text-4xl text-ink">Ready to wear.</h2>
           <Link
             to="/shop"
+            search={{ sale: undefined }}
             className="mt-2 bg-ink px-8 py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-colors hover:bg-ink/90"
           >
             Shop SS 2026

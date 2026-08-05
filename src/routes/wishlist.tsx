@@ -120,7 +120,8 @@ function WishlistPage() {
               Heart pieces you love — they'll appear here
             </p>
             <Link
-              to="/shop/"
+              to="/shop"
+              search={{ sale: undefined }}
               className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition hover:text-ink underline underline-offset-4"
             >
               Browse the shop
@@ -180,11 +181,11 @@ function WishlistPage() {
                     <div className="text-right">
                       {p.originalPrice && (
                         <p className="font-mono text-[10px] text-muted-foreground line-through">
-                          €{p.originalPrice}
+                          {p.originalPrice} L
                         </p>
                       )}
                       <p className={`font-mono text-[12px] ${p.isSale ? "text-clay" : "text-ink/70"}`}>
-                        €{p.price}
+                        {p.price} L
                       </p>
                     </div>
                   </div>

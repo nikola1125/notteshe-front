@@ -120,7 +120,7 @@ function Shipping() {
 
         <div>
           <label htmlFor="sh-fee" className={labelClass}>
-            Flat fee (€)
+            Flat fee (L)
           </label>
           <input
             id="sh-fee"
@@ -135,7 +135,7 @@ function Shipping() {
 
         <div>
           <label htmlFor="sh-threshold" className={labelClass}>
-            Free shipping threshold (€)
+            Free shipping threshold (L)
           </label>
           <input
             id="sh-threshold"

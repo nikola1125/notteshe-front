@@ -39,7 +39,7 @@ const getMyOrders = createServerFn({ method: "GET" }).handler(async () => {
   }));
 });
 
-export const Route = createFileRoute("/account/orders")({
+export const Route = createFileRoute("/account/orders/")({
   component: OrdersPage,
   loader: () => getMyOrders(),
 });
@@ -90,7 +90,8 @@ function OrdersPage() {
               No orders yet
             </p>
             <Link
-              to="/shop/"
+              to="/shop"
+              search={{ sale: undefined }}
               className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground underline underline-offset-4 transition hover:text-ink"
             >
               Browse the shop
@@ -113,7 +114,7 @@ function OrdersPage() {
                       <p className={`font-mono text-[10px] uppercase tracking-widest ${STATUS_COLOR[order.status] ?? "text-ink"}`}>
                         {STATUS_LABEL[order.status] ?? order.status}
                       </p>
-                      <p className="serif mt-1 text-xl text-ink">€{order.total.toFixed(0)}</p>
+                      <p className="serif mt-1 text-xl text-ink">{order.total.toFixed(0)} L</p>
                     </div>
                   </div>
                   <div className="mt-4 flex flex-wrap gap-6 border-t border-border pt-4">
@@ -133,7 +134,7 @@ function OrdersPage() {
                       <div>
                         <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">Discount</p>
                         <p className="mt-0.5 font-mono text-[11px] text-green-400">
-                          {order.discountCode} — −€{Number(order.discountAmount ?? 0).toFixed(0)}
+                          {order.discountCode} — −{Number(order.discountAmount ?? 0).toFixed(0)} L
                         </p>
                       </div>
                     )}

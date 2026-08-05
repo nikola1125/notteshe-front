@@ -52,8 +52,7 @@ const getShopData = createServerFn({ method: "GET" }).handler(
 
       database
         .select({ id: category.id, name: category.name, slug: category.slug })
-        .from(category)
-        .orderBy(category.name),
+        .from(category),
 
       database
         .select({ productId: productImage.productId, url: productImage.url })
@@ -64,6 +63,24 @@ const getShopData = createServerFn({ method: "GET" }).handler(
         .select({ productId: productColour.productId })
         .from(productColour),
     ]);
+
+    const CATEGORY_ORDER = [
+      "coats and jackets",
+      "knitwear",
+      "dresses",
+      "shorts and skirts",
+      "lingerie",
+      "swimwear",
+      "hats",
+      "sales",
+    ];
+    cats.sort((a, b) => {
+      const ai = CATEGORY_ORDER.indexOf(a.name.toLowerCase());
+      const bi = CATEGORY_ORDER.indexOf(b.name.toLowerCase());
+      const aRank = ai === -1 ? CATEGORY_ORDER.length : ai;
+      const bRank = bi === -1 ? CATEGORY_ORDER.length : bi;
+      return aRank - bRank;
+    });
 
     const coverMap = new Map(coverImages.map((img) => [img.productId, img.url]));
     const catMap = new Map(cats.map((c) => [c.id, c.name]));
@@ -319,11 +336,11 @@ function ShopPage() {
                   <div className="text-right">
                     {p.originalPrice && (
                       <p className="font-mono text-[10px] text-muted-foreground line-through">
-                        €{p.originalPrice}
+                        {p.originalPrice} L
                       </p>
                     )}
                     <p className={`font-mono text-[12px] ${p.isSale ? "text-clay" : "text-ink/70"}`}>
-                      €{p.price}
+                      {p.price} L
                     </p>
                   </div>
                 </div>
@@ -335,7 +352,7 @@ function ShopPage() {
 
       <div className="border-t border-border py-10 text-center">
         <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
-          All prices include VAT · Free shipping over €200 · Returns within 14 days
+          All prices include VAT · Free shipping over 20,000 L · Returns within 14 days
         </p>
       </div>
     </div>

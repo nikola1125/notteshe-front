@@ -1,13 +1,81 @@
+import "@nebula-ltd/pok-payments-js/lib/index.css";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense, lazy } from "react";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { useCart } from "@/store/cartStore";
 import { useSession } from "@/lib/auth/client";
 import { useAuthStore } from "@/store/authStore";
 import { placeOrder } from "@/lib/orders";
+import { createPokOrder } from "@/lib/pok";
 
-// ─── Discount code validation ─────────────────────────────────────────────────
+// Lazy-loaded so it never runs during SSR (it uses browser APIs internally)
+const GuestCheckoutForm = lazy(() =>
+  import("@nebula-ltd/pok-payments-js/react").then((m) => ({
+    default: m.GuestCheckoutForm,
+  }))
+);
+
+// ─── Server functions ─────────────────────────────────────────────────────────
+
+const logPaymentFailure = createServerFn({ method: "POST" })
+  .validator((d: unknown) =>
+    z.object({
+      pokOrderId: z.string(),
+      errorType: z.string().optional(),
+      errorMessage: z.string().optional(),
+      email: z.string().optional(),
+      amount: z.number().optional(),
+    }).parse(d)
+  )
+  .handler(async ({ data }) => {
+    const { db } = await import("@/db");
+    const { auditLog } = await import("@/db/schema");
+    const { randomUUID } = await import("node:crypto");
+    await db().insert(auditLog).values({
+      id: randomUUID(),
+      adminId: null,
+      action: "payment.failure",
+      entityType: "payment",
+      entityId: data.pokOrderId,
+      diff: {
+        after: {
+          errorType: data.errorType ?? "unknown",
+          errorMessage: data.errorMessage ?? "—",
+          email: data.email,
+          amount: data.amount,
+        },
+      },
+    }).catch(() => {}); // never throw — called fire-and-forget
+  });
+
+const logPlaceOrderError = createServerFn({ method: "POST" })
+  .validator((d: unknown) =>
+    z.object({
+      pokOrderId: z.string(),
+      errorMessage: z.string().optional(),
+      email: z.string().optional(),
+    }).parse(d)
+  )
+  .handler(async ({ data }) => {
+    const { db } = await import("@/db");
+    const { auditLog } = await import("@/db/schema");
+    const { randomUUID } = await import("node:crypto");
+    await db().insert(auditLog).values({
+      id: randomUUID(),
+      adminId: null,
+      action: "payment.order_error",
+      entityType: "payment",
+      entityId: data.pokOrderId,
+      diff: {
+        after: {
+          errorMessage: data.errorMessage ?? "—",
+          email: data.email,
+          note: "Payment confirmed by POK but DB write failed",
+        },
+      },
+    }).catch(() => {});
+  });
 
 const applyDiscountCode = createServerFn({ method: "POST" })
   .validator((d: unknown) =>
@@ -36,9 +104,8 @@ const applyDiscountCode = createServerFn({ method: "POST" })
     if (code.maxUses !== null && code.usedCount >= code.maxUses)
       return { valid: false as const, error: "This code has reached its usage limit" };
     if (code.minOrderAmount !== null && data.subtotal < code.minOrderAmount)
-      return { valid: false as const, error: `Minimum order of €${code.minOrderAmount} required` };
+      return { valid: false as const, error: `Minimum order of ${code.minOrderAmount} L required` };
 
-    // Look up which products are currently on sale — never trust client-sent sale status
     const productIds = [...new Set(data.items.map((i) => i.productId))];
     const productRows = await db()
       .select({ id: product.id, isSale: product.isSale })
@@ -72,15 +139,11 @@ const getCartPrices = createServerFn({ method: "POST" })
     const { db } = await import("@/db");
     const { product } = await import("@/db/schema");
     const { inArray } = await import("drizzle-orm");
-
-
     if (data.productIds.length === 0) return [];
-
     const products = await db()
       .select({ id: product.id, price: product.price, originalPrice: product.originalPrice, isSale: product.isSale })
       .from(product)
       .where(inArray(product.id, data.productIds));
-
     return products.map((p) => ({
       id: p.id,
       price: p.price ?? 0,
@@ -88,10 +151,14 @@ const getCartPrices = createServerFn({ method: "POST" })
     }));
   });
 
+// ─── Route ────────────────────────────────────────────────────────────────────
+
 export const Route = createFileRoute("/checkout")({
   loader: () => getShipping(),
   component: CheckoutPage,
 });
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ShippingForm {
   email: string;
@@ -110,6 +177,10 @@ const EMPTY_FORM: ShippingForm = {
   address: "", address2: "", city: "", postalCode: "", country: "",
 };
 
+type CheckoutStep = "shipping" | "initiating" | "payment";
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 function CheckoutPage() {
   const { items, addItem, removeItem, updateQuantity, clearCart } = useCart();
   const { data: session, isPending: sessionLoading } = useSession();
@@ -117,10 +188,17 @@ function CheckoutPage() {
   const shippingCfg = Route.useLoaderData();
   const navigate = useNavigate();
 
+  const [step, setStep] = useState<CheckoutStep>("shipping");
+  const [pokOrderId, setPokOrderId] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
   const [form, setForm] = useState<ShippingForm>(EMPTY_FORM);
   const [errors, setErrors] = useState<Partial<ShippingForm>>({});
   const [placing, setPlacing] = useState(false);
   const [placeError, setPlaceError] = useState<string | null>(null);
+  // Ref guards prevent double-submission even if callbacks fire multiple times
+  const successFiredRef = useRef(false);
+  const initiatingRef = useRef(false);
 
   const [couponInput, setCouponInput] = useState("");
   const [couponApplying, setCouponApplying] = useState(false);
@@ -130,7 +208,10 @@ function CheckoutPage() {
   } | null>(null);
   const [priceWarning, setPriceWarning] = useState(false);
 
-  // Refresh cart prices from DB on mount — prevents stale localStorage prices
+  // Allow GuestCheckoutForm to mount only in the browser
+  useEffect(() => setMounted(true), []);
+
+  // Refresh cart prices from DB on mount
   useEffect(() => {
     if (items.length === 0) return;
     const ids = [...new Set(items.map((i) => i.productId))];
@@ -222,13 +303,77 @@ function CheckoutPage() {
     return Object.keys(next).length === 0;
   }
 
-  const handlePlaceOrder = useCallback(async () => {
+  // Step 1 → 2: validate shipping form, create POK SDK order
+  const handleContinueToPayment = useCallback(async () => {
+    if (initiatingRef.current) return; // prevent double-click
     if (!validateShipping()) return;
+    initiatingRef.current = true;
+    successFiredRef.current = false; // reset for new payment attempt
+    setStep("initiating");
+    setPlaceError(null);
+    try {
+      const ref = crypto.randomUUID();
+      const orderPayload = {
+        email: form.email,
+        phone: form.phone,
+        firstName: form.firstName,
+        lastName: form.lastName,
+        address: form.address,
+        address2: form.address2 || undefined,
+        city: form.city,
+        postalCode: form.postalCode,
+        country: form.country,
+        discountCode: appliedDiscount?.code,
+        items: items.map((i) => ({
+          productId: i.productId,
+          name: i.name,
+          price: i.price,
+          originalPrice: i.originalPrice,
+          image: i.image,
+          size: i.size,
+          colour: i.colour,
+          quantity: i.quantity,
+        })),
+      };
+      const { pokOrderId: id } = await createPokOrder({
+        data: {
+          amount: total,
+          items: items.map((i) => ({
+            productId: i.productId,
+            name: i.name,
+            size: i.size,
+            quantity: i.quantity,
+            price: i.price,
+          })),
+          shippingCost: shipping,
+          merchantReference: ref,
+          orderPayload,
+        },
+      });
+      setPokOrderId(id);
+      setStep("payment");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : null;
+      console.error("[POK] createPokOrder error:", err);
+      setPlaceError(msg ?? "Could not connect to payment provider. Please try again.");
+      setStep("shipping");
+    } finally {
+      initiatingRef.current = false;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, items, total, shipping]);
+
+  // Step 2 success: POK confirmed payment → create order in DB
+  const handlePokSuccess = useCallback(async () => {
+    // Ref guard: POK SDK could theoretically fire onSuccess more than once
+    if (successFiredRef.current) return;
+    successFiredRef.current = true;
     setPlacing(true);
     setPlaceError(null);
     try {
       await placeOrder({
         data: {
+          pokOrderId: pokOrderId!,
           email: form.email,
           phone: form.phone,
           firstName: form.firstName,
@@ -257,11 +402,39 @@ function CheckoutPage() {
       const msg =
         (err as { data?: { message?: string } })?.data?.message ??
         (err instanceof Error ? err.message : null);
-      setPlaceError(msg ?? "Could not place your order. Please try again.");
+      console.error("[POK] post-payment placeOrder error:", err);
+      // Log server-side so we have a record even if browser closes
+      logPlaceOrderError({
+        data: { pokOrderId: pokOrderId!, errorMessage: msg ?? undefined, email: form.email },
+      }).catch(() => {});
+      setPlaceError(
+        `Your payment was processed successfully, but we encountered an issue recording your order${msg ? `: ${msg}` : "."}  Please contact hello@notteshe.com and we will sort it immediately.`
+      );
     } finally {
       setPlacing(false);
     }
-  }, [form, items, appliedDiscount]);
+  }, [form, items, appliedDiscount, pokOrderId, clearCart, navigate]);
+
+  // Step 2 error: POK payment failed → log server-side + back to shipping
+  const handlePokError = useCallback((err: { type?: string; message?: string }) => {
+    console.error("[POK] payment error:", err);
+    if (pokOrderId) {
+      logPaymentFailure({
+        data: {
+          pokOrderId,
+          errorType: err.type ?? "unknown",
+          errorMessage: err.message ?? "—",
+          email: form.email,
+          amount: total,
+        },
+      }).catch(() => {});
+    }
+    setPlaceError(err.message ?? "Payment was not completed. Please try again.");
+    setStep("shipping");
+    setPokOrderId(null);
+  }, [pokOrderId, form.email, total]);
+
+  // ─── Guards ────────────────────────────────────────────────────────────────
 
   if (sessionLoading) {
     return (
@@ -300,6 +473,8 @@ function CheckoutPage() {
     );
   }
 
+  // ─── Render ────────────────────────────────────────────────────────────────
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-[1600px] px-5 pb-24 pt-24 md:px-12 md:pt-32">
@@ -314,21 +489,38 @@ function CheckoutPage() {
 
         <div className="mb-10 md:mb-14">
           <button
-            onClick={() => window.history.back()}
+            onClick={() => {
+              if (step === "payment") { setStep("shipping"); setPokOrderId(null); }
+              else window.history.back();
+            }}
             className="mb-6 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-ink"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2">
               <path d="M9 2 4 7l5 5" />
             </svg>
-            Back
+            {step === "payment" ? "Back to details" : "Back"}
           </button>
+
+          {/* Step indicator */}
+          <div className="mb-4 flex items-center gap-3">
+            <span className={`font-mono text-[10px] uppercase tracking-widest ${step === "shipping" || step === "initiating" ? "text-ink" : "text-muted-foreground"}`}>
+              1. Details
+            </span>
+            <span className="font-mono text-[10px] text-muted-foreground/30">—</span>
+            <span className={`font-mono text-[10px] uppercase tracking-widest ${step === "payment" ? "text-ink" : "text-muted-foreground/40"}`}>
+              2. Payment
+            </span>
+          </div>
+
           <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Checkout</p>
-          <h1 className="serif mt-2 text-4xl text-ink md:text-5xl">Your order</h1>
+          <h1 className="serif mt-2 text-4xl text-ink md:text-5xl">
+            {step === "payment" ? "Payment" : "Your order"}
+          </h1>
         </div>
 
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1fr_400px] lg:gap-20">
 
-          {/* Order summary */}
+          {/* ── Order summary (always visible, right column on desktop) ── */}
           <div className="order-first lg:order-last lg:sticky lg:top-28 lg:self-start">
             <div className="border border-border p-6">
               <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Order summary</p>
@@ -350,10 +542,10 @@ function CheckoutPage() {
                       </div>
                       <div>
                         {item.originalPrice && (
-                          <p className="font-mono text-[10px] text-muted-foreground line-through">€{item.originalPrice}</p>
+                          <p className="font-mono text-[10px] text-muted-foreground line-through">{item.originalPrice} L</p>
                         )}
                         <p className={`font-mono text-[12px] ${item.originalPrice ? "text-clay" : "text-ink"}`}>
-                          €{(item.price * item.quantity).toFixed(0)}
+                          {(item.price * item.quantity).toFixed(0)} L
                         </p>
                       </div>
                     </div>
@@ -363,68 +555,72 @@ function CheckoutPage() {
 
               <div className="mt-6 space-y-3 border-t border-border pt-6">
                 <div className="flex justify-between font-mono text-[11px] text-ink/60">
-                  <span>Subtotal</span><span>€{subtotal.toFixed(0)}</span>
+                  <span>Subtotal</span><span>{subtotal.toFixed(0)} L</span>
                 </div>
                 <div className="flex justify-between font-mono text-[11px] text-ink/60">
-                  <span>Shipping</span><span>{shipping === 0 ? "Free" : `€${shipping}`}</span>
+                  <span>Shipping</span><span>{shipping === 0 ? "Free" : `${shipping} L`}</span>
                 </div>
                 {appliedDiscount && (
                   <div className="flex items-center justify-between font-mono text-[11px] text-green-400">
                     <span className="flex items-center gap-2">
                       Discount
-                      <button
-                        onClick={() => setAppliedDiscount(null)}
-                        className="font-mono text-[9px] text-muted-foreground/50 hover:text-clay transition-colors"
-                        title="Remove"
-                      >
-                        ✕
-                      </button>
+                      {step !== "payment" && (
+                        <button
+                          onClick={() => setAppliedDiscount(null)}
+                          className="font-mono text-[9px] text-muted-foreground/50 hover:text-clay transition-colors"
+                          title="Remove"
+                        >
+                          ✕
+                        </button>
+                      )}
                     </span>
-                    <span>−€{discount.toFixed(0)}</span>
+                    <span>−{discount.toFixed(0)} L</span>
                   </div>
                 )}
                 {shippingCfg.enabled && shipping > 0 && (
-                  <p className="font-mono text-[9px] text-muted-foreground/40">Free shipping on orders over €{shippingCfg.freeThreshold}</p>
+                  <p className="font-mono text-[9px] text-muted-foreground/40">Free shipping on orders over {shippingCfg.freeThreshold} L</p>
                 )}
               </div>
 
-              {/* Coupon input */}
-              {!appliedDiscount ? (
-                <div className="mt-5 border-t border-border pt-5">
-                  <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Discount code</p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={couponInput}
-                      onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError(null); }}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleApplyCoupon(); }}
-                      placeholder="ENTER CODE"
-                      className="flex-1 border-b border-border bg-transparent pb-2 font-mono text-xs uppercase tracking-widest text-ink outline-none placeholder:text-muted-foreground/30 focus:border-ink/60"
-                    />
-                    <button
-                      onClick={handleApplyCoupon}
-                      disabled={couponApplying || !couponInput.trim()}
-                      className="font-mono text-[10px] uppercase tracking-widest text-ink/70 transition-colors hover:text-ink disabled:opacity-40"
-                    >
-                      {couponApplying ? "…" : "Apply"}
-                    </button>
+              {/* Coupon input — only on shipping step */}
+              {step !== "payment" && (
+                !appliedDiscount ? (
+                  <div className="mt-5 border-t border-border pt-5">
+                    <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Discount code</p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={couponInput}
+                        onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError(null); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleApplyCoupon(); }}
+                        placeholder="ENTER CODE"
+                        className="flex-1 border-b border-border bg-transparent pb-2 font-mono text-xs uppercase tracking-widest text-ink outline-none placeholder:text-muted-foreground/30 focus:border-ink/60"
+                      />
+                      <button
+                        onClick={handleApplyCoupon}
+                        disabled={couponApplying || !couponInput.trim()}
+                        className="font-mono text-[10px] uppercase tracking-widest text-ink/70 transition-colors hover:text-ink disabled:opacity-40"
+                      >
+                        {couponApplying ? "…" : "Apply"}
+                      </button>
+                    </div>
+                    {couponError && (
+                      <p className="mt-1.5 font-mono text-[9px] uppercase tracking-widest text-clay">{couponError}</p>
+                    )}
                   </div>
-                  {couponError && (
-                    <p className="mt-1.5 font-mono text-[9px] uppercase tracking-widest text-clay">{couponError}</p>
-                  )}
-                </div>
-              ) : (
-                <div className="mt-5 border-t border-border pt-5">
-                  <p className="font-mono text-[9px] uppercase tracking-widest text-green-400">
-                    Code <span className="font-bold">{appliedDiscount.code}</span> applied —{" "}
-                    {appliedDiscount.type === "PERCENT" ? `${appliedDiscount.value}% off` : `€${appliedDiscount.value} off`}
-                  </p>
-                </div>
+                ) : (
+                  <div className="mt-5 border-t border-border pt-5">
+                    <p className="font-mono text-[9px] uppercase tracking-widest text-green-400">
+                      Code <span className="font-bold">{appliedDiscount.code}</span> applied —{" "}
+                      {appliedDiscount.type === "PERCENT" ? `${appliedDiscount.value}% off` : `${appliedDiscount.value} L off`}
+                    </p>
+                  </div>
+                )
               )}
 
               <div className="mt-5 flex items-baseline justify-between border-t border-border pt-5">
                 <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Total</p>
-                <p className="serif text-2xl text-ink">€{total.toFixed(0)}</p>
+                <p className="serif text-2xl text-ink">{total.toFixed(0)} L</p>
               </div>
             </div>
 
@@ -434,65 +630,107 @@ function CheckoutPage() {
             </Link>
           </div>
 
-          {/* Form */}
-          <div className="space-y-10 lg:order-first">
-            {/* Contact */}
-            <fieldset>
-              <legend className="mb-6 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Contact</legend>
-              <div className="space-y-5">
-                <Field label="Email address" value={form.email} onChange={(v) => set("email", v)} error={errors.email} type="email" placeholder="you@somewhere.com" />
-                <Field label="Phone number" value={form.phone} onChange={(v) => set("phone", v)} error={errors.phone} type="tel" placeholder="+355 69 123 4567" inputMode="tel" />
-              </div>
-            </fieldset>
+          {/* ── Left column: shipping form OR payment form ── */}
+          <div className="lg:order-first">
 
-            {/* Shipping */}
-            <fieldset>
-              <legend className="mb-6 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Shipping address</legend>
-              <div className="space-y-5">
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="First name" value={form.firstName} onChange={(v) => set("firstName", v)} error={errors.firstName} />
-                  <Field label="Last name" value={form.lastName} onChange={(v) => set("lastName", v)} error={errors.lastName} />
-                </div>
-                <Field label="Address" value={form.address} onChange={(v) => set("address", v)} error={errors.address} placeholder="Street and number" />
-                <Field label="Apartment, suite, etc. (optional)" value={form.address2} onChange={(v) => set("address2", v)} />
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="City" value={form.city} onChange={(v) => set("city", v)} error={errors.city} />
-                  <Field label="Postal code" value={form.postalCode} onChange={(v) => set("postalCode", v)} error={errors.postalCode} />
-                </div>
-                <Field label="Country" value={form.country} onChange={(v) => set("country", v)} error={errors.country} placeholder="e.g. Albania" />
-              </div>
-            </fieldset>
+            {/* ── STEP 1: Shipping details ── */}
+            {(step === "shipping" || step === "initiating") && (
+              <div className="space-y-10">
+                <fieldset>
+                  <legend className="mb-6 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Contact</legend>
+                  <div className="space-y-5">
+                    <Field label="Email address" value={form.email} onChange={(v) => set("email", v)} error={errors.email} type="email" placeholder="you@somewhere.com" />
+                    <Field label="Phone number" value={form.phone} onChange={(v) => set("phone", v)} error={errors.phone} type="tel" placeholder="+355 69 123 4567" inputMode="tel" />
+                  </div>
+                </fieldset>
 
-            {placeError && (
-              <p className="font-mono text-[11px] text-clay">{placeError}</p>
+                <fieldset>
+                  <legend className="mb-6 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Shipping address</legend>
+                  <div className="space-y-5">
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field label="First name" value={form.firstName} onChange={(v) => set("firstName", v)} error={errors.firstName} />
+                      <Field label="Last name" value={form.lastName} onChange={(v) => set("lastName", v)} error={errors.lastName} />
+                    </div>
+                    <Field label="Address" value={form.address} onChange={(v) => set("address", v)} error={errors.address} placeholder="Street and number" />
+                    <Field label="Apartment, suite, etc. (optional)" value={form.address2} onChange={(v) => set("address2", v)} />
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field label="City" value={form.city} onChange={(v) => set("city", v)} error={errors.city} />
+                      <Field label="Postal code" value={form.postalCode} onChange={(v) => set("postalCode", v)} error={errors.postalCode} />
+                    </div>
+                    <Field label="Country" value={form.country} onChange={(v) => set("country", v)} error={errors.country} placeholder="e.g. Albania" />
+                  </div>
+                </fieldset>
+
+                {placeError && (
+                  <p className="font-mono text-[11px] text-clay">{placeError}</p>
+                )}
+
+                <button
+                  onClick={handleContinueToPayment}
+                  disabled={step === "initiating"}
+                  className="w-full bg-ink py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-colors hover:bg-ink/90 disabled:opacity-50"
+                >
+                  {step === "initiating" ? (
+                    <span className="flex items-center justify-center gap-3">
+                      <Spinner />
+                      Preparing payment…
+                    </span>
+                  ) : (
+                    `Continue to payment — ${total.toFixed(0)} L`
+                  )}
+                </button>
+
+                <p className="text-center font-mono text-[9px] uppercase tracking-widest text-muted-foreground/40">
+                  By placing your order you agree to our{" "}
+                  <a href="#" className="underline underline-offset-2 hover:text-muted-foreground">Terms</a> and{" "}
+                  <a href="#" className="underline underline-offset-2 hover:text-muted-foreground">Privacy policy</a>
+                </p>
+              </div>
             )}
 
-            <button
-              onClick={handlePlaceOrder}
-              disabled={placing}
-              className="w-full bg-ink py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-colors hover:bg-ink/90 disabled:opacity-50"
-            >
-              {placing ? (
-                <span className="flex items-center justify-center gap-3">
-                  <Spinner />
-                  Placing order…
-                </span>
-              ) : (
-                `Place order — €${total.toFixed(0)}`
-              )}
-            </button>
+            {/* ── STEP 2: POK Pay payment form ── */}
+            {step === "payment" && pokOrderId && (
+              <div className="space-y-6">
+                {placeError && (
+                  <div className="border border-clay/30 bg-clay/5 px-5 py-4">
+                    <p className="font-mono text-[11px] text-clay">{placeError}</p>
+                  </div>
+                )}
 
-            <p className="text-center font-mono text-[9px] uppercase tracking-widest text-muted-foreground/40">
-              By placing your order you agree to our{" "}
-              <a href="#" className="underline underline-offset-2 hover:text-muted-foreground">Terms</a> and{" "}
-              <a href="#" className="underline underline-offset-2 hover:text-muted-foreground">Privacy policy</a>
-            </p>
+                {placing && (
+                  <div className="flex items-center justify-center gap-3 py-6">
+                    <Spinner />
+                    <p className="font-mono text-[11px] text-muted-foreground">Confirming your order…</p>
+                  </div>
+                )}
+
+                {/* Render GuestCheckoutForm only in the browser */}
+                {mounted && !placing && (
+                  <Suspense fallback={
+                    <div className="flex items-center justify-center gap-3 py-10">
+                      <Spinner />
+                      <p className="font-mono text-[11px] text-muted-foreground">Loading payment form…</p>
+                    </div>
+                  }>
+                    <GuestCheckoutForm
+                      orderId={pokOrderId}
+                      onSuccess={handlePokSuccess}
+                      onError={handlePokError}
+                      options={{ env: "production", locale: "al", countrySelect: "modal" }}
+                    />
+                  </Suspense>
+                )}
+              </div>
+            )}
+
           </div>
         </div>
       </div>
     </div>
   );
 }
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function Spinner() {
   return (

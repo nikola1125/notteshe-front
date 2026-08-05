@@ -204,7 +204,7 @@ export const orders = pgTable("orders", {
   total: real("total").notNull(),
   // Frozen copy of shipping address at order time
   shippingAddress: jsonb("shipping_address").notNull(),
-  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  pokOrderId: text("pok_order_id"),
   adminNote: text("admin_note"),
   trackingNumber: text("tracking_number"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -281,6 +281,21 @@ export const auditLog = pgTable("audit_log", {
   index("audit_log_created_idx").on(t.createdAt),
 ]);
 
+// ─── Pending Order (pre-payment reservation, deleted on order creation) ───────
+
+export const pendingOrder = pgTable("pending_order", {
+  id: text("id").primaryKey(),               // == merchantReference UUID sent to POK
+  pokOrderId: text("pok_order_id").notNull().unique(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  orderData: jsonb("order_data").notNull(),   // full PlaceOrderSchema payload
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  index("pending_order_pok_idx").on(t.pokOrderId),
+  index("pending_order_user_idx").on(t.userId),
+  index("pending_order_expires_idx").on(t.expiresAt),
+]);
+
 // ─── Discount Code ────────────────────────────────────────────────────────────
 
 export const discountCode = pgTable("discount_code", {
@@ -327,4 +342,5 @@ export type OrderItem = typeof orderItem.$inferSelect;
 export type ShippingConfig = typeof shippingConfig.$inferSelect;
 export type AdminUser = typeof adminUser.$inferSelect;
 export type AuditLog = typeof auditLog.$inferSelect;
+export type PendingOrder = typeof pendingOrder.$inferSelect;
 export type DiscountCode = typeof discountCode.$inferSelect;

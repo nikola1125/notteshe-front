@@ -270,7 +270,7 @@ function ProductPage() {
           <nav className="hidden items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground md:flex">
             <Link to="/" className="hover:text-ink transition-colors">Home</Link>
             <span>/</span>
-            <Link to="/shop/" className="hover:text-ink transition-colors">Shop</Link>
+            <Link to="/shop" search={{ sale: undefined }} className="hover:text-ink transition-colors">Shop</Link>
             <span>/</span>
             <span className="text-ink">{product.name}</span>
           </nav>
@@ -348,9 +348,9 @@ function ProductPage() {
           <h1 className="serif mt-3 text-4xl leading-tight text-ink md:text-5xl">{product.name}</h1>
 
           <div className="mt-4 flex items-baseline gap-3">
-            <span className={`font-mono text-[18px] ${product.isSale ? "text-clay" : "text-ink"}`}>€{product.price}</span>
+            <span className={`font-mono text-[18px] ${product.isSale ? "text-clay" : "text-ink"}`}>{product.price} L</span>
             {product.originalPrice && (
-              <span className="font-mono text-[13px] text-muted-foreground line-through">€{product.originalPrice}</span>
+              <span className="font-mono text-[13px] text-muted-foreground line-through">{product.originalPrice} L</span>
             )}
           </div>
 
@@ -462,7 +462,7 @@ function ProductPage() {
               </svg>
             </summary>
             <div className="space-y-2 pb-6 text-[12px] leading-relaxed text-muted-foreground">
-              <p>Free shipping on orders over €200.</p>
+              <p>Free shipping on orders over 20,000 L.</p>
               <p>Standard delivery 3–5 working days. Express available at checkout.</p>
               <p>Returns accepted within 14 days of delivery. Items must be unworn and in original packaging.</p>
             </div>

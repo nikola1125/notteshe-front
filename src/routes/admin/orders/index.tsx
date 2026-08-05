@@ -129,7 +129,7 @@ function OrderList() {
   }
 
   function fmt(n: number) {
-    return `€${n.toFixed(2)}`;
+    return `${n.toFixed(2)} L`;
   }
 
   function fmtDate(iso: string) {

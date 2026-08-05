@@ -23,9 +23,9 @@ function ShippingPage() {
             <h2 className="font-mono text-[11px] uppercase tracking-widest text-ink">Delivery times</h2>
             <div className="mt-6 divide-y divide-border">
               {[
-                { zone: "Albania", time: "1–2 business days", cost: "€5" },
-                { zone: "Europe", time: "3–5 business days", cost: "€12" },
-                { zone: "Rest of world", time: "7–14 business days", cost: "€20" },
+                { zone: "Albania", time: "1–2 business days", cost: "5" },
+                { zone: "Europe", time: "3–5 business days", cost: "12" },
+                { zone: "Rest of world", time: "7–14 business days", cost: "20" },
               ].map((row) => (
                 <div key={row.zone} className="flex items-center justify-between py-5">
                   <div>
@@ -36,7 +36,7 @@ function ShippingPage() {
                 </div>
               ))}
             </div>
-            <p className="mt-4 font-mono text-[11px] text-muted-foreground">Free shipping on all orders over €200.</p>
+            <p className="mt-4 font-mono text-[11px] text-muted-foreground">Free shipping on all orders over 20,000 L.</p>
           </section>
 
           <section>

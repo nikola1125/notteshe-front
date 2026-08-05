@@ -325,7 +325,7 @@ export function ProductForm({
         {isSale ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="pf-price" className={labelClass}>Sale Price (€) *</label>
+              <label htmlFor="pf-price" className={labelClass}>Sale Price (L) *</label>
               <input
                 id="pf-price"
                 type="number"
@@ -339,7 +339,7 @@ export function ProductForm({
               />
             </div>
             <div>
-              <label htmlFor="pf-orig" className={labelClass}>Original Price (€) — shown crossed out</label>
+              <label htmlFor="pf-orig" className={labelClass}>Original Price (L) — shown crossed out</label>
               <input
                 id="pf-orig"
                 type="number"
@@ -355,7 +355,7 @@ export function ProductForm({
           </div>
         ) : (
           <div>
-            <label htmlFor="pf-price" className={labelClass}>Price (€) *</label>
+            <label htmlFor="pf-price" className={labelClass}>Price (L) *</label>
             <input
               id="pf-price"
               type="number"

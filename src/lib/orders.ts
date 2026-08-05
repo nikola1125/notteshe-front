@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 const PlaceOrderSchema = z.object({
+  pokOrderId: z.string(),
   email: z.string().email(),
   phone: z.string(),
   firstName: z.string().min(1),
@@ -29,11 +30,21 @@ export const placeOrder = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { requireAuth } = await import("@/lib/auth/session");
     const { db } = await import("@/db");
-    const { orders, orderItem, shippingConfig, discountCode, productSize } = await import("@/db/schema");
+    const { orders, orderItem, shippingConfig, discountCode, productSize, pendingOrder, auditLog } = await import("@/db/schema");
     const { eq, sql, inArray, and } = await import("drizzle-orm");
     const { randomUUID } = await import("node:crypto");
 
     const session = await requireAuth();
+
+    // Idempotency: if this pokOrderId already has an order, return it
+    const existing = await db()
+      .select({ id: orders.id })
+      .from(orders)
+      .where(eq(orders.pokOrderId, data.pokOrderId))
+      .limit(1);
+    if (existing[0]) {
+      return { orderId: existing[0].id, discountCode: null };
+    }
 
     // Stock check — prevent overselling
     const productIds = [...new Set(data.items.map((i) => i.productId))];
@@ -73,7 +84,6 @@ export const placeOrder = createServerFn({ method: "POST" })
         (code.maxUses === null || code.usedCount < code.maxUses) &&
         (code.minOrderAmount === null || subtotal >= code.minOrderAmount)
       ) {
-        // Codes cannot apply when any cart item is on sale — re-verify server-side
         const itemProductIds = [...new Set(data.items.map((i) => i.productId))];
         const { product: productTable } = await import("@/db/schema");
         const saleCheck = await db()
@@ -120,6 +130,7 @@ export const placeOrder = createServerFn({ method: "POST" })
       discountAmount,
       total,
       shippingAddress,
+      pokOrderId: data.pokOrderId,
     });
 
     const itemRows = data.items.map((item) => ({
@@ -140,13 +151,52 @@ export const placeOrder = createServerFn({ method: "POST" })
 
     await db().insert(orderItem).values(itemRows);
 
-    // Decrement stock for each ordered item
+    // Decrement stock
     for (const item of data.items) {
       await db()
         .update(productSize)
         .set({ stock: sql`stock - ${item.quantity}` })
         .where(and(eq(productSize.productId, item.productId), eq(productSize.label, item.size)));
     }
+
+    // Release the pending order reservation
+    await db().delete(pendingOrder).where(eq(pendingOrder.pokOrderId, data.pokOrderId));
+
+    // Log payment success
+    await db().insert(auditLog).values({
+      id: randomUUID(),
+      adminId: null,
+      action: "payment.success",
+      entityType: "payment",
+      entityId: data.pokOrderId,
+      diff: {
+        after: {
+          orderId,
+          userId: session.user.id,
+          email: data.email,
+          total,
+          itemCount: data.items.length,
+        },
+      },
+    });
+
+    // Send confirmation email — fire and forget
+    const { sendOrderConfirmation } = await import("@/lib/resend");
+    sendOrderConfirmation({
+      to: data.email,
+      firstName: data.firstName,
+      orderId,
+      items: data.items.map((i) => ({
+        name: i.name,
+        size: i.size,
+        colour: i.colour,
+        quantity: i.quantity,
+        unitPrice: i.price,
+      })),
+      subtotal,
+      shippingFee: fee,
+      total,
+    }).catch((err) => console.error("[resend] order confirmation failed:", err));
 
     return { orderId, discountCode: validatedCode };
   });

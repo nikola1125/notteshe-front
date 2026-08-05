@@ -158,11 +158,11 @@ function OrderDetailPage() {
                       <div className="text-right">
                         {item.snapshot.originalPrice && (
                           <p className="font-mono text-[10px] text-muted-foreground line-through">
-                            €{item.snapshot.originalPrice}
+                            {item.snapshot.originalPrice} L
                           </p>
                         )}
                         <p className={`font-mono text-[13px] ${item.snapshot.originalPrice ? "text-clay" : "text-ink"}`}>
-                          €{(item.unitPrice * item.quantity).toFixed(0)}
+                          {(item.unitPrice * item.quantity).toFixed(0)} L
                         </p>
                       </div>
                     </div>
@@ -174,21 +174,21 @@ function OrderDetailPage() {
             {/* Price breakdown */}
             <div className="mt-6 space-y-3 border-b border-border pb-6">
               <div className="flex justify-between font-mono text-[11px] text-ink/60">
-                <span>Subtotal</span><span>€{order.subtotal.toFixed(0)}</span>
+                <span>Subtotal</span><span>{order.subtotal.toFixed(0)} L</span>
               </div>
               <div className="flex justify-between font-mono text-[11px] text-ink/60">
                 <span>Shipping</span>
-                <span>{order.shippingFee === 0 ? "Free" : `€${order.shippingFee.toFixed(0)}`}</span>
+                <span>{order.shippingFee === 0 ? "Free" : `${order.shippingFee.toFixed(0)} L`}</span>
               </div>
               {order.discountCode && (
                 <div className="flex justify-between font-mono text-[11px] text-green-400">
                   <span>{order.discountCode}</span>
-                  <span>−€{order.discountAmount.toFixed(0)}</span>
+                  <span>−{order.discountAmount.toFixed(0)} L</span>
                 </div>
               )}
               <div className="flex justify-between border-t border-border pt-3">
                 <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Total</span>
-                <span className="serif text-xl text-ink">€{order.total.toFixed(0)}</span>
+                <span className="serif text-xl text-ink">{order.total.toFixed(0)} L</span>
               </div>
             </div>
           </div>

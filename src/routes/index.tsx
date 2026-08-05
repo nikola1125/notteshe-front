@@ -208,7 +208,7 @@ function Index() {
             <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">New Arrivals</p>
             <h2 className="serif mt-2 text-3xl leading-tight text-ink md:text-5xl">The permanent wardrobe.</h2>
           </div>
-          <Link to="/shop" className="relative hidden font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-clay hover:after:scale-x-100 md:inline-block">
+          <Link to="/shop" search={{ sale: undefined }} className="relative hidden font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-clay hover:after:scale-x-100 md:inline-block">
             View all — {wardrobeTotal}
           </Link>
         </div>
@@ -277,10 +277,10 @@ function Index() {
                 </div>
                 <div className="text-right">
                   {p.originalPrice && (
-                    <p className="font-mono text-[10px] text-muted-foreground line-through">€{p.originalPrice}</p>
+                    <p className="font-mono text-[10px] text-muted-foreground line-through">{p.originalPrice} L</p>
                   )}
                   <p className={`font-mono text-[12px] ${p.isSale ? "text-clay" : "text-ink/70"}`}>
-                    €{p.price}
+                    {p.price} L
                   </p>
                 </div>
               </div>
@@ -452,9 +452,9 @@ function Index() {
                 </div>
                 <div className="text-right">
                   {p.originalPrice && (
-                    <p className="font-mono text-[10px] text-muted-foreground line-through">€{p.originalPrice}</p>
+                    <p className="font-mono text-[10px] text-muted-foreground line-through">{p.originalPrice} L</p>
                   )}
-                  <p className="font-mono text-[12px] text-clay">€{p.price}</p>
+                  <p className="font-mono text-[12px] text-clay">{p.price} L</p>
                 </div>
               </div>
             </Link>

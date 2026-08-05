@@ -323,11 +323,11 @@ export function CartDrawer() {
                         <div className="text-right">
                           {item.originalPrice && (
                             <p className="font-mono text-[10px] text-muted-foreground line-through">
-                              €{item.originalPrice}
+                              {item.originalPrice} L
                             </p>
                           )}
                           <p className={`font-mono text-[13px] ${item.originalPrice ? "text-clay" : "text-ink"}`}>
-                            €{(item.price * item.quantity).toFixed(0)}
+                            {(item.price * item.quantity).toFixed(0)} L
                           </p>
                         </div>
                       </div>
@@ -346,7 +346,7 @@ export function CartDrawer() {
               <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                 Subtotal
               </p>
-              <p className="serif text-xl text-ink">€{total.toFixed(0)}</p>
+              <p className="serif text-xl text-ink">{total.toFixed(0)} L</p>
             </div>
             <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/50">
               Shipping calculated at checkout

@@ -1,12 +1,18 @@
 # NOTTESHE — CLIENT DISCOVERY DOCUMENT
+
 ## Website Project · Pre-Build Call Questionnaire
+
 ---
+
 > Open this during the call. Go section by section. Mark answers inline.
 > Every section has visual examples — show the client directly from this screen.
+
 ---
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# SECTION 1 — BRAND IDENTITY & VISION
+
+# SECTION 1 — BRAND IDENTITY &amp; VISION
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 - [ ] How did Notteshe start? What year, what was the first product?
@@ -17,16 +23,19 @@
 
 ## 1.1 Brand Positioning — Pick the Closest
 
-| | Description | Example Brands | Price Range |
-|---|---|---|---|
-| **Luxury** | Exclusive, aspirational, premium everything | La Perla, Nensi Dojaka | €€€€ |
-| **Premium** | High quality, stylish, not mass market | House of CB, Oh Polly | €€€ |
-| **Mid-range** | Good quality, accessible, fashion-forward | ASOS Premium, Zara TRF | €€ |
-| **Accessible** | Affordable, trend-led, volume sales | Shein, Boohoo | € |
+
+|                | Description                                 | Example Brands         | Price Range |
+| -------------- | ------------------------------------------- | ---------------------- | ----------- |
+| **Luxury**     | Exclusive, aspirational, premium everything | La Perla, Nensi Dojaka | €€€€        |
+| **Premium**    | High quality, stylish, not mass market      | House of CB, Oh Polly  | €€€         |
+| **Mid-range**  | Good quality, accessible, fashion-forward   | ASOS Premium, Zara TRF | €€          |
+| **Accessible** | Affordable, trend-led, volume sales         | Shein, Boohoo          | €           |
+
 
 - [ ] Chosen positioning: _______________
 
 ## 1.2 Brand Assets to Collect
+
 - [ ] Logo SVG file
 - [ ] Logo PNG (dark version + light version)
 - [ ] Brand color hex codes
@@ -36,7 +45,9 @@
 ---
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 # SECTION 2 — TARGET AUDIENCE
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 - [ ] Age range of primary customer?
@@ -46,37 +57,44 @@
 
 ## 2.1 Customer Profile — Side by Side
 
-| Profile A | Profile B | Profile C |
-|---|---|---|
-| Age 18–24 | Age 25–32 | Age 30–40 |
-| Student / early career | Working professional | Established career |
-| Buys for nights out | Buys for events + travel | Buys for self-expression |
-| Impulse buyer | Researches before buying | Brand loyal, repeat buyer |
+
+| Profile A              | Profile B                  | Profile C                 |
+| ---------------------- | -------------------------- | ------------------------- |
+| Age 18–24              | Age 25–32                  | Age 30–40                 |
+| Student / early career | Working professional       | Established career        |
+| Buys for nights out    | Buys for events + travel   | Buys for self-expression  |
+| Impulse buyer          | Researches before buying   | Brand loyal, repeat buyer |
 | Follows trends closely | Mixes trends with classics | Has her own defined style |
-| Budget-conscious | Willing to spend more | Invests in quality pieces |
+| Budget-conscious       | Willing to spend more      | Invests in quality pieces |
+
 
 - [ ] Which profile best describes Notteshe's customer? A / B / C / Mix of: ___
 
-## 2.2 Language & Currency
+## 2.2 Language &amp; Currency
 
-| Option | Website Language | Currency | Best For |
-|---|---|---|---|
-| A | Albanian only | ALL | Albania-focused strategy |
-| B | English only | EUR | International growth focus |
-| C | Albanian + English toggle | ALL + EUR | Both markets |
-| D | Albanian + English toggle | Automatic by location | Full global readiness |
+
+| Option | Website Language          | Currency              | Best For                   |
+| ------ | ------------------------- | --------------------- | -------------------------- |
+| A      | Albanian only             | ALL                   | Albania-focused strategy   |
+| B      | English only              | EUR                   | International growth focus |
+| C      | Albanian + English toggle | ALL + EUR             | Both markets               |
+| D      | Albanian + English toggle | Automatic by location | Full global readiness      |
+
 
 - [ ] Chosen option: _______________
 
 ---
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 # SECTION 3 — DESIGN DIRECTION
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ## 3.1 Overall Aesthetic — Show client, ask which FEELS right
 
 ### OPTION A — DARK LUXURY
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
@@ -105,6 +123,7 @@
 ---
 
 ### OPTION B — CLEAN EUROPEAN MINIMAL
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
@@ -133,6 +152,7 @@
 ---
 
 ### OPTION C — WARM MEDITERRANEAN
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
@@ -161,6 +181,7 @@
 ---
 
 ### OPTION D — BOLD FEMININE
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
@@ -189,6 +210,7 @@
 ---
 
 ### OPTION E — DARK + FIRE (matches current Instagram energy)
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
@@ -218,6 +240,7 @@
 ---
 
 ### OPTION F — MONOCHROME EDITORIAL
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
@@ -246,6 +269,7 @@
 ---
 
 ### OPTION G — SOFT NEUTRAL LUXURY
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
@@ -281,6 +305,7 @@
 ---
 
 ### PALETTE 1 — DARK LUXURY
+
 ```
   ██████████████  #0A0A0A   Background — Near black
   ████████████    #1A1A1A   Cards / panels — Dark charcoal
@@ -305,6 +330,7 @@
 ---
 
 ### PALETTE 2 — CLEAN MINIMAL (White Base)
+
 ```
   ██████████████  #FAFAFA   Background — Off white
   ████████████    #F0EDE8   Cards — Warm cream
@@ -330,6 +356,7 @@
 ---
 
 ### PALETTE 3 — WARM MEDITERRANEAN
+
 ```
   ██████████████  #FDF6EE   Background — Warm ivory
   ████████████    #E8D5B7   Secondary — Sand
@@ -354,6 +381,7 @@
 ---
 
 ### PALETTE 4 — BOLD FEMININE
+
 ```
   ██████████████  #FDF4F5   Background — Blush white
   ████████████    #F2E0E3   Secondary — Pale rose
@@ -378,6 +406,7 @@
 ---
 
 ### PALETTE 5 — DARK + FIRE
+
 ```
   ██████████████  #0D0D0D   Background — True black
   ████████████    #181818   Cards — Deep charcoal
@@ -402,6 +431,7 @@
 ---
 
 ### PALETTE 6 — MONOCHROME EDITORIAL
+
 ```
   ██████████████  #FFFFFF   Background — Pure white
   ████████████    #F5F5F5   Panels — Light grey
@@ -426,6 +456,7 @@
 ---
 
 ### PALETTE 7 — SOFT NEUTRAL LUXURY
+
 ```
   ██████████████  #F9F5F0   Background — Warm almost-white
   ████████████    #EDE8E0   Cards — Cream
@@ -450,6 +481,7 @@
 ---
 
 ### PALETTE 8 — DEEP JEWEL
+
 ```
   ██████████████  #0F0A1A   Background — Deep midnight
   ████████████    #1E1530   Cards — Dark violet
@@ -474,6 +506,7 @@
 ---
 
 ### PALETTE 9 — SUMMER WHITE + COLOR POP
+
 ```
   ██████████████  #FFFFFF   Background — Pure white
   ████████████    #F8F8F8   Panels — Near white
@@ -497,6 +530,7 @@
 ---
 
 ### PALETTE 10 — NIGHT ROSE
+
 ```
   ██████████████  #12060E   Background — Near-black with violet
   ████████████    #1E0F1A   Cards — Deep rose-black
@@ -526,6 +560,7 @@
 ## 3.3 TYPOGRAPHY — Show Each Pairing
 
 ### PAIRING 1 — CLASSIC LUXURY
+
 ```
   HEADING FONT: Playfair Display
 
@@ -545,6 +580,7 @@
 ---
 
 ### PAIRING 2 — MODERN HIGH FASHION
+
 ```
   HEADING FONT: Cormorant Garamond Italic (very thin)
 
@@ -564,6 +600,7 @@
 ---
 
 ### PAIRING 3 — BOLD EDITORIAL
+
 ```
   HEADING FONT: Bebas Neue (condensed, all caps)
 
@@ -583,6 +620,7 @@
 ---
 
 ### PAIRING 4 — SOFT CONTEMPORARY
+
 ```
   HEADING FONT: DM Serif Display
 
@@ -602,6 +640,7 @@
 ---
 
 ### PAIRING 5 — ULTRA MINIMAL
+
 ```
   HEADING FONT: Helvetica Neue Light (or Inter Thin)
 
@@ -621,6 +660,7 @@
 ---
 
 ### PAIRING 6 — ROMANTIC SERIF
+
 ```
   HEADING FONT: Libre Baskerville
 
@@ -640,6 +680,7 @@
 ---
 
 ### PAIRING 7 — AVANT-GARDE
+
 ```
   HEADING FONT: Space Grotesk Bold
 
@@ -659,6 +700,7 @@
 ---
 
 ### PAIRING 8 — ALL CAPS POWER
+
 ```
   HEADING FONT: Oswald Bold
 
@@ -766,12 +808,14 @@
 
 ## 3.6 ANIMATION LEVEL — Side by Side
 
-| Level | What It Looks Like | Examples |
-|---|---|---|
-| **NONE** | Click a page — it appears instantly. Zero movement. | Céline, The Row |
-| **SUBTLE** | Products fade in softly as you scroll down. Images zoom slightly on hover. | Toteme, Jacquemus |
-| **MEDIUM** | Smooth slide-in on scroll. Product image swaps to model shot on hover. Cart icon bounces when item added. | Revolve, Oh Polly |
+
+| Level          | What It Looks Like                                                                                                | Examples             |
+| -------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------- |
+| **NONE**       | Click a page — it appears instantly. Zero movement.                                                               | Céline, The Row      |
+| **SUBTLE**     | Products fade in softly as you scroll down. Images zoom slightly on hover.                                        | Toteme, Jacquemus    |
+| **MEDIUM**     | Smooth slide-in on scroll. Product image swaps to model shot on hover. Cart icon bounces when item added.         | Revolve, Oh Polly    |
 | **EXPRESSIVE** | Full parallax scrolling (images move at different speeds). Cursor changes shape. Page transitions with animation. | Mugler, Nensi Dojaka |
+
 
 - [ ] **Chosen animation level:** _______________
 
@@ -853,12 +897,15 @@
 ---
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# SECTION 4 — WEBSITE STRUCTURE & PAGES
+
+# SECTION 4 — WEBSITE STRUCTURE &amp; PAGES
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ## 4.1 Page Checklist
 
 ### CORE PAGES (mandatory)
+
 - [ ] Homepage
 - [ ] Shop / All Products
 - [ ] Product Detail Page
@@ -868,15 +915,17 @@
 - [ ] Contact
 
 ### COLLECTION PAGES
+
 - [ ] Summer Collection
 - [ ] New Arrivals
 - [ ] Dresses
 - [ ] Bikini / Swimwear
-- [ ] Sets & Co-ords
-- [ ] Hats & Accessories
+- [ ] Sets &amp; Co-ords
+- [ ] Hats &amp; Accessories
 - [ ] Sale
 
 ### OPTIONAL PAGES
+
 - [ ] Lookbook / Editorial
 - [ ] Blog / Journal
 - [ ] Press / Media
@@ -884,7 +933,7 @@
 - [ ] Wholesale / B2B
 - [ ] Size Guide
 - [ ] Shipping Information
-- [ ] Returns & Refunds
+- [ ] Returns &amp; Refunds
 - [ ] FAQ
 - [ ] Gift Cards
 
@@ -945,7 +994,9 @@
 ---
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 # SECTION 5 — PRODUCT PAGE LAYOUT
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ## 5.1 Product Page — Two Layout Options
@@ -1027,10 +1078,13 @@
 ---
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# SECTION 6 — E-COMMERCE & PAYMENTS
+
+# SECTION 6 — E-COMMERCE &amp; PAYMENTS
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ## 6.1 Payment Methods — Check All Needed
+
 - [ ] Visa / Mastercard
 - [ ] PayPal
 - [ ] Apple Pay
@@ -1076,14 +1130,16 @@
 
 ## 6.3 Shipping — Confirm All Zones
 
-| Zone | Ships There? | Rate | Free Above |
-|---|---|---|---|
-| Albania domestic | | | |
-| Kosovo / Balkans | | | |
-| EU / Europe | | | |
-| USA / Canada | | | |
-| Australia | | | |
-| Rest of World | | | |
+
+| Zone             | Ships There? | Rate | Free Above |
+| ---------------- | ------------ | ---- | ---------- |
+| Albania domestic |              |      |            |
+| Kosovo / Balkans |              |      |            |
+| EU / Europe      |              |      |            |
+| USA / Canada     |              |      |            |
+| Australia        |              |      |            |
+| Rest of World    |              |      |            |
+
 
 - [ ] Couriers used: _______________
 - [ ] Average delivery days (local): _______________
@@ -1093,7 +1149,9 @@
 ---
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# SECTION 7 — BRAND VOICE & TONE
+
+# SECTION 7 — BRAND VOICE &amp; TONE
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ## 7.1 Tone — Circle What Fits
@@ -1139,41 +1197,49 @@ Show client all five. Let them react.
 ---
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 # SECTION 8 — TECHNICAL PLATFORM
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ## 8.1 Platform Comparison
 
-| | Shopify | WooCommerce | Webflow + Shopify | Custom (Next.js) |
-|---|---|---|---|---|
-| **Monthly cost** | €29–€79 | ~€15 hosting | ~€60 | Low (hosting only) |
-| **Setup cost** | Low | Medium | High | Highest |
-| **Design freedom** | Medium | Medium | Very High | Unlimited |
-| **Client manages it?** | Very easy | Medium | Needs help | Needs developer |
-| **Speed** | Fast | Depends | Very fast | Fastest |
-| **Best for** | Fashion brands | Budget-focused | Max quality | Long-term vision |
-| **Verdict** | ★ RECOMMENDED | Good option | Best result | For serious budget |
+
+|                        | Shopify        | WooCommerce    | Webflow + Shopify | Custom (Next.js)   |
+| ---------------------- | -------------- | -------------- | ----------------- | ------------------ |
+| **Monthly cost**       | €29–€79        | ~€15 hosting   | ~€60              | Low (hosting only) |
+| **Setup cost**         | Low            | Medium         | High              | Highest            |
+| **Design freedom**     | Medium         | Medium         | Very High         | Unlimited          |
+| **Client manages it?** | Very easy      | Medium         | Needs help        | Needs developer    |
+| **Speed**              | Fast           | Depends        | Very fast         | Fastest            |
+| **Best for**           | Fashion brands | Budget-focused | Max quality       | Long-term vision   |
+| **Verdict**            | ★ RECOMMENDED  | Good option    | Best result       | For serious budget |
+
 
 - [ ] **Platform chosen:** _______________
 - [ ] **Can client manage site themselves?** Yes / No / Partially
 - [ ] **Domain already purchased?** Yes: ___ / No
-- [ ] **Business email needed?** (info@notteshe.com) Yes / No
+- [ ] **Business email needed?** ([info@notteshe.com](mailto:info@notteshe.com)) Yes / No
 
 ## 8.2 Domain Options
 
-| Option | Best For | Availability to Check |
-|---|---|---|
-| notteshe.com | International, preferred | Check: namecheap.com |
-| notteshe.al | Albania-specific | Check: akep.al |
-| notteshe.co | Shorter, modern | Check: namecheap.com |
-| shopnotteshe.com | If .com taken | Alternative |
+
+| Option           | Best For                 | Availability to Check |
+| ---------------- | ------------------------ | --------------------- |
+| notteshe.com     | International, preferred | Check: namecheap.com  |
+| notteshe.al      | Albania-specific         | Check: akep.al        |
+| notteshe.co      | Shorter, modern          | Check: namecheap.com  |
+| shopnotteshe.com | If .com taken            | Alternative           |
+
 
 - [ ] **Chosen domain:** _______________
 
 ---
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# SECTION 9 — TRUST SIGNALS & SOCIAL PROOF
+
+# SECTION 9 — TRUST SIGNALS &amp; SOCIAL PROOF
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ## 9.1 Trust Bar — Example (appears under navigation or above footer)
@@ -1185,6 +1251,7 @@ Show client all five. Let them react.
 ```
 
 Which badges to show?
+
 - [ ] Secure Checkout / SSL
 - [ ] Free Shipping (above threshold)
 - [ ] 14-day / 30-day returns
@@ -1222,7 +1289,9 @@ Which badges to show?
 ---
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 # SECTION 10 — EMAIL MARKETING
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ## 10.1 Newsletter Popup — Options
@@ -1268,26 +1337,31 @@ Which badges to show?
 
 ## 10.2 Automated Emails — Confirm Which to Set Up
 
-| Email | Trigger | Priority |
-|---|---|---|
-| Welcome email | User subscribes | Must have |
-| Order confirmation | Purchase made | Must have |
-| Shipping confirmation | Item dispatched | Must have |
-| Abandoned cart | Cart not checked out after 1hr | High |
-| Post-purchase review request | 7 days after delivery | High |
-| Back in stock | Item restocked | Medium |
-| Birthday discount | Customer's birthday | Nice to have |
-| Win-back | No purchase in 90 days | Nice to have |
+
+| Email                        | Trigger                        | Priority     |
+| ---------------------------- | ------------------------------ | ------------ |
+| Welcome email                | User subscribes                | Must have    |
+| Order confirmation           | Purchase made                  | Must have    |
+| Shipping confirmation        | Item dispatched                | Must have    |
+| Abandoned cart               | Cart not checked out after 1hr | High         |
+| Post-purchase review request | 7 days after delivery          | High         |
+| Back in stock                | Item restocked                 | Medium       |
+| Birthday discount            | Customer's birthday            | Nice to have |
+| Win-back                     | No purchase in 90 days         | Nice to have |
+
 
 ---
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 # SECTION 11 — SPECIAL FEATURES WISHLIST
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Go through each. Client says YES / NO / "Tell me more."
 
 ### SHOPPING
+
 - [ ] Wishlist — save items for later
 - [ ] Recently viewed products
 - [ ] "Complete the look" — shop every item a model is wearing
@@ -1299,6 +1373,7 @@ Go through each. Client says YES / NO / "Tell me more."
 - [ ] Size recommendation quiz ("What's my size?")
 
 ### MARKETING
+
 - [ ] Countdown timer on sales or new drops
 - [ ] "Only X left" urgency label
 - [ ] "Best Seller" / "New In" / "Trending" product badges
@@ -1309,6 +1384,7 @@ Go through each. Client says YES / NO / "Tell me more."
 - [ ] Spin-to-win discount wheel
 
 ### CONTENT
+
 - [ ] Lookbook / editorial photo stories
 - [ ] Blog / brand journal
 - [ ] Press page (magazine features)
@@ -1317,6 +1393,7 @@ Go through each. Client says YES / NO / "Tell me more."
 - [ ] Shoppable Instagram feed
 
 ### INTERACTION
+
 - [ ] Hero video (autoplay, silent)
 - [ ] Custom cursor design
 - [ ] Parallax scrolling
@@ -1325,6 +1402,7 @@ Go through each. Client says YES / NO / "Tell me more."
 - [ ] Full-screen image zoom
 
 ### BUSINESS
+
 - [ ] Order tracking page
 - [ ] Return request form
 - [ ] Influencer collaboration enquiry
@@ -1334,7 +1412,9 @@ Go through each. Client says YES / NO / "Tell me more."
 ---
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 # SECTION 12 — COLLECTION DROP STRATEGY
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ## 12.1 Drop Page Example
@@ -1365,7 +1445,9 @@ Go through each. Client says YES / NO / "Tell me more."
 ---
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# SECTION 13 — LEGAL & COMPLIANCE
+
+# SECTION 13 — LEGAL &amp; COMPLIANCE
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ## 13.1 Cookie Banner — Options
@@ -1391,18 +1473,22 @@ Go through each. Client says YES / NO / "Tell me more."
 - [ ] Cookie banner style: A / B
 - [ ] **Required legal pages — who writes them?**
 
-| Page | Status |
-|---|---|
-| Privacy Policy | Have it / Need it written |
-| Cookie Policy | Have it / Need it written |
-| Terms & Conditions | Have it / Need it written |
-| Shipping Policy | Have it / Need it written |
-| Returns Policy | Have it / Need it written |
+
+| Page                   | Status                    |
+| ---------------------- | ------------------------- |
+| Privacy Policy         | Have it / Need it written |
+| Cookie Policy          | Have it / Need it written |
+| Terms &amp; Conditions | Have it / Need it written |
+| Shipping Policy        | Have it / Need it written |
+| Returns Policy         | Have it / Need it written |
+
 
 ---
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# SECTION 14 — SUSTAINABILITY & PRODUCTION
+
+# SECTION 14 — SUSTAINABILITY &amp; PRODUCTION
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 - [ ] Where are products made? (Albania / other?)
@@ -1412,6 +1498,7 @@ Go through each. Client says YES / NO / "Tell me more."
 - [ ] Size range offered? Plans to expand?
 
 **Values — which apply to Notteshe?**
+
 - [ ] Made in Albania
 - [ ] Small batch / limited edition
 - [ ] Handmade / artisan
@@ -1424,10 +1511,13 @@ Go through each. Client says YES / NO / "Tell me more."
 ---
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# SECTION 15 — SOCIAL MEDIA & INTEGRATIONS
+
+# SECTION 15 — SOCIAL MEDIA &amp; INTEGRATIONS
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ## 15.1 Collect All Social Handles
+
 - [ ] Instagram: @notteshe — confirm?
 - [ ] TikTok: ?
 - [ ] Facebook: ?
@@ -1465,19 +1555,23 @@ Go through each. Client says YES / NO / "Tell me more."
 ---
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# SECTION 16 — TIMELINE & BUDGET
+
+# SECTION 16 — TIMELINE &amp; BUDGET
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ## 16.1 Timeline
 
-| Milestone | Target Date |
-|---|---|
-| All assets delivered by client | |
-| Design mockup presented | |
-| Client reviews + feedback | |
-| Development complete | |
-| Client testing period | |
-| Go live | |
+
+| Milestone                      | Target Date |
+| ------------------------------ | ----------- |
+| All assets delivered by client |             |
+| Design mockup presented        |             |
+| Client reviews + feedback      |             |
+| Development complete           |             |
+| Client testing period          |             |
+| Go live                        |             |
+
 
 - [ ] **Hard go-live deadline?** _______________
 - [ ] **Any event / collection launch tied to launch?** _______________
@@ -1492,7 +1586,9 @@ Go through each. Client says YES / NO / "Tell me more."
 ---
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 # CALL NOTES
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ```
@@ -1534,8 +1630,11 @@ Platform decided  : _______________
 ---
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 # DELIVERABLES CHECKLIST
+
 # Everything needed from client before work starts
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ```

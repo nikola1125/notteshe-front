@@ -201,10 +201,10 @@ function ProductList() {
                   {p.categoryName ?? "—"}
                 </td>
                 <td className="px-4 py-3 font-mono text-xs text-[var(--color-foreground)]">
-                  €{p.price.toFixed(2)}
+                  {p.price.toFixed(2)} L
                   {p.originalPrice != null && (
                     <span className="ml-1 text-[var(--color-muted-foreground)] line-through">
-                      €{p.originalPrice.toFixed(2)}
+                      {p.originalPrice.toFixed(2)} L
                     </span>
                   )}
                 </td>

@@ -203,11 +203,19 @@ const updateOrderStatus = createServerFn({ method: "POST" })
       const { pokCapture, pokCancel, pokRefund } = await import("@/lib/pok");
 
       if (data.status === "CONFIRMED" && prevStatus === "PENDING") {
-        // Blocking: if capture fails the order must NOT be confirmed
-        await pokCapture(pokOrderId, total);
+        // Non-blocking: capture the payment; warn admin if it fails (e.g. order expired on POK)
+        try {
+          await pokCapture(pokOrderId, total);
+        } catch (err) {
+          pokWarning = err instanceof Error ? err.message : "POK capture failed — collect payment manually in POK dashboard";
+        }
       } else if (data.status === "CANCELLED" && prevStatus === "PENDING") {
-        // Blocking: void the authorization hold
-        await pokCancel(pokOrderId, "Order rejected by merchant");
+        // Non-blocking: void the authorization hold
+        try {
+          await pokCancel(pokOrderId, "Order rejected by merchant");
+        } catch (err) {
+          pokWarning = err instanceof Error ? err.message : "POK void failed — check POK dashboard";
+        }
       } else if (data.status === "CANCELLED" && (prevStatus === "CONFIRMED" || prevStatus === "SHIPPED")) {
         // Non-blocking: payment already captured — try to refund but don't fail the cancel
         try {

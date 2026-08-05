@@ -163,123 +163,178 @@ function CouponShareModal({ code, onClose }: { code: DiscountCode; onClose: () =
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-[300] overflow-y-auto bg-black/80 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      {/* Close button — fixed top-right, always above navbar */}
+      <button
+        onClick={onClose}
+        className="fixed right-4 top-4 z-[301] flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/60 backdrop-blur-sm transition-colors hover:bg-white/20 hover:text-white"
+      >
+        <X size={16} />
+      </button>
 
-        {/* Header */}
-        <div className="mb-4 flex items-center justify-between">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-white/60">Share coupon</p>
-          <button onClick={onClose} className="text-white/40 transition-colors hover:text-white">
-            <X size={16} />
-          </button>
-        </div>
+      <div
+        className="mx-auto flex min-h-full w-full max-w-sm flex-col items-center justify-center px-4 py-20"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="mb-5 self-start font-mono text-[10px] uppercase tracking-widest text-white/40">Share coupon</p>
 
-        {/* Coupon card — captured by html-to-image */}
+        {/* ── Coupon card ── captured by html-to-image ── */}
         <div
           ref={cardRef}
           style={{
-            background: "#0c0c0c",
             width: "100%",
-            padding: 0,
-            overflow: "hidden",
-            position: "relative",
+            background: "#0f0f0f",
             fontFamily: "Georgia, 'Times New Roman', serif",
+            position: "relative",
+            overflow: "hidden",
           }}
         >
-          {/* Top band */}
-          <div style={{ background: "#f5f0eb", padding: "14px 32px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontFamily: "monospace", fontSize: 8, letterSpacing: "0.35em", color: "#111", textTransform: "uppercase" }}>
-              Notteshe
-            </span>
-            <span style={{ fontFamily: "monospace", fontSize: 8, letterSpacing: "0.2em", color: "#888", textTransform: "uppercase" }}>
-              Exclusive Offer
-            </span>
-          </div>
+          {/* Outer border frame */}
+          <div style={{ margin: 12, border: "1px solid #222", position: "relative" }}>
 
-          {/* Main body */}
-          <div style={{ padding: "40px 32px 32px", textAlign: "center", position: "relative" }}>
-
-            {/* Subtle radial glow behind discount */}
+            {/* Top strip — cream */}
             <div style={{
-              position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)",
-              width: 260, height: 160,
-              background: "radial-gradient(ellipse at center, rgba(212,184,150,0.08) 0%, transparent 70%)",
-              pointerEvents: "none",
-            }} />
-
-            {/* Small label */}
-            <p style={{ fontFamily: "monospace", fontSize: 8, letterSpacing: "0.35em", color: "#555", textTransform: "uppercase", marginBottom: 16, marginTop: 0 }}>
-              {code.type === "PERCENT" ? "Percent off" : "Fixed discount"}
-            </p>
-
-            {/* Hero discount value */}
-            <p style={{
-              fontSize: code.type === "PERCENT" ? 80 : 70,
-              fontWeight: 300,
-              color: "#ffffff",
-              letterSpacing: code.type === "PERCENT" ? "-0.04em" : "-0.02em",
-              lineHeight: 1,
-              margin: 0,
-              marginBottom: 4,
+              background: "#ede8e0",
+              padding: "16px 28px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
             }}>
-              {code.type === "PERCENT" ? `${code.value}%` : `€${code.value.toFixed(0)}`}
-            </p>
-            <p style={{ fontFamily: "monospace", fontSize: 9, letterSpacing: "0.4em", color: "#9a8778", textTransform: "uppercase", marginBottom: 36, marginTop: 8 }}>
-              off your order
-            </p>
-
-            {/* Dashed cut line */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
-              <div style={{ flex: 1, borderTop: "1px dashed #2e2e2e" }} />
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="#333" style={{ flexShrink: 0 }}>
-                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c0-1.1.9-2 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/>
-                <path d="M9.64 7.64A3 3 0 1 1 5 10a3 3 0 0 1 4.64-2.36zM19 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" fill="none"/>
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" fill="none"/>
-              </svg>
-              <div style={{ flex: 1, borderTop: "1px dashed #2e2e2e" }} />
+              <span style={{ fontFamily: "monospace", fontSize: 9, letterSpacing: "0.4em", color: "#1a1a1a", textTransform: "uppercase", fontWeight: 600 }}>
+                Notteshe
+              </span>
+              <span style={{ fontFamily: "monospace", fontSize: 7, letterSpacing: "0.25em", color: "#888", textTransform: "uppercase" }}>
+                Exclusive Offer
+              </span>
             </div>
 
-            {/* Code box */}
-            <div style={{
-              border: "1px solid #2a2a2a",
-              padding: "14px 24px",
-              display: "inline-block",
-              marginBottom: 24,
-              position: "relative",
-            }}>
-              <p style={{ fontFamily: "monospace", fontSize: 7, letterSpacing: "0.4em", color: "#555", textTransform: "uppercase", marginBottom: 6, marginTop: 0 }}>
+            {/* Hero section */}
+            <div style={{ background: "#0f0f0f", padding: "44px 28px 36px", textAlign: "center", position: "relative" }}>
+
+              {/* Warm glow */}
+              <div style={{
+                position: "absolute", inset: 0,
+                background: "radial-gradient(ellipse 70% 50% at 50% 30%, rgba(200,170,120,0.07) 0%, transparent 70%)",
+                pointerEvents: "none",
+              }} />
+
+              {/* Category label */}
+              <p style={{ fontFamily: "monospace", fontSize: 7, letterSpacing: "0.45em", color: "#4a4a4a", textTransform: "uppercase", margin: "0 0 20px" }}>
+                {code.type === "PERCENT" ? "Percent discount" : "Fixed discount"}
+              </p>
+
+              {/* Big number */}
+              <p style={{
+                fontSize: 88,
+                fontWeight: 300,
+                color: "#f0ebe3",
+                letterSpacing: "-0.03em",
+                lineHeight: 1,
+                margin: 0,
+              }}>
+                {code.type === "PERCENT" ? `${code.value}%` : `€${code.value.toFixed(0)}`}
+              </p>
+
+              <p style={{
+                fontFamily: "monospace",
+                fontSize: 8,
+                letterSpacing: "0.45em",
+                color: "#7a6a58",
+                textTransform: "uppercase",
+                margin: "12px 0 0",
+              }}>
+                off your order
+              </p>
+            </div>
+
+            {/* Tear-off row — notch circles + dashed line */}
+            <div style={{ background: "#0f0f0f", position: "relative", height: 24, display: "flex", alignItems: "center" }}>
+              {/* Left notch */}
+              <div style={{
+                position: "absolute", left: -13, top: "50%", transform: "translateY(-50%)",
+                width: 26, height: 26, borderRadius: "50%",
+                background: "#0f0f0f",
+                border: "1px solid #222",
+                zIndex: 2,
+              }} />
+              {/* Dashed line */}
+              <div style={{ flex: 1, margin: "0 14px", borderTop: "1px dashed #2c2c2c" }} />
+              {/* Scissors icon */}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3a3a3a" strokeWidth="1.5" style={{ flexShrink: 0 }}>
+                <circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/>
+                <line x1="20" y1="4" x2="8.12" y2="15.88"/>
+                <line x1="14.47" y1="14.48" x2="20" y2="20"/>
+                <line x1="8.12" y1="8.12" x2="12" y2="12"/>
+              </svg>
+              <div style={{ flex: 1, margin: "0 14px", borderTop: "1px dashed #2c2c2c" }} />
+              {/* Right notch */}
+              <div style={{
+                position: "absolute", right: -13, top: "50%", transform: "translateY(-50%)",
+                width: 26, height: 26, borderRadius: "50%",
+                background: "#0f0f0f",
+                border: "1px solid #222",
+                zIndex: 2,
+              }} />
+            </div>
+
+            {/* Code section */}
+            <div style={{ background: "#0a0a0a", padding: "28px 28px 24px", textAlign: "center" }}>
+              <p style={{ fontFamily: "monospace", fontSize: 7, letterSpacing: "0.45em", color: "#3a3a3a", textTransform: "uppercase", margin: "0 0 14px" }}>
                 Use code
               </p>
-              <p style={{ fontFamily: "monospace", fontSize: 24, letterSpacing: "0.3em", color: "#f5f0eb", textTransform: "uppercase", margin: 0 }}>
-                {code.code}
-              </p>
+
+              {/* Code pill */}
+              <div style={{
+                display: "inline-block",
+                border: "1px solid #2e2e2e",
+                padding: "10px 32px",
+                marginBottom: 20,
+                background: "#111",
+              }}>
+                <span style={{
+                  fontFamily: "monospace",
+                  fontSize: 26,
+                  letterSpacing: "0.35em",
+                  color: "#ede8e0",
+                  textTransform: "uppercase",
+                }}>
+                  {code.code}
+                </span>
+              </div>
+
+              {/* Fine print */}
+              <div style={{ display: "flex", justifyContent: "center", gap: 16, flexWrap: "wrap" }}>
+                {code.minOrderAmount ? (
+                  <span style={{ fontFamily: "monospace", fontSize: 7, color: "#383838", letterSpacing: "0.2em", textTransform: "uppercase" }}>
+                    Min. order €{code.minOrderAmount}
+                  </span>
+                ) : (
+                  <span style={{ fontFamily: "monospace", fontSize: 7, color: "#383838", letterSpacing: "0.2em", textTransform: "uppercase" }}>
+                    Limited offer
+                  </span>
+                )}
+              </div>
             </div>
 
-            {/* Fine print */}
-            <div style={{ display: "flex", justifyContent: "center", gap: 20, flexWrap: "wrap" }}>
-              {code.minOrderAmount ? (
-                <span style={{ fontFamily: "monospace", fontSize: 7, color: "#444", letterSpacing: "0.2em", textTransform: "uppercase" }}>
-                  Min. order €{code.minOrderAmount}
-                </span>
-              ) : null}
-              {!code.minOrderAmount ? (
-                <span style={{ fontFamily: "monospace", fontSize: 7, color: "#444", letterSpacing: "0.2em", textTransform: "uppercase" }}>
-                  Limited offer
-                </span>
-              ) : null}
+            {/* Footer */}
+            <div style={{
+              background: "#ede8e0",
+              padding: "10px 28px",
+              textAlign: "center",
+            }}>
+              <span style={{ fontFamily: "monospace", fontSize: 7, letterSpacing: "0.35em", color: "#999", textTransform: "uppercase" }}>
+                notteshe.com
+              </span>
             </div>
-          </div>
 
-          {/* Bottom band */}
-          <div style={{ borderTop: "1px solid #1c1c1c", padding: "12px 32px", display: "flex", justifyContent: "center" }}>
-            <span style={{ fontFamily: "monospace", fontSize: 7, letterSpacing: "0.35em", color: "#3a3a3a", textTransform: "uppercase" }}>
-              notteshe.com
-            </span>
-          </div>
-        </div>
+          </div>{/* end inner border */}
+        </div>{/* end card */}
 
         {/* Share options */}
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="mt-4 w-full grid grid-cols-2 gap-2">
           <button
             onClick={() => handleShare("instagram-post")}
             className="flex items-center justify-center gap-2 rounded border border-white/10 bg-white/5 px-4 py-3 font-mono text-[10px] uppercase tracking-widest text-white/70 transition-colors hover:border-white/20 hover:text-white"

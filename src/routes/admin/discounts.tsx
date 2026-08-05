@@ -174,53 +174,112 @@ function CouponShareModal({ code, onClose }: { code: DiscountCode; onClose: () =
           </button>
         </div>
 
-        {/* Coupon card — this gets captured */}
+        {/* Coupon card — captured by html-to-image */}
         <div
           ref={cardRef}
-          className="relative overflow-hidden rounded-none bg-[#111111] p-8"
-          style={{ fontFamily: "monospace" }}
+          style={{
+            background: "#0c0c0c",
+            width: "100%",
+            padding: 0,
+            overflow: "hidden",
+            position: "relative",
+            fontFamily: "Georgia, 'Times New Roman', serif",
+          }}
         >
-          {/* Decorative corner lines */}
-          <div className="absolute left-4 top-4 h-5 w-px bg-white/20" />
-          <div className="absolute left-4 top-4 h-px w-5 bg-white/20" />
-          <div className="absolute right-4 top-4 h-5 w-px bg-white/20" />
-          <div className="absolute right-4 top-4 h-px w-5 bg-white/20" />
-          <div className="absolute bottom-4 left-4 h-5 w-px bg-white/20" />
-          <div className="absolute bottom-4 left-4 h-px w-5 bg-white/20" />
-          <div className="absolute bottom-4 right-4 h-5 w-px bg-white/20" />
-          <div className="absolute bottom-4 right-4 h-px w-5 bg-white/20" />
-
-          <div className="text-center">
-            <p style={{ fontSize: 9, letterSpacing: "0.3em", color: "#6b6b6b", textTransform: "uppercase", marginBottom: 20 }}>
+          {/* Top band */}
+          <div style={{ background: "#f5f0eb", padding: "14px 32px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontFamily: "monospace", fontSize: 8, letterSpacing: "0.35em", color: "#111", textTransform: "uppercase" }}>
               Notteshe
+            </span>
+            <span style={{ fontFamily: "monospace", fontSize: 8, letterSpacing: "0.2em", color: "#888", textTransform: "uppercase" }}>
+              Exclusive Offer
+            </span>
+          </div>
+
+          {/* Main body */}
+          <div style={{ padding: "40px 32px 32px", textAlign: "center", position: "relative" }}>
+
+            {/* Subtle radial glow behind discount */}
+            <div style={{
+              position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)",
+              width: 260, height: 160,
+              background: "radial-gradient(ellipse at center, rgba(212,184,150,0.08) 0%, transparent 70%)",
+              pointerEvents: "none",
+            }} />
+
+            {/* Small label */}
+            <p style={{ fontFamily: "monospace", fontSize: 8, letterSpacing: "0.35em", color: "#555", textTransform: "uppercase", marginBottom: 16, marginTop: 0 }}>
+              {code.type === "PERCENT" ? "Percent off" : "Fixed discount"}
             </p>
-            <p style={{ fontSize: 48, fontWeight: 300, color: "#ffffff", letterSpacing: "-0.02em", lineHeight: 1, marginBottom: 8 }}>
-              {discountLabel}
+
+            {/* Hero discount value */}
+            <p style={{
+              fontSize: code.type === "PERCENT" ? 80 : 70,
+              fontWeight: 300,
+              color: "#ffffff",
+              letterSpacing: code.type === "PERCENT" ? "-0.04em" : "-0.02em",
+              lineHeight: 1,
+              margin: 0,
+              marginBottom: 4,
+            }}>
+              {code.type === "PERCENT" ? `${code.value}%` : `€${code.value.toFixed(0)}`}
             </p>
-            <p style={{ fontSize: 9, color: "#6b6b6b", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 24 }}>
-              {code.type === "PERCENT" ? "Percent discount" : "Fixed discount"}
+            <p style={{ fontFamily: "monospace", fontSize: 9, letterSpacing: "0.4em", color: "#9a8778", textTransform: "uppercase", marginBottom: 36, marginTop: 8 }}>
+              off your order
             </p>
-            <div style={{ borderTop: "1px solid #2a2a2a", paddingTop: 20, marginBottom: 8 }}>
-              <p style={{ fontSize: 9, color: "#6b6b6b", letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: 8 }}>
+
+            {/* Dashed cut line */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
+              <div style={{ flex: 1, borderTop: "1px dashed #2e2e2e" }} />
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="#333" style={{ flexShrink: 0 }}>
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c0-1.1.9-2 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/>
+                <path d="M9.64 7.64A3 3 0 1 1 5 10a3 3 0 0 1 4.64-2.36zM19 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" fill="none"/>
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" fill="none"/>
+              </svg>
+              <div style={{ flex: 1, borderTop: "1px dashed #2e2e2e" }} />
+            </div>
+
+            {/* Code box */}
+            <div style={{
+              border: "1px solid #2a2a2a",
+              padding: "14px 24px",
+              display: "inline-block",
+              marginBottom: 24,
+              position: "relative",
+            }}>
+              <p style={{ fontFamily: "monospace", fontSize: 7, letterSpacing: "0.4em", color: "#555", textTransform: "uppercase", marginBottom: 6, marginTop: 0 }}>
                 Use code
               </p>
-              <p style={{ fontSize: 22, letterSpacing: "0.25em", color: "#ffffff", textTransform: "uppercase" }}>
+              <p style={{ fontFamily: "monospace", fontSize: 24, letterSpacing: "0.3em", color: "#f5f0eb", textTransform: "uppercase", margin: 0 }}>
                 {code.code}
               </p>
             </div>
-            {code.minOrderAmount && (
-              <p style={{ fontSize: 9, color: "#6b6b6b", letterSpacing: "0.15em", textTransform: "uppercase", marginTop: 12 }}>
-                Min. order €{code.minOrderAmount}
-              </p>
-            )}
-            {code.expiresAt && (
-              <p style={{ fontSize: 9, color: "#6b6b6b", letterSpacing: "0.15em", textTransform: "uppercase", marginTop: 6 }}>
-                Valid until {new Date(code.expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
-              </p>
-            )}
-            <p style={{ fontSize: 8, color: "#3a3a3a", letterSpacing: "0.2em", textTransform: "uppercase", marginTop: 24 }}>
+
+            {/* Fine print */}
+            <div style={{ display: "flex", justifyContent: "center", gap: 20, flexWrap: "wrap" }}>
+              {code.minOrderAmount ? (
+                <span style={{ fontFamily: "monospace", fontSize: 7, color: "#444", letterSpacing: "0.2em", textTransform: "uppercase" }}>
+                  Min. order €{code.minOrderAmount}
+                </span>
+              ) : null}
+              {code.expiresAt ? (
+                <span style={{ fontFamily: "monospace", fontSize: 7, color: "#444", letterSpacing: "0.2em", textTransform: "uppercase" }}>
+                  Valid until {new Date(code.expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                </span>
+              ) : null}
+              {!code.minOrderAmount && !code.expiresAt ? (
+                <span style={{ fontFamily: "monospace", fontSize: 7, color: "#444", letterSpacing: "0.2em", textTransform: "uppercase" }}>
+                  No expiry · Limited offer
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Bottom band */}
+          <div style={{ borderTop: "1px solid #1c1c1c", padding: "12px 32px", display: "flex", justifyContent: "center" }}>
+            <span style={{ fontFamily: "monospace", fontSize: 7, letterSpacing: "0.35em", color: "#3a3a3a", textTransform: "uppercase" }}>
               notteshe.com
-            </p>
+            </span>
           </div>
         </div>
 

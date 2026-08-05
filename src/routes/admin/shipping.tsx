@@ -141,112 +141,111 @@ function Shipping() {
         Shipping
       </h1>
 
-      <form
-        onSubmit={handleSubmit}
-        className="max-w-md rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-6 space-y-5"
-      >
-        {/* Enabled toggle */}
-        <div className="flex items-center justify-between">
-          <span className="font-mono text-xs text-[var(--color-foreground)]">Shipping enabled</span>
-          <Toggle value={enabled} onChange={setEnabled} />
-        </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
 
-        <div>
-          <label htmlFor="sh-fee" className={labelClass}>
-            Flat fee (L)
-          </label>
-          <input
-            id="sh-fee"
-            type="number"
-            step="0.01"
-            min="0"
-            value={fee}
-            onChange={(e) => setFee(e.target.value)}
-            className={inputClass}
-          />
-        </div>
+          {/* ── Left: Shipping ── */}
+          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-6 space-y-5">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">Shipping</p>
 
-        <div>
-          <label htmlFor="sh-threshold" className={labelClass}>
-            Free shipping threshold (L)
-          </label>
-          <input
-            id="sh-threshold"
-            type="number"
-            step="0.01"
-            min="0"
-            value={threshold}
-            onChange={(e) => setThreshold(e.target.value)}
-            className={inputClass}
-          />
-          <p className="mt-1 font-mono text-[10px] text-[var(--color-muted-foreground)]">
-            Orders above this amount get free shipping
-          </p>
-        </div>
-
-        <div className="border-t border-[var(--color-border)] pt-5 space-y-4">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
-            Payment Processing Fee
-          </p>
-
-          {/* Percentage toggle row */}
-          <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="font-mono text-xs text-[var(--color-foreground)]">Percentage fee</span>
-              <Toggle value={percentEnabled} onChange={setPercentEnabled} />
+              <span className="font-mono text-xs text-[var(--color-foreground)]">Shipping enabled</span>
+              <Toggle value={enabled} onChange={setEnabled} />
             </div>
-            <div>
-              <label htmlFor="pf-percent" className={labelClass}>Percentage (%)</label>
-              <input
-                id="pf-percent"
-                type="number"
-                step="0.1"
-                min="0"
-                max="100"
-                value={paymentFeePercent}
-                onChange={(e) => setPaymentFeePercent(e.target.value)}
-                disabled={!percentEnabled}
-                className={`${inputClass} disabled:opacity-40`}
-              />
-            </div>
-          </div>
 
-          {/* Fixed fee toggle row */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-xs text-[var(--color-foreground)]">Fixed fee per transaction</span>
-              <Toggle value={fixedEnabled} onChange={setFixedEnabled} />
-            </div>
             <div>
-              <label htmlFor="pf-fixed" className={labelClass}>Fixed amount (L)</label>
+              <label htmlFor="sh-fee" className={labelClass}>Flat fee (L)</label>
               <input
-                id="pf-fixed"
+                id="sh-fee"
                 type="number"
                 step="0.01"
                 min="0"
-                value={paymentFeeFixed}
-                onChange={(e) => setPaymentFeeFixed(e.target.value)}
-                disabled={!fixedEnabled}
+                value={fee}
+                onChange={(e) => setFee(e.target.value)}
+                disabled={!enabled}
                 className={`${inputClass} disabled:opacity-40`}
               />
             </div>
+
+            <div>
+              <label htmlFor="sh-threshold" className={labelClass}>Free shipping threshold (L)</label>
+              <input
+                id="sh-threshold"
+                type="number"
+                step="0.01"
+                min="0"
+                value={threshold}
+                onChange={(e) => setThreshold(e.target.value)}
+                disabled={!enabled}
+                className={`${inputClass} disabled:opacity-40`}
+              />
+              <p className="mt-1 font-mono text-[10px] text-[var(--color-muted-foreground)]">
+                Orders above this amount get free shipping
+              </p>
+            </div>
           </div>
 
-          {(percentEnabled || fixedEnabled) && (
-            <p className="font-mono text-[10px] text-[var(--color-muted-foreground)]">
-              Fee per order:{" "}
-              {[
-                percentEnabled && `${paymentFeePercent}% of total`,
-                fixedEnabled && `${paymentFeeFixed} L fixed`,
-              ].filter(Boolean).join(" + ")}
-            </p>
-          )}
+          {/* ── Right: Payment Processing Fee ── */}
+          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-6 space-y-5">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">Payment Processing Fee</p>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs text-[var(--color-foreground)]">Percentage fee</span>
+                <Toggle value={percentEnabled} onChange={setPercentEnabled} />
+              </div>
+              <div>
+                <label htmlFor="pf-percent" className={labelClass}>Percentage (%)</label>
+                <input
+                  id="pf-percent"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="100"
+                  value={paymentFeePercent}
+                  onChange={(e) => setPaymentFeePercent(e.target.value)}
+                  disabled={!percentEnabled}
+                  className={`${inputClass} disabled:opacity-40`}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs text-[var(--color-foreground)]">Fixed fee per transaction</span>
+                <Toggle value={fixedEnabled} onChange={setFixedEnabled} />
+              </div>
+              <div>
+                <label htmlFor="pf-fixed" className={labelClass}>Fixed amount (L)</label>
+                <input
+                  id="pf-fixed"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={paymentFeeFixed}
+                  onChange={(e) => setPaymentFeeFixed(e.target.value)}
+                  disabled={!fixedEnabled}
+                  className={`${inputClass} disabled:opacity-40`}
+                />
+              </div>
+            </div>
+
+            {(percentEnabled || fixedEnabled) && (
+              <p className="font-mono text-[10px] text-[var(--color-muted-foreground)]">
+                Fee per order:{" "}
+                {[
+                  percentEnabled && `${paymentFeePercent}% of total`,
+                  fixedEnabled && `${paymentFeeFixed} L fixed`,
+                ].filter(Boolean).join(" + ")}
+              </p>
+            )}
+          </div>
         </div>
 
         <button
           type="submit"
           disabled={saving}
-          className="w-full rounded bg-[var(--color-clay)] px-4 py-2.5 font-mono text-xs uppercase tracking-widest text-white transition-opacity hover:opacity-80 disabled:opacity-50"
+          className="w-full rounded bg-[var(--color-clay)] px-4 py-2.5 font-mono text-xs uppercase tracking-widest text-white transition-opacity hover:opacity-80 disabled:opacity-50 lg:max-w-xs"
         >
           {saving ? "Saving…" : "Save"}
         </button>

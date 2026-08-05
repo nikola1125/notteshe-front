@@ -334,8 +334,8 @@ async function pokAction(
   }
 }
 
-export async function pokCapture(pokOrderId: string): Promise<void> {
-  await pokAction(`${pokOrderId}/capture`, {});
+export async function pokCapture(pokOrderId: string, amount: number): Promise<void> {
+  await pokAction(`${pokOrderId}/capture`, { amount: Math.round(amount) });
 }
 
 export async function pokCancel(pokOrderId: string, reason?: string): Promise<void> {

@@ -101,7 +101,7 @@ function OrdersPage() {
             {rows.map((order) => {
               const addr = order.shippingAddress as Record<string, string>;
               return (
-                <Link key={order.id} to="/account/orders/$id" params={{ id: order.id }} className="block border border-border p-5 md:p-7 transition-colors hover:border-ink/30">
+                <Link key={order.id} to="/account/orders/$id" params={{ id: order.id }} className="group block border border-border p-5 md:p-7 transition-colors hover:border-ink/30">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -143,6 +143,11 @@ function OrdersPage() {
                         <p className="mt-0.5 font-mono text-[11px] text-ink/70">{order.trackingNumber}</p>
                       </div>
                     )}
+                  </div>
+                  <div className="mt-4 flex justify-end border-t border-border pt-4">
+                    <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors group-hover:text-ink">
+                      View order →
+                    </span>
                   </div>
                 </Link>
               );

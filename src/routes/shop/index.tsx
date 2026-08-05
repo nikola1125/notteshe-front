@@ -171,10 +171,10 @@ function ShopPage() {
 
       {/* ─── Filters + Sort ─── */}
       <div className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1600px] items-center justify-between px-5 md:px-12">
+        <div className="mx-auto flex max-w-[1600px] items-center px-5 md:px-12">
 
-          {/* Category tabs */}
-          <div className="-mx-5 flex overflow-x-auto scrollbar-hide px-5 md:mx-0 md:px-0">
+          {/* Category tabs — scrollable, stops before the divider */}
+          <div className="flex min-w-0 flex-1 overflow-x-auto scrollbar-hide">
             <button
               onClick={() => setActiveCategoryId("all")}
               className={`shrink-0 border-b-[1.5px] px-4 py-4 font-mono text-[10px] uppercase tracking-widest transition-colors duration-200 md:px-5 ${
@@ -210,8 +210,8 @@ function ShopPage() {
             </button>
           </div>
 
-          {/* Divider */}
-          <div className="mx-3 h-4 w-px shrink-0 bg-border" />
+          {/* Divider — always visible, categories scroll before it */}
+          <div className="mx-3 h-5 w-px shrink-0 bg-border/70" />
 
           {/* Sort dropdown */}
           <div className="relative shrink-0">

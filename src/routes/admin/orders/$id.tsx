@@ -186,14 +186,13 @@ const updateOrderStatus = createServerFn({ method: "POST" })
     const database = db();
 
     const [current] = await database
-      .select({ status: orders.status, pokOrderId: orders.pokOrderId, total: orders.total })
+      .select({ status: orders.status, pokOrderId: orders.pokOrderId })
       .from(orders)
       .where(eq(orders.id, data.id))
       .limit(1);
 
     const prevStatus = current?.status as OrderStatus | undefined;
     const pokOrderId = current?.pokOrderId ?? null;
-    const total = Number(current?.total ?? 0);
 
     // POK uses autoCapture: true — money is taken at checkout, no capture step needed.
     // Admin confirm is a pure status update. Cancellations/refunds call pokRefund (blocking).
@@ -212,7 +211,6 @@ const updateOrderStatus = createServerFn({ method: "POST" })
         // Customer should not be left without money back on a silent failure.
         await pokRefund(
           pokOrderId,
-          total,
           data.status === "REFUNDED" ? "Customer refund request" : "Order cancelled by merchant"
         );
       }

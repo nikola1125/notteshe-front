@@ -336,9 +336,8 @@ export async function pokCancel(pokOrderId: string, reason?: string): Promise<vo
   await pokAction(`${pokOrderId}/cancel`, { cancellationReason: reason ?? "Cancelled by merchant" });
 }
 
-export async function pokRefund(pokOrderId: string, amount?: number, reason?: string): Promise<void> {
+export async function pokRefund(pokOrderId: string, reason?: string): Promise<void> {
   const body: Record<string, unknown> = {};
   if (reason) body.refundReason = reason;
-  if (amount !== undefined) body.refundAmount = Math.round(amount);
   await pokAction(`${pokOrderId}/refund`, body);
 }

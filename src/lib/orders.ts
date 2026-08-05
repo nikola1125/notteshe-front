@@ -2,167 +2,153 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 const PlaceOrderSchema = z.object({
-  pokOrderId: z.string(),
-  email: z.string().email(),
-  phone: z.string(),
-  firstName: z.string().min(1),
-  lastName: z.string().min(1),
-  address: z.string().min(1),
-  address2: z.string().optional(),
-  city: z.string().min(1),
-  postalCode: z.string().min(1),
-  country: z.string().min(1),
-  discountCode: z.string().optional(),
-  items: z.array(z.object({
-    productId: z.string(),
-    name: z.string(),
-    price: z.number(),
-    originalPrice: z.number().nullable(),
-    image: z.string(),
-    size: z.string(),
-    colour: z.string(),
-    quantity: z.number().int().positive(),
-  })),
+  pokOrderId: z.string().min(1),
 });
 
 export const placeOrder = createServerFn({ method: "POST" })
-  .validator((input: z.infer<typeof PlaceOrderSchema>) => PlaceOrderSchema.parse(input))
+  .validator((input: unknown) => PlaceOrderSchema.parse(input))
   .handler(async ({ data }) => {
     const { requireAuth } = await import("@/lib/auth/session");
     const { db } = await import("@/db");
-    const { orders, orderItem, shippingConfig, discountCode, productSize, pendingOrder, auditLog } = await import("@/db/schema");
-    const { eq, sql, inArray, and } = await import("drizzle-orm");
+    const {
+      orders, orderItem, productSize,
+      discountCode: discountCodeTable,
+      pendingOrder, auditLog,
+    } = await import("@/db/schema");
+    const { eq, sql, and } = await import("drizzle-orm");
     const { randomUUID } = await import("node:crypto");
 
     const session = await requireAuth();
+    const userId = session.user.id;
 
-    // Idempotency: if this pokOrderId already has an order, return it
+    // Idempotency: if this pokOrderId already has a confirmed order, return it
     const existing = await db()
       .select({ id: orders.id })
       .from(orders)
       .where(eq(orders.pokOrderId, data.pokOrderId))
       .limit(1);
-    if (existing[0]) {
-      return { orderId: existing[0].id, discountCode: null };
+    if (existing[0]) return { orderId: existing[0].id };
+
+    // Load pending order — authoritative source of truth for items, prices, and totals
+    const [pending] = await db()
+      .select()
+      .from(pendingOrder)
+      .where(eq(pendingOrder.pokOrderId, data.pokOrderId))
+      .limit(1);
+
+    if (!pending) {
+      throw new Error(
+        "Order session expired or not found. If your payment was taken, please contact hello@notteshe.com."
+      );
     }
 
-    // Stock check — prevent overselling
-    const productIds = [...new Set(data.items.map((i) => i.productId))];
-    const sizeRows = await db()
-      .select({ productId: productSize.productId, label: productSize.label, stock: productSize.stock })
-      .from(productSize)
-      .where(inArray(productSize.productId, productIds));
+    // Ownership check: prevent one user from finalising another's order
+    if (pending.userId !== userId) {
+      throw new Error("Unauthorized.");
+    }
 
-    for (const item of data.items) {
-      const row = sizeRows.find((s) => s.productId === item.productId && s.label === item.size);
-      if (!row || row.stock < item.quantity) {
-        throw new Error(`"${item.name}" size ${item.size} has insufficient stock.`);
+    type OrderData = {
+      email: string; phone: string;
+      firstName: string; lastName: string;
+      address: string; address2?: string;
+      city: string; postalCode: string; country: string;
+      discountCode: string | null; discountAmount: number;
+      items: Array<{
+        productId: string; name: string; price: number;
+        originalPrice: number | null; image: string;
+        size: string; colour: string; quantity: number;
+      }>;
+      subtotal: number; shippingFee: number; total: number;
+    };
+    const orderData = pending.orderData as OrderData;
+
+    // Stock floor guard: decrement only if sufficient stock remains
+    for (const item of orderData.items) {
+      const updated = await db()
+        .update(productSize)
+        .set({ stock: sql`stock - ${item.quantity}` })
+        .where(
+          and(
+            eq(productSize.productId, item.productId),
+            eq(productSize.label, item.size),
+            sql`stock >= ${item.quantity}`,
+          )
+        )
+        .returning({ id: productSize.id });
+
+      if (updated.length === 0) {
+        throw new Error(
+          `"${item.name}" size ${item.size} went out of stock before your order was finalised.`
+        );
       }
     }
-
-    const [config] = await db().select().from(shippingConfig).limit(1);
-    const subtotal = data.items.reduce((s, i) => s + i.price * i.quantity, 0);
-    const fee = config?.enabled
-      ? (subtotal >= (config.freeThreshold ?? 200) ? 0 : (config.fee ?? 12))
-      : 0;
-
-    // Re-validate discount server-side
-    let discountAmount = 0;
-    let validatedCode: string | null = null;
-    if (data.discountCode) {
-      const rows = await db()
-        .select()
-        .from(discountCode)
-        .where(eq(discountCode.code, data.discountCode.toUpperCase().trim()))
-        .limit(1);
-      const code = rows[0];
-      const now = new Date();
-      if (
-        code &&
-        code.isActive &&
-        (!code.expiresAt || code.expiresAt > now) &&
-        (code.maxUses === null || code.usedCount < code.maxUses) &&
-        (code.minOrderAmount === null || subtotal >= code.minOrderAmount)
-      ) {
-        const itemProductIds = [...new Set(data.items.map((i) => i.productId))];
-        const { product: productTable } = await import("@/db/schema");
-        const saleCheck = await db()
-          .select({ id: productTable.id, isSale: productTable.isSale })
-          .from(productTable)
-          .where(inArray(productTable.id, itemProductIds));
-        const hasSaleItem = saleCheck.some((p) => p.isSale);
-        if (!hasSaleItem) {
-          discountAmount =
-            code.type === "PERCENT"
-              ? Math.round(subtotal * (code.value / 100) * 100) / 100
-              : Math.min(code.value, subtotal);
-          validatedCode = code.code;
-          await db()
-            .update(discountCode)
-            .set({ usedCount: sql`used_count + 1` })
-            .where(eq(discountCode.code, code.code));
-        }
-      }
-    }
-
-    const total = Math.max(0, subtotal + fee - discountAmount);
 
     const orderId = randomUUID();
     const shippingAddress = {
-      firstName: data.firstName,
-      lastName: data.lastName,
-      line1: data.address,
-      line2: data.address2 ?? null,
-      city: data.city,
-      postalCode: data.postalCode,
-      country: data.country,
-      phone: data.phone,
-      email: data.email,
+      firstName: orderData.firstName, lastName: orderData.lastName,
+      line1: orderData.address, line2: orderData.address2 ?? null,
+      city: orderData.city, postalCode: orderData.postalCode,
+      country: orderData.country, phone: orderData.phone, email: orderData.email,
     };
 
-    await db().insert(orders).values({
-      id: orderId,
-      userId: session.user.id,
-      status: "PENDING",
-      subtotal,
-      shippingFee: fee,
-      discountCode: validatedCode,
-      discountAmount,
-      total,
-      shippingAddress,
-      pokOrderId: data.pokOrderId,
-    });
+    // Insert order — catch unique constraint if webhook raced the browser callback
+    try {
+      await db().insert(orders).values({
+        id: orderId,
+        userId,
+        status: "PENDING",
+        subtotal: orderData.subtotal,
+        shippingFee: orderData.shippingFee,
+        discountCode: orderData.discountCode,
+        discountAmount: orderData.discountAmount,
+        total: orderData.total,
+        shippingAddress,
+        pokOrderId: data.pokOrderId,
+      });
+    } catch (err) {
+      const isUniqueViolation =
+        (err as { code?: string })?.code === "23505" ||
+        String((err as Error)?.message).toLowerCase().includes("unique");
+      if (isUniqueViolation) {
+        const [found] = await db()
+          .select({ id: orders.id })
+          .from(orders)
+          .where(eq(orders.pokOrderId, data.pokOrderId))
+          .limit(1);
+        if (found) return { orderId: found.id };
+      }
+      throw err;
+    }
 
-    const itemRows = data.items.map((item) => ({
-      id: randomUUID(),
-      orderId,
-      productId: item.productId,
-      productSnapshot: {
-        name: item.name,
-        image: item.image,
-        price: item.price,
-        originalPrice: item.originalPrice,
-      },
-      size: item.size,
-      colour: item.colour,
-      quantity: item.quantity,
-      unitPrice: item.price,
-    }));
+    // Insert order items
+    await db().insert(orderItem).values(
+      orderData.items.map((item) => ({
+        id: randomUUID(),
+        orderId,
+        productId: item.productId,
+        productSnapshot: {
+          name: item.name, image: item.image,
+          price: item.price, originalPrice: item.originalPrice,
+        },
+        size: item.size,
+        colour: item.colour,
+        quantity: item.quantity,
+        unitPrice: item.price,
+      }))
+    );
 
-    await db().insert(orderItem).values(itemRows);
-
-    // Decrement stock
-    for (const item of data.items) {
+    // Increment discount code usage counter
+    if (orderData.discountCode) {
       await db()
-        .update(productSize)
-        .set({ stock: sql`stock - ${item.quantity}` })
-        .where(and(eq(productSize.productId, item.productId), eq(productSize.label, item.size)));
+        .update(discountCodeTable)
+        .set({ usedCount: sql`used_count + 1` })
+        .where(eq(discountCodeTable.code, orderData.discountCode));
     }
 
     // Release the pending order reservation
     await db().delete(pendingOrder).where(eq(pendingOrder.pokOrderId, data.pokOrderId));
 
-    // Log payment success
+    // Audit log
     await db().insert(auditLog).values({
       id: randomUUID(),
       adminId: null,
@@ -172,31 +158,28 @@ export const placeOrder = createServerFn({ method: "POST" })
       diff: {
         after: {
           orderId,
-          userId: session.user.id,
-          email: data.email,
-          total,
-          itemCount: data.items.length,
+          userId,
+          email: orderData.email,
+          total: orderData.total,
+          itemCount: orderData.items.length,
         },
       },
     });
 
-    // Send confirmation email — fire and forget
+    // Fire-and-forget confirmation email
     const { sendOrderConfirmation } = await import("@/lib/resend");
     sendOrderConfirmation({
-      to: data.email,
-      firstName: data.firstName,
+      to: orderData.email,
+      firstName: orderData.firstName,
       orderId,
-      items: data.items.map((i) => ({
-        name: i.name,
-        size: i.size,
-        colour: i.colour,
-        quantity: i.quantity,
-        unitPrice: i.price,
+      items: orderData.items.map((i) => ({
+        name: i.name, size: i.size, colour: i.colour,
+        quantity: i.quantity, unitPrice: i.price,
       })),
-      subtotal,
-      shippingFee: fee,
-      total,
+      subtotal: orderData.subtotal,
+      shippingFee: orderData.shippingFee,
+      total: orderData.total,
     }).catch((err) => console.error("[resend] order confirmation failed:", err));
 
-    return { orderId, discountCode: validatedCode };
+    return { orderId };
   });

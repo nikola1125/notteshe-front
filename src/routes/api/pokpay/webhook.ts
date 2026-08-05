@@ -52,8 +52,11 @@ async function handleWebhook(body: unknown) {
   if (!isSuccess) return;
 
   const { db } = await import("@/db");
-  const { pendingOrder, orders, orderItem, productSize, auditLog } = await import("@/db/schema");
-  const { eq, sql, and, inArray } = await import("drizzle-orm");
+  const {
+    pendingOrder, orders, orderItem, productSize,
+    discountCode: discountCodeTable, auditLog,
+  } = await import("@/db/schema");
+  const { eq, sql, and } = await import("drizzle-orm");
   const { randomUUID } = await import("node:crypto");
 
   // Check if order was already created by the browser callback
@@ -64,7 +67,7 @@ async function handleWebhook(body: unknown) {
     .limit(1);
 
   if (existing[0]) {
-    // Browser callback already handled it — just clean up pending order if still exists
+    // Browser callback already handled it — just clean up pending order if still around
     await db().delete(pendingOrder).where(eq(pendingOrder.pokOrderId, pokOrderId));
     return;
   }
@@ -81,41 +84,37 @@ async function handleWebhook(body: unknown) {
     return;
   }
 
-  const orderData = pending.orderData as {
-    email: string;
-    phone: string;
-    firstName: string;
-    lastName: string;
-    address: string;
-    address2?: string;
-    city: string;
-    postalCode: string;
-    country: string;
-    discountCode?: string;
+  type OrderData = {
+    email: string; phone: string;
+    firstName: string; lastName: string;
+    address: string; address2?: string;
+    city: string; postalCode: string; country: string;
+    discountCode: string | null; discountAmount: number;
     items: Array<{
-      productId: string;
-      name: string;
-      price: number;
-      originalPrice: number | null;
-      image: string;
-      size: string;
-      colour: string;
-      quantity: number;
+      productId: string; name: string; price: number;
+      originalPrice: number | null; image: string;
+      size: string; colour: string; quantity: number;
     }>;
+    subtotal: number; shippingFee: number; total: number;
   };
+  const orderData = pending.orderData as OrderData;
 
-  // Final stock check
-  const productIds = [...new Set(orderData.items.map((i) => i.productId))];
-  const sizeRows = await db()
-    .select({ productId: productSize.productId, label: productSize.label, stock: productSize.stock })
-    .from(productSize)
-    .where(inArray(productSize.productId, productIds));
-
+  // Final stock floor guard before creating the order
   for (const item of orderData.items) {
-    const row = sizeRows.find((s) => s.productId === item.productId && s.label === item.size);
-    if (!row || row.stock < item.quantity) {
+    const updated = await db()
+      .update(productSize)
+      .set({ stock: sql`stock - ${item.quantity}` })
+      .where(
+        and(
+          eq(productSize.productId, item.productId),
+          eq(productSize.label, item.size),
+          sql`stock >= ${item.quantity}`,
+        )
+      )
+      .returning({ id: productSize.id });
+
+    if (updated.length === 0) {
       console.error(`[POK webhook] insufficient stock for ${item.name} size ${item.size} on recovery`);
-      // Log but don't throw — mark as audit so ops can manually intervene
       await db().insert(auditLog).values({
         id: randomUUID(),
         adminId: null,
@@ -136,52 +135,61 @@ async function handleWebhook(body: unknown) {
 
   const orderId = randomUUID();
   const shippingAddress = {
-    firstName: orderData.firstName,
-    lastName: orderData.lastName,
-    line1: orderData.address,
-    line2: orderData.address2 ?? null,
-    city: orderData.city,
-    postalCode: orderData.postalCode,
-    country: orderData.country,
-    phone: orderData.phone,
-    email: orderData.email,
+    firstName: orderData.firstName, lastName: orderData.lastName,
+    line1: orderData.address, line2: orderData.address2 ?? null,
+    city: orderData.city, postalCode: orderData.postalCode,
+    country: orderData.country, phone: orderData.phone, email: orderData.email,
   };
 
-  const subtotal = orderData.items.reduce((s, i) => s + i.price * i.quantity, 0);
-  // Use a simplified shipping/discount calculation — the full validated values
-  // were computed at pending order creation time; recover the total from the original amount
-  const total = Number((data.amount as string | number) ?? subtotal);
+  // Insert order — use authoritative totals from pendingOrder.orderData
+  try {
+    await db().insert(orders).values({
+      id: orderId,
+      userId: pending.userId,
+      status: "PENDING",
+      subtotal: orderData.subtotal,
+      shippingFee: orderData.shippingFee,
+      discountCode: orderData.discountCode,
+      discountAmount: orderData.discountAmount,
+      total: orderData.total,
+      shippingAddress,
+      pokOrderId,
+    });
+  } catch (err) {
+    // Unique constraint — browser callback raced us and won; clean up and exit
+    const isUniqueViolation =
+      (err as { code?: string })?.code === "23505" ||
+      String((err as Error)?.message).toLowerCase().includes("unique");
+    if (isUniqueViolation) {
+      await db().delete(pendingOrder).where(eq(pendingOrder.pokOrderId, pokOrderId));
+      return;
+    }
+    throw err;
+  }
 
-  await db().insert(orders).values({
-    id: orderId,
-    userId: pending.userId,
-    status: "PENDING",
-    subtotal,
-    shippingFee: Math.max(0, total - subtotal),
-    discountCode: orderData.discountCode ?? null,
-    discountAmount: 0,
-    total,
-    shippingAddress,
-    pokOrderId,
-  });
+  // Insert order items
+  await db().insert(orderItem).values(
+    orderData.items.map((item) => ({
+      id: randomUUID(),
+      orderId,
+      productId: item.productId,
+      productSnapshot: {
+        name: item.name, image: item.image,
+        price: item.price, originalPrice: item.originalPrice,
+      },
+      size: item.size,
+      colour: item.colour,
+      quantity: item.quantity,
+      unitPrice: item.price,
+    }))
+  );
 
-  const itemRows = orderData.items.map((item) => ({
-    id: randomUUID(),
-    orderId,
-    productId: item.productId,
-    productSnapshot: { name: item.name, image: item.image, price: item.price, originalPrice: item.originalPrice },
-    size: item.size,
-    colour: item.colour,
-    quantity: item.quantity,
-    unitPrice: item.price,
-  }));
-  await db().insert(orderItem).values(itemRows);
-
-  for (const item of orderData.items) {
+  // Increment discount code usage counter
+  if (orderData.discountCode) {
     await db()
-      .update(productSize)
-      .set({ stock: sql`stock - ${item.quantity}` })
-      .where(and(eq(productSize.productId, item.productId), eq(productSize.label, item.size)));
+      .update(discountCodeTable)
+      .set({ usedCount: sql`used_count + 1` })
+      .where(eq(discountCodeTable.code, orderData.discountCode));
   }
 
   await db().delete(pendingOrder).where(eq(pendingOrder.pokOrderId, pokOrderId));
@@ -197,7 +205,7 @@ async function handleWebhook(body: unknown) {
         orderId,
         userId: pending.userId,
         email: orderData.email,
-        total,
+        total: orderData.total,
         note: "Order created via webhook — browser callback did not complete",
       },
     },
@@ -210,15 +218,12 @@ async function handleWebhook(body: unknown) {
     firstName: orderData.firstName,
     orderId,
     items: orderData.items.map((i) => ({
-      name: i.name,
-      size: i.size,
-      colour: i.colour,
-      quantity: i.quantity,
-      unitPrice: i.price,
+      name: i.name, size: i.size, colour: i.colour,
+      quantity: i.quantity, unitPrice: i.price,
     })),
-    subtotal,
-    shippingFee: Math.max(0, total - subtotal),
-    total,
+    subtotal: orderData.subtotal,
+    shippingFee: orderData.shippingFee,
+    total: orderData.total,
   }).catch((err) => console.error("[resend] webhook recovery email failed:", err));
 
   console.log("[POK webhook] recovery order created:", orderId);

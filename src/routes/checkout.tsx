@@ -313,41 +313,29 @@ function CheckoutPage() {
     setPlaceError(null);
     try {
       const ref = crypto.randomUUID();
-      const orderPayload = {
-        email: form.email,
-        phone: form.phone,
-        firstName: form.firstName,
-        lastName: form.lastName,
-        address: form.address,
-        address2: form.address2 || undefined,
-        city: form.city,
-        postalCode: form.postalCode,
-        country: form.country,
-        discountCode: appliedDiscount?.code,
-        items: items.map((i) => ({
-          productId: i.productId,
-          name: i.name,
-          price: i.price,
-          originalPrice: i.originalPrice,
-          image: i.image,
-          size: i.size,
-          colour: i.colour,
-          quantity: i.quantity,
-        })),
-      };
       const { pokOrderId: id } = await createPokOrder({
         data: {
-          amount: total,
+          merchantReference: ref,
+          discountCode: appliedDiscount?.code,
+          shippingForm: {
+            email: form.email,
+            phone: form.phone,
+            firstName: form.firstName,
+            lastName: form.lastName,
+            address: form.address,
+            address2: form.address2 || undefined,
+            city: form.city,
+            postalCode: form.postalCode,
+            country: form.country,
+          },
           items: items.map((i) => ({
             productId: i.productId,
             name: i.name,
             size: i.size,
+            colour: i.colour,
             quantity: i.quantity,
-            price: i.price,
+            image: i.image,
           })),
-          shippingCost: shipping,
-          merchantReference: ref,
-          orderPayload,
         },
       });
       setPokOrderId(id);
@@ -372,29 +360,7 @@ function CheckoutPage() {
     setPlaceError(null);
     try {
       await placeOrder({
-        data: {
-          pokOrderId: pokOrderId!,
-          email: form.email,
-          phone: form.phone,
-          firstName: form.firstName,
-          lastName: form.lastName,
-          address: form.address,
-          address2: form.address2 || undefined,
-          city: form.city,
-          postalCode: form.postalCode,
-          country: form.country,
-          discountCode: appliedDiscount?.code,
-          items: items.map((i) => ({
-            productId: i.productId,
-            name: i.name,
-            price: i.price,
-            originalPrice: i.originalPrice,
-            image: i.image,
-            size: i.size,
-            colour: i.colour,
-            quantity: i.quantity,
-          })),
-        },
+        data: { pokOrderId: pokOrderId! },
       });
       clearCart();
       void navigate({ to: "/order-confirmed" });
@@ -413,7 +379,7 @@ function CheckoutPage() {
     } finally {
       setPlacing(false);
     }
-  }, [form, items, appliedDiscount, pokOrderId, clearCart, navigate]);
+  }, [pokOrderId, form.email, clearCart, navigate]);
 
   // Step 2 error: POK payment failed → log server-side + back to shipping
   const handlePokError = useCallback((err: { type?: string; message?: string }) => {

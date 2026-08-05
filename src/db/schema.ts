@@ -204,7 +204,7 @@ export const orders = pgTable("orders", {
   total: real("total").notNull(),
   // Frozen copy of shipping address at order time
   shippingAddress: jsonb("shipping_address").notNull(),
-  pokOrderId: text("pok_order_id"),
+  pokOrderId: text("pok_order_id").unique(),
   adminNote: text("admin_note"),
   trackingNumber: text("tracking_number"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

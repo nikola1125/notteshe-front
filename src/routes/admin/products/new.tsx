@@ -116,12 +116,9 @@ function NewProduct() {
   const router = useRouter();
 
   async function handleSave(data: ProductFormData) {
-    const result = await createProduct({ data });
+    await createProduct({ data });
     toast.success("Product created");
-    await router.navigate({
-      to: "/admin/products/$id",
-      params: { id: result.id },
-    });
+    await router.navigate({ to: "/admin/products/" });
   }
 
   return (

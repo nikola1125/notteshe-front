@@ -201,7 +201,7 @@ function EditProduct() {
   async function handleSave(data: ProductFormData) {
     await updateProduct({ data: { ...data, id: prod.id } });
     toast.success("Product saved");
-    await router.invalidate();
+    await router.navigate({ to: "/admin/products/" });
   }
 
   return (

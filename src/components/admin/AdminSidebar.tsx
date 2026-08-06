@@ -148,7 +148,7 @@ export function AdminSidebar({ adminName, adminRole }: AdminSidebarProps) {
       {/* Footer */}
       <div className="border-t border-[var(--color-border)] px-6 py-4">
         <p className="text-xs font-medium text-[var(--color-foreground)]">
-          {adminName}
+          Notteshe
         </p>
         <p className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-muted-foreground)]">
           {adminRole}

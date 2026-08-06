@@ -7,6 +7,8 @@ import { db } from "@/db";
 import { orders, orderItem, productSize, user, auditLog, adminUser } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAudit } from "@/lib/admin/audit";
+import type { PokOrderData } from "@/lib/pok";
+import { pokGetOrder } from "@/lib/pok";
 
 type OrderStatus =
   | "PENDING"
@@ -64,6 +66,7 @@ interface OrderDetailData {
     adminNote: string | null;
     trackingNumber: string | null;
     createdAt: string;
+    pokOrderId: string | null;
   };
   customer: { name: string; email: string };
   items: Array<{
@@ -80,6 +83,7 @@ interface OrderDetailData {
     adminName: string | null;
     createdAt: string;
   }>;
+  pokData: PokOrderData | null;
 }
 
 const getOrderDetail = createServerFn({ method: "GET" })
@@ -100,6 +104,7 @@ const getOrderDetail = createServerFn({ method: "GET" })
             shippingAddress: orders.shippingAddress,
             adminNote: orders.adminNote,
             trackingNumber: orders.trackingNumber,
+            pokOrderId: orders.pokOrderId,
             createdAt: orders.createdAt,
           },
           customer: { name: user.name, email: user.email },
@@ -143,6 +148,9 @@ const getOrderDetail = createServerFn({ method: "GET" })
       paymentFee = Number(dr[0]?.paymentFee ?? 0);
     } catch { /* column not yet migrated */ }
 
+    const pokOrderId = o.pokOrderId ?? null;
+    const pokData = pokOrderId ? await pokGetOrder(pokOrderId) : null;
+
     return {
       order: {
         id: o.id,
@@ -156,6 +164,7 @@ const getOrderDetail = createServerFn({ method: "GET" })
         shippingAddress: o.shippingAddress as ShippingAddress,
         adminNote: o.adminNote,
         trackingNumber: o.trackingNumber,
+        pokOrderId,
         createdAt: o.createdAt.toISOString(),
       },
       customer: { name: customer.name, email: customer.email },
@@ -173,6 +182,7 @@ const getOrderDetail = createServerFn({ method: "GET" })
         adminName: h.adminName,
         createdAt: h.createdAt.toISOString(),
       })),
+      pokData,
     };
   });
 
@@ -265,6 +275,13 @@ const saveAdminNote = createServerFn({ method: "POST" })
     return { success: true };
   });
 
+const refreshPokData = createServerFn({ method: "GET" })
+  .validator((input: unknown) => ({ pokOrderId: (input as { pokOrderId: string }).pokOrderId }))
+  .handler(async ({ data }): Promise<PokOrderData | null> => {
+    await requireAdmin();
+    return pokGetOrder(data.pokOrderId);
+  });
+
 export const Route = createFileRoute("/admin/orders/$id")({
   loader: ({ params }) => getOrderDetail({ data: { id: params.id } }),
   component: OrderDetail,
@@ -278,6 +295,8 @@ function OrderDetail() {
     data.order.trackingNumber ?? ""
   );
   const [note, setNote] = useState(data.order.adminNote ?? "");
+  const [pokData, setPokData] = useState(loaderData.pokData);
+  const [refreshingPok, setRefreshingPok] = useState(false);
   const [savingStatus, setSavingStatus] = useState<OrderStatus | null>(null);
   const [statusFlash, setStatusFlash] = useState(false);
   const [confirm, setConfirm] = useState<{ status: OrderStatus; message: string } | null>(null);
@@ -326,6 +345,20 @@ function OrderDetail() {
       toast.error(msg, { duration: 8000 });
     } finally {
       setSavingStatus(null);
+    }
+  }
+
+  async function handleRefreshPok() {
+    if (!data.order.pokOrderId) return;
+    setRefreshingPok(true);
+    try {
+      const fresh = await refreshPokData({ data: { pokOrderId: data.order.pokOrderId } });
+      setPokData(fresh);
+      toast.success("POK data refreshed");
+    } catch {
+      toast.error("Failed to refresh POK data");
+    } finally {
+      setRefreshingPok(false);
     }
   }
 
@@ -567,6 +600,103 @@ function OrderDetail() {
               <p className="font-mono text-xs text-[var(--color-clay)]">
                 {data.order.trackingNumber}
               </p>
+            </div>
+          )}
+
+          {/* POK Payment */}
+          {data.order.pokOrderId && (
+            <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
+                  POK Payment
+                </p>
+                <button
+                  onClick={() => void handleRefreshPok()}
+                  disabled={refreshingPok}
+                  className="font-mono text-[10px] uppercase tracking-widest text-[var(--color-clay)] transition-opacity hover:opacity-70 disabled:opacity-40"
+                >
+                  {refreshingPok ? "…" : "Refresh"}
+                </button>
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="font-mono text-[10px] text-[var(--color-muted-foreground)]">POK ID</span>
+                  <span className="font-mono text-[10px] text-[var(--color-foreground)] break-all text-right max-w-[60%]">
+                    {data.order.pokOrderId}
+                  </span>
+                </div>
+                {pokData ? (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="font-mono text-[10px] text-[var(--color-muted-foreground)]">Amount</span>
+                      <span className="font-mono text-[10px] text-[var(--color-foreground)]">
+                        {pokData.originalAmount.toFixed(2)} {pokData.originalCurrencyCode}
+                      </span>
+                    </div>
+                    {pokData.appliedExchangeRate !== 1 && (
+                      <div className="flex justify-between">
+                        <span className="font-mono text-[10px] text-[var(--color-muted-foreground)]">Settled</span>
+                        <span className="font-mono text-[10px] text-[var(--color-foreground)]">
+                          {pokData.finalAmount.toFixed(2)} {pokData.currencyCode}
+                        </span>
+                      </div>
+                    )}
+                    {pokData.shippingCost > 0 && (
+                      <div className="flex justify-between">
+                        <span className="font-mono text-[10px] text-[var(--color-muted-foreground)]">Shipping</span>
+                        <span className="font-mono text-[10px] text-[var(--color-foreground)]">
+                          {pokData.shippingCost.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                    {pokData.commissions && (
+                      <>
+                        <div className="my-2 border-t border-[var(--color-border)]" />
+                        <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
+                          Commissions
+                        </p>
+                        <div className="flex justify-between">
+                          <span className="font-mono text-[10px] text-[var(--color-muted-foreground)]">Gross</span>
+                          <span className="font-mono text-[10px] text-[var(--color-foreground)]">
+                            {pokData.commissions.grossAmount.toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="font-mono text-[10px] text-[var(--color-muted-foreground)]">Commission</span>
+                          <span className="font-mono text-[10px] text-[var(--color-foreground)]">
+                            −{pokData.commissions.totalCommissionAmount.toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="font-mono text-[10px] text-[var(--color-muted-foreground)]">Net</span>
+                          <span className="font-mono text-[10px] font-medium text-[var(--color-clay)]">
+                            {pokData.commissions.netAmount.toFixed(2)}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                    <div className="my-2 border-t border-[var(--color-border)]" />
+                    <div className="flex justify-between">
+                      <span className="font-mono text-[10px] text-[var(--color-muted-foreground)]">Created</span>
+                      <span className="font-mono text-[10px] text-[var(--color-foreground)]">
+                        {fmtDate(pokData.createdAt)}
+                      </span>
+                    </div>
+                    {pokData.expiresAt && (
+                      <div className="flex justify-between">
+                        <span className="font-mono text-[10px] text-[var(--color-muted-foreground)]">Expires</span>
+                        <span className="font-mono text-[10px] text-[var(--color-foreground)]">
+                          {fmtDate(pokData.expiresAt)}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="font-mono text-[10px] text-[var(--color-muted-foreground)]">
+                    No data — click Refresh
+                  </p>
+                )}
+              </div>
             </div>
           )}
         </div>

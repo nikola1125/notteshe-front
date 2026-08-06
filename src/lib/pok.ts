@@ -348,6 +348,54 @@ export async function pokRefund(pokOrderId: string, reason?: string): Promise<vo
   await pokAction(`${pokOrderId}/refund`, body);
 }
 
+// ─── Retrieve an order ───────────────────────────────────────────────────────
+
+export interface PokOrderData {
+  id: string;
+  amount: number;
+  currencyCode: string;
+  originalCurrencyCode: string;
+  originalAmount: number;
+  appliedExchangeRate: number;
+  shippingCost: number;
+  finalAmount: number;
+  createdAt: string;
+  expiresAt: string | null;
+  commissions: {
+    netAmount: number;
+    totalCommissionAmount: number;
+    grossAmount: number;
+  } | null;
+}
+
+export async function pokGetOrder(pokOrderId: string): Promise<PokOrderData | null> {
+  try {
+    const token = await pokAuth();
+    const res = await fetch(`${POK_BASE}sdk-orders/${pokOrderId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const o = json?.data?.sdkOrder;
+    if (!o) return null;
+    return {
+      id: o.id,
+      amount: o.amount,
+      currencyCode: o.currencyCode,
+      originalCurrencyCode: o.originalCurrencyCode,
+      originalAmount: o.originalAmount,
+      appliedExchangeRate: o.appliedExchangeRate,
+      shippingCost: o.shippingCost ?? 0,
+      finalAmount: o.finalAmount,
+      createdAt: o.createdAt,
+      expiresAt: o.expiresAt ?? null,
+      commissions: json?.data?.commissions ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ─── Saved card / card tokenization APIs ─────────────────────────────────────
 
 export async function pokTokenizeCard(cardData: {

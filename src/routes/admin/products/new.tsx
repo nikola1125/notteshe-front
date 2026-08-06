@@ -1,6 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-
+import { BackButton } from "@/components/admin/BackButton";
 import { eq } from "drizzle-orm";
 import { toast } from "sonner";
 import { db } from "@/db";
@@ -126,6 +126,7 @@ function NewProduct() {
 
   return (
     <div className="p-6 lg:p-8">
+      <BackButton />
       <h1 className="mb-6 font-serif text-2xl italic text-[var(--color-foreground)]">
         New Product
       </h1>

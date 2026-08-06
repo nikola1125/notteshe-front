@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
+import { BackButton } from "@/components/admin/BackButton";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { useState } from "react";
@@ -200,6 +201,7 @@ function InventoryPage() {
 
   return (
     <div className="p-6 lg:p-8">
+      <BackButton />
       <div className="mb-6 flex items-center justify-between gap-4">
         <h1 className="font-serif text-2xl italic text-[var(--color-foreground)]">Inventory</h1>
         <input

@@ -1,4 +1,5 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { BackButton } from "@/components/admin/BackButton";
 import { createServerFn } from "@tanstack/react-start";
 import { eq, desc, sql, and } from "drizzle-orm";
 import { toast } from "sonner";
@@ -383,6 +384,7 @@ function OrderDetail() {
 
   return (
     <div className="p-6 lg:p-8">
+      <BackButton />
       <div className="mb-6 flex flex-wrap items-center gap-4">
         <h1 className="font-serif text-2xl italic text-[var(--color-foreground)]">
           Order #{data.order.id.slice(0, 8)}

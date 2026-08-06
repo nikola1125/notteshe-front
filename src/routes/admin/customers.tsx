@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
+import { BackButton } from "@/components/admin/BackButton";
 import { eq, desc, count, sum, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { user, orders } from "@/db/schema";
@@ -66,6 +67,7 @@ function Customers() {
 
   return (
     <div className="p-6 lg:p-8">
+      <BackButton />
       <h1 className="mb-6 font-serif text-2xl italic text-[var(--color-foreground)]">
         Customers
         <span className="ml-3 font-mono text-sm not-italic text-[var(--color-muted-foreground)]">

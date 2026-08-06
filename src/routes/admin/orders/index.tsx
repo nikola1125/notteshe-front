@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { BackButton } from "@/components/admin/BackButton";
 import { createServerFn } from "@tanstack/react-start";
 import { eq, desc, count, and, ilike, or } from "drizzle-orm";
 import { db } from "@/db";
@@ -162,6 +163,7 @@ function OrderList() {
 
   return (
     <div className="p-6 lg:p-8">
+      <BackButton />
       <h1 className="mb-6 font-serif text-2xl italic text-[var(--color-foreground)]">
         Orders
         <span className="ml-3 font-mono text-sm not-italic text-[var(--color-muted-foreground)]">

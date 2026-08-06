@@ -82,11 +82,11 @@ function AboutPage() {
       </section>
 
       {/* ── 4. IMAGE BREAK ───────────────────────────────────────────── */}
-      <section className="flex justify-center py-10 md:py-16">
+      <section className="px-8 py-10 md:px-14 md:py-16">
         <img
           src={aboutMid}
           alt="Notteshe"
-          className="w-full max-w-3xl max-h-[420px] object-cover object-center md:max-w-4xl md:max-h-[480px]"
+          className="w-full max-h-[360px] object-cover object-center rounded-sm md:max-h-[420px]"
         />
       </section>
 

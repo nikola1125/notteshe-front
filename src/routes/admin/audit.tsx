@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
+import { BackButton } from "@/components/admin/BackButton";
 import { desc, eq, or } from "drizzle-orm";
 import { db } from "@/db";
 import { auditLog, adminUser } from "@/db/schema";
@@ -202,6 +203,7 @@ function AuditLogPage() {
 
   return (
     <div className="p-6 lg:p-8">
+      <BackButton />
       {/* Header */}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>

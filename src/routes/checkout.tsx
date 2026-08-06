@@ -9,7 +9,6 @@ import { useAuthStore } from "@/store/authStore";
 import { placeOrder } from "@/lib/orders";
 import { createPokOrder } from "@/lib/pok";
 
-// Lazy-loaded so it never runs during SSR (it uses browser APIs internally)
 const GuestCheckoutForm = lazy(() =>
   import("@nebula-ltd/pok-payments-js/react").then((m) => ({
     default: m.GuestCheckoutForm,
@@ -38,15 +37,8 @@ const logPaymentFailure = createServerFn({ method: "POST" })
       action: "payment.failure",
       entityType: "payment",
       entityId: data.pokOrderId,
-      diff: {
-        after: {
-          errorType: data.errorType ?? "unknown",
-          errorMessage: data.errorMessage ?? "—",
-          email: data.email,
-          amount: data.amount,
-        },
-      },
-    }).catch(() => {}); // never throw — called fire-and-forget
+      diff: { after: { errorType: data.errorType ?? "unknown", errorMessage: data.errorMessage ?? "—", email: data.email, amount: data.amount } },
+    }).catch(() => {});
   });
 
 const logPlaceOrderError = createServerFn({ method: "POST" })
@@ -67,14 +59,184 @@ const logPlaceOrderError = createServerFn({ method: "POST" })
       action: "payment.order_error",
       entityType: "payment",
       entityId: data.pokOrderId,
-      diff: {
-        after: {
-          errorMessage: data.errorMessage ?? "—",
-          email: data.email,
-          note: "Payment confirmed by POK but DB write failed",
-        },
-      },
+      diff: { after: { errorMessage: data.errorMessage ?? "—", email: data.email, note: "Payment confirmed by POK but DB write failed" } },
     }).catch(() => {});
+  });
+
+const CodOrderSchema = z.object({
+  discountCode: z.string().optional(),
+  shippingForm: z.object({
+    email: z.string().email(),
+    phone: z.string(),
+    firstName: z.string().min(1),
+    lastName: z.string().min(1),
+    address: z.string().min(1),
+    address2: z.string().optional(),
+    city: z.string().min(1),
+    postalCode: z.string().min(1),
+    country: z.string().min(1),
+  }),
+  items: z.array(z.object({
+    productId: z.string(),
+    name: z.string(),
+    size: z.string(),
+    colour: z.string(),
+    quantity: z.number().int().positive(),
+    image: z.string(),
+  })),
+});
+
+const placeCodOrder = createServerFn({ method: "POST" })
+  .validator((d: unknown) => CodOrderSchema.parse(d))
+  .handler(async ({ data }) => {
+    const { requireAuth } = await import("@/lib/auth/session");
+    const { db } = await import("@/db");
+    const {
+      orders, orderItem, productSize, product, shippingConfig,
+      discountCode: discountCodeTable, auditLog,
+    } = await import("@/db/schema");
+    const { inArray, and, eq, sql, gt } = await import("drizzle-orm");
+    const { randomUUID } = await import("node:crypto");
+
+    const session = await requireAuth();
+    const userId = session.user.id;
+
+    // Server-side prices
+    const productIds = [...new Set(data.items.map((i) => i.productId))];
+    const [productRows, sizeRows] = await Promise.all([
+      db().select({ id: product.id, price: product.price, originalPrice: product.originalPrice, isSale: product.isSale })
+        .from(product).where(inArray(product.id, productIds)),
+      db().select({ productId: productSize.productId, label: productSize.label, stock: productSize.stock })
+        .from(productSize).where(inArray(productSize.productId, productIds)),
+    ]);
+
+    const priceMap = new Map(productRows.map((p) => [p.id, p]));
+    const itemsWithPrices = data.items.map((item) => {
+      const p = priceMap.get(item.productId);
+      if (!p) throw new Error(`Product "${item.name}" is no longer available.`);
+      return { ...item, price: p.price, originalPrice: p.isSale ? (p.originalPrice ?? null) : null };
+    });
+
+    // Stock check
+    for (const item of data.items) {
+      const row = sizeRows.find((s) => s.productId === item.productId && s.label === item.size);
+      if (!row || row.stock < item.quantity) {
+        throw new Error(`"${item.name}" size ${item.size} is no longer available in the requested quantity.`);
+      }
+    }
+
+    // Totals
+    const subtotal = itemsWithPrices.reduce((s, i) => s + i.price * i.quantity, 0);
+    const [cfg] = await db()
+      .select({ enabled: shippingConfig.enabled, fee: shippingConfig.fee, freeThreshold: shippingConfig.freeThreshold })
+      .from(shippingConfig).limit(1);
+    const shippingFee = cfg?.enabled ? (subtotal >= (cfg.freeThreshold ?? 200) ? 0 : (cfg.fee ?? 12)) : 0;
+
+    // Discount validation
+    let discountAmount = 0;
+    let validatedDiscountCode: string | null = null;
+    if (data.discountCode) {
+      const [code] = await db().select().from(discountCodeTable)
+        .where(eq(discountCodeTable.code, data.discountCode.toUpperCase().trim())).limit(1);
+      const now = new Date();
+      if (code && code.isActive && (!code.expiresAt || code.expiresAt > now) &&
+          (code.maxUses === null || code.usedCount < code.maxUses) &&
+          (code.minOrderAmount === null || subtotal >= code.minOrderAmount)) {
+        const saleIds = new Set(productRows.filter((p) => p.isSale).map((p) => p.id));
+        if (!data.items.some((i) => saleIds.has(i.productId))) {
+          discountAmount = code.type === "PERCENT"
+            ? Math.round(subtotal * (code.value / 100) * 100) / 100
+            : Math.min(code.value, subtotal);
+          validatedDiscountCode = code.code;
+        }
+      }
+    }
+
+    const total = Math.max(0, subtotal + shippingFee - discountAmount);
+
+    // Decrement stock
+    for (const item of itemsWithPrices) {
+      const updated = await db()
+        .update(productSize)
+        .set({ stock: sql`stock - ${item.quantity}` })
+        .where(and(
+          eq(productSize.productId, item.productId),
+          eq(productSize.label, item.size),
+          sql`stock >= ${item.quantity}`,
+        ))
+        .returning({ id: productSize.id });
+      if (updated.length === 0) {
+        throw new Error(`"${item.name}" size ${item.size} went out of stock before your order was finalised.`);
+      }
+    }
+
+    const orderId = randomUUID();
+    const shippingAddress = {
+      firstName: data.shippingForm.firstName, lastName: data.shippingForm.lastName,
+      line1: data.shippingForm.address, line2: data.shippingForm.address2 ?? null,
+      city: data.shippingForm.city, postalCode: data.shippingForm.postalCode,
+      country: data.shippingForm.country, phone: data.shippingForm.phone, email: data.shippingForm.email,
+    };
+
+    await db().insert(orders).values({
+      id: orderId,
+      userId,
+      status: "PENDING" as const,
+      subtotal,
+      shippingFee,
+      paymentFee: 0,
+      discountCode: validatedDiscountCode,
+      discountAmount,
+      total,
+      shippingAddress,
+      pokOrderId: null,
+    });
+
+    await db().insert(orderItem).values(
+      itemsWithPrices.map((item) => ({
+        id: randomUUID(),
+        orderId,
+        productId: item.productId,
+        productSnapshot: { name: item.name, image: item.image, price: item.price, originalPrice: item.originalPrice },
+        size: item.size,
+        colour: item.colour,
+        quantity: item.quantity,
+        unitPrice: item.price,
+      }))
+    );
+
+    if (validatedDiscountCode) {
+      await db()
+        .update(discountCodeTable)
+        .set({ usedCount: sql`used_count + 1` })
+        .where(and(
+          eq(discountCodeTable.code, validatedDiscountCode),
+          sql`(max_uses IS NULL OR used_count < max_uses)`,
+        ))
+        .catch(() => {});
+    }
+
+    await db().insert(auditLog).values({
+      id: randomUUID(),
+      adminId: null,
+      action: "payment.success",
+      entityType: "order",
+      entityId: orderId,
+      diff: { after: { orderId, userId, email: data.shippingForm.email, total, itemCount: data.items.length, method: "cod" } },
+    });
+
+    const { sendOrderConfirmation } = await import("@/lib/resend");
+    sendOrderConfirmation({
+      to: data.shippingForm.email,
+      firstName: data.shippingForm.firstName,
+      orderId,
+      items: itemsWithPrices.map((i) => ({ name: i.name, size: i.size, colour: i.colour, quantity: i.quantity, unitPrice: i.price })),
+      subtotal,
+      shippingFee,
+      total,
+    }).catch((err) => console.error("[resend] COD confirmation failed:", err));
+
+    return { orderId };
   });
 
 const applyDiscountCode = createServerFn({ method: "POST" })
@@ -90,36 +252,27 @@ const applyDiscountCode = createServerFn({ method: "POST" })
     const { discountCode, product } = await import("@/db/schema");
     const { eq, inArray } = await import("drizzle-orm");
 
-    const rows = await db()
-      .select()
-      .from(discountCode)
-      .where(eq(discountCode.code, data.code.toUpperCase().trim()))
-      .limit(1);
+    const rows = await db().select().from(discountCode)
+      .where(eq(discountCode.code, data.code.toUpperCase().trim())).limit(1);
 
     const code = rows[0];
     if (!code) return { valid: false as const, error: "Invalid or expired code" };
     if (!code.isActive) return { valid: false as const, error: "This code is no longer active" };
-    if (code.expiresAt && code.expiresAt < new Date())
-      return { valid: false as const, error: "This code has expired" };
-    if (code.maxUses !== null && code.usedCount >= code.maxUses)
-      return { valid: false as const, error: "This code has reached its usage limit" };
-    if (code.minOrderAmount !== null && data.subtotal < code.minOrderAmount)
-      return { valid: false as const, error: `Minimum order of ${code.minOrderAmount} L required` };
+    if (code.expiresAt && code.expiresAt < new Date()) return { valid: false as const, error: "This code has expired" };
+    if (code.maxUses !== null && code.usedCount >= code.maxUses) return { valid: false as const, error: "This code has reached its usage limit" };
+    if (code.minOrderAmount !== null && data.subtotal < code.minOrderAmount) return { valid: false as const, error: `Minimum order of ${code.minOrderAmount} L required` };
 
     const productIds = [...new Set(data.items.map((i) => i.productId))];
-    const productRows = await db()
-      .select({ id: product.id, isSale: product.isSale })
-      .from(product)
-      .where(inArray(product.id, productIds));
+    const productRows = await db().select({ id: product.id, isSale: product.isSale })
+      .from(product).where(inArray(product.id, productIds));
     const saleProductIds = new Set(productRows.filter((p) => p.isSale).map((p) => p.id));
 
     if (data.items.some((i) => saleProductIds.has(i.productId)))
       return { valid: false as const, error: "Discount codes cannot be applied to sale items" };
 
-    const discountAmount =
-      code.type === "PERCENT"
-        ? Math.round(data.subtotal * (code.value / 100) * 100) / 100
-        : Math.min(code.value, data.subtotal);
+    const discountAmount = code.type === "PERCENT"
+      ? Math.round(data.subtotal * (code.value / 100) * 100) / 100
+      : Math.min(code.value, data.subtotal);
 
     return { valid: true as const, code: code.code, type: code.type, value: code.value, discountAmount };
   });
@@ -132,24 +285,19 @@ const getShipping = createServerFn({ method: "GET" }).handler(async () => {
 
   const rows = await database
     .select({ enabled: shippingConfig.enabled, fee: shippingConfig.fee, freeThreshold: shippingConfig.freeThreshold })
-    .from(shippingConfig)
-    .where(eq(shippingConfig.id, "default"))
-    .limit(1);
+    .from(shippingConfig).where(eq(shippingConfig.id, "default")).limit(1);
 
   const base = rows[0]
     ? { enabled: rows[0].enabled, fee: rows[0].fee, freeThreshold: rows[0].freeThreshold }
     : { enabled: true, fee: 12, freeThreshold: 200 };
 
-  // Payment fee columns added in migration 0003
   let paymentFeeEnabled = false;
   let paymentFeePercent = 0;
   let paymentFeeFixed = 0;
   try {
     const pf = await database
       .select({ paymentFeeEnabled: shippingConfig.paymentFeeEnabled, paymentFeePercent: shippingConfig.paymentFeePercent, paymentFeeFixed: shippingConfig.paymentFeeFixed })
-      .from(shippingConfig)
-      .where(eq(shippingConfig.id, "default"))
-      .limit(1);
+      .from(shippingConfig).where(eq(shippingConfig.id, "default")).limit(1);
     paymentFeeEnabled = pf[0]?.paymentFeeEnabled ?? false;
     paymentFeePercent = pf[0]?.paymentFeePercent ?? 0;
     paymentFeeFixed = pf[0]?.paymentFeeFixed ?? 0;
@@ -167,13 +315,8 @@ const getCartPrices = createServerFn({ method: "POST" })
     if (data.productIds.length === 0) return [];
     const products = await db()
       .select({ id: product.id, price: product.price, originalPrice: product.originalPrice, isSale: product.isSale })
-      .from(product)
-      .where(inArray(product.id, data.productIds));
-    return products.map((p) => ({
-      id: p.id,
-      price: p.price ?? 0,
-      originalPrice: p.isSale ? p.originalPrice : null,
-    }));
+      .from(product).where(inArray(product.id, data.productIds));
+    return products.map((p) => ({ id: p.id, price: p.price ?? 0, originalPrice: p.isSale ? p.originalPrice : null }));
   });
 
 // ─── Route ────────────────────────────────────────────────────────────────────
@@ -202,7 +345,8 @@ const EMPTY_FORM: ShippingForm = {
   address: "", address2: "", city: "", postalCode: "", country: "",
 };
 
-type CheckoutStep = "shipping" | "initiating" | "payment";
+type PaymentMethod = "cod" | "card";
+type CheckoutStep = "details" | "initiating" | "card-payment";
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -213,7 +357,8 @@ function CheckoutPage() {
   const shippingCfg = Route.useLoaderData();
   const navigate = useNavigate();
 
-  const [step, setStep] = useState<CheckoutStep>("shipping");
+  const [step, setStep] = useState<CheckoutStep>("details");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cod");
   const [pokOrderId, setPokOrderId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
@@ -221,7 +366,6 @@ function CheckoutPage() {
   const [errors, setErrors] = useState<Partial<ShippingForm>>({});
   const [placing, setPlacing] = useState(false);
   const [placeError, setPlaceError] = useState<string | null>(null);
-  // Ref guards prevent double-submission even if callbacks fire multiple times
   const successFiredRef = useRef(false);
   const initiatingRef = useRef(false);
 
@@ -233,10 +377,8 @@ function CheckoutPage() {
   } | null>(null);
   const [priceWarning, setPriceWarning] = useState(false);
 
-  // Allow GuestCheckoutForm to mount only in the browser
   useEffect(() => setMounted(true), []);
 
-  // Refresh cart prices from DB on mount
   useEffect(() => {
     if (items.length === 0) return;
     const ids = [...new Set(items.map((i) => i.productId))];
@@ -260,7 +402,6 @@ function CheckoutPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Autofill from session
   useEffect(() => {
     if (!session?.user) return;
     const fullName = session.user.name ?? "";
@@ -280,7 +421,8 @@ function CheckoutPage() {
     : subtotal >= shippingCfg.freeThreshold ? 0
     : shippingCfg.fee;
   const discount = appliedDiscount?.discountAmount ?? 0;
-  const paymentFee = shippingCfg.paymentFeeEnabled
+  // Payment fee only applies to card payments
+  const paymentFee = paymentMethod === "card" && shippingCfg.paymentFeeEnabled
     ? Math.round(((subtotal + shipping - discount) * (shippingCfg.paymentFeePercent / 100) + shippingCfg.paymentFeeFixed) * 100) / 100
     : 0;
   const total = Math.max(0, subtotal + shipping - discount + paymentFee);
@@ -292,18 +434,10 @@ function CheckoutPage() {
     setCouponError(null);
     try {
       const result = await applyDiscountCode({
-        data: {
-          code,
-          subtotal,
-          items: items.map((i) => ({ productId: i.productId, price: i.price, quantity: i.quantity })),
-        },
+        data: { code, subtotal, items: items.map((i) => ({ productId: i.productId, price: i.price, quantity: i.quantity })) },
       });
-      if (result.valid) {
-        setAppliedDiscount(result);
-        setCouponInput("");
-      } else {
-        setCouponError(result.error);
-      }
+      if (result.valid) { setAppliedDiscount(result); setCouponInput(""); }
+      else setCouponError(result.error);
     } catch {
       setCouponError("Something went wrong. Try again.");
     } finally {
@@ -317,9 +451,7 @@ function CheckoutPage() {
   }
 
   function validateShipping(): boolean {
-    const required: (keyof ShippingForm)[] = [
-      "email", "phone", "firstName", "lastName", "address", "city", "postalCode", "country",
-    ];
+    const required: (keyof ShippingForm)[] = ["email", "phone", "firstName", "lastName", "address", "city", "postalCode", "country"];
     const next: Partial<ShippingForm> = {};
     for (const k of required) {
       if (!form[k].trim()) next[k] = "Required";
@@ -331,12 +463,44 @@ function CheckoutPage() {
     return Object.keys(next).length === 0;
   }
 
-  // Step 1 → 2: validate shipping form, create POK SDK order
-  const handleContinueToPayment = useCallback(async () => {
-    if (initiatingRef.current) return; // prevent double-click
+  // COD path: place order directly
+  const handlePlaceCodOrder = useCallback(async () => {
+    if (initiatingRef.current) return;
     if (!validateShipping()) return;
     initiatingRef.current = true;
-    successFiredRef.current = false; // reset for new payment attempt
+    setPlacing(true);
+    setPlaceError(null);
+    try {
+      await placeCodOrder({
+        data: {
+          discountCode: appliedDiscount?.code,
+          shippingForm: {
+            email: form.email, phone: form.phone,
+            firstName: form.firstName, lastName: form.lastName,
+            address: form.address, address2: form.address2 || undefined,
+            city: form.city, postalCode: form.postalCode, country: form.country,
+          },
+          items: items.map((i) => ({ productId: i.productId, name: i.name, size: i.size, colour: i.colour, quantity: i.quantity, image: i.image })),
+        },
+      });
+      clearCart();
+      void navigate({ to: "/order-confirmed" });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : null;
+      setPlaceError(msg ?? "Could not place your order. Please try again.");
+    } finally {
+      setPlacing(false);
+      initiatingRef.current = false;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, items, appliedDiscount]);
+
+  // Card path: create POK order, show form inline
+  const handleInitiateCardPayment = useCallback(async () => {
+    if (initiatingRef.current) return;
+    if (!validateShipping()) return;
+    initiatingRef.current = true;
+    successFiredRef.current = false;
     setStep("initiating");
     setPlaceError(null);
     try {
@@ -346,89 +510,65 @@ function CheckoutPage() {
           merchantReference: ref,
           discountCode: appliedDiscount?.code,
           shippingForm: {
-            email: form.email,
-            phone: form.phone,
-            firstName: form.firstName,
-            lastName: form.lastName,
-            address: form.address,
-            address2: form.address2 || undefined,
-            city: form.city,
-            postalCode: form.postalCode,
-            country: form.country,
+            email: form.email, phone: form.phone,
+            firstName: form.firstName, lastName: form.lastName,
+            address: form.address, address2: form.address2 || undefined,
+            city: form.city, postalCode: form.postalCode, country: form.country,
           },
-          items: items.map((i) => ({
-            productId: i.productId,
-            name: i.name,
-            size: i.size,
-            colour: i.colour,
-            quantity: i.quantity,
-            image: i.image,
-          })),
+          items: items.map((i) => ({ productId: i.productId, name: i.name, size: i.size, colour: i.colour, quantity: i.quantity, image: i.image })),
         },
       });
       setPokOrderId(id);
-      setStep("payment");
+      setStep("card-payment");
     } catch (err) {
       const msg = err instanceof Error ? err.message : null;
-      console.error("[POK] createPokOrder error:", err);
       setPlaceError(msg ?? "Could not connect to payment provider. Please try again.");
-      setStep("shipping");
+      setStep("details");
     } finally {
       initiatingRef.current = false;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form, items, total, shipping]);
+  }, [form, items, appliedDiscount]);
 
-  // Step 2 success: POK confirmed payment → create order in DB
   const handlePokSuccess = useCallback(async () => {
-    // Ref guard: POK SDK could theoretically fire onSuccess more than once
     if (successFiredRef.current) return;
     successFiredRef.current = true;
     setPlacing(true);
     setPlaceError(null);
     try {
-      await placeOrder({
-        data: { pokOrderId: pokOrderId! },
-      });
+      await placeOrder({ data: { pokOrderId: pokOrderId! } });
       clearCart();
       void navigate({ to: "/order-confirmed" });
     } catch (err) {
       const msg =
         (err as { data?: { message?: string } })?.data?.message ??
         (err instanceof Error ? err.message : null);
-      console.error("[POK] post-payment placeOrder error:", err);
-      // Log server-side so we have a record even if browser closes
-      logPlaceOrderError({
-        data: { pokOrderId: pokOrderId!, errorMessage: msg ?? undefined, email: form.email },
-      }).catch(() => {});
+      logPlaceOrderError({ data: { pokOrderId: pokOrderId!, errorMessage: msg ?? undefined, email: form.email } }).catch(() => {});
       setPlaceError(
-        `Your payment was processed successfully, but we encountered an issue recording your order${msg ? `: ${msg}` : "."}  Please contact hello@notteshe.com and we will sort it immediately.`
+        `Your payment was processed but we couldn't record the order${msg ? `: ${msg}` : "."}  Please contact hello@notteshe.com immediately.`
       );
     } finally {
       setPlacing(false);
     }
   }, [pokOrderId, form.email, clearCart, navigate]);
 
-  // Step 2 error: POK payment failed → log server-side + back to shipping
   const handlePokError = useCallback((err: { type?: string; message?: string }) => {
-    console.error("[POK] payment error:", err);
     if (pokOrderId) {
-      logPaymentFailure({
-        data: {
-          pokOrderId,
-          errorType: err.type ?? "unknown",
-          errorMessage: err.message ?? "—",
-          email: form.email,
-          amount: total,
-        },
-      }).catch(() => {});
+      logPaymentFailure({ data: { pokOrderId, errorType: err.type ?? "unknown", errorMessage: err.message ?? "—", email: form.email, amount: total } }).catch(() => {});
     }
     setPlaceError(err.message ?? "Payment was not completed. Please try again.");
-    setStep("shipping");
+    setStep("details");
     setPokOrderId(null);
   }, [pokOrderId, form.email, total]);
 
-  // ─── Guards ────────────────────────────────────────────────────────────────
+  function handleChangePaymentMethod() {
+    setStep("details");
+    setPokOrderId(null);
+    setPlaceError(null);
+    successFiredRef.current = false;
+  }
+
+  // ─── Guards ──────────────────────────────────────────────────────────────────
 
   if (sessionLoading) {
     return (
@@ -445,7 +585,7 @@ function CheckoutPage() {
         <p className="font-mono text-[11px] text-muted-foreground">You need an account to place an order.</p>
         <button
           onClick={() => openAuthModal("login")}
-          className="bg-ink px-8 py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-colors hover:bg-ink/90"
+          className="bg-foreground px-8 py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-colors hover:opacity-80"
         >
           Sign in / Create account
         </button>
@@ -467,7 +607,9 @@ function CheckoutPage() {
     );
   }
 
-  // ─── Render ────────────────────────────────────────────────────────────────
+  const formDisabled = step === "card-payment" || step === "initiating";
+
+  // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -484,7 +626,7 @@ function CheckoutPage() {
         <div className="mb-10 md:mb-14">
           <button
             onClick={() => {
-              if (step === "payment") { setStep("shipping"); setPokOrderId(null); }
+              if (step === "card-payment") handleChangePaymentMethod();
               else window.history.back();
             }}
             className="mb-6 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-ink"
@@ -492,29 +634,16 @@ function CheckoutPage() {
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2">
               <path d="M9 2 4 7l5 5" />
             </svg>
-            {step === "payment" ? "Back to details" : "Back"}
+            {step === "card-payment" ? "Change payment method" : "Back"}
           </button>
 
-          {/* Step indicator */}
-          <div className="mb-4 flex items-center gap-3">
-            <span className={`font-mono text-[10px] uppercase tracking-widest ${step === "shipping" || step === "initiating" ? "text-ink" : "text-muted-foreground"}`}>
-              1. Details
-            </span>
-            <span className="font-mono text-[10px] text-muted-foreground/30">—</span>
-            <span className={`font-mono text-[10px] uppercase tracking-widest ${step === "payment" ? "text-ink" : "text-muted-foreground/40"}`}>
-              2. Payment
-            </span>
-          </div>
-
           <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Checkout</p>
-          <h1 className="serif mt-2 text-4xl text-ink md:text-5xl">
-            {step === "payment" ? "Payment" : "Your order"}
-          </h1>
+          <h1 className="serif mt-2 text-4xl text-ink md:text-5xl">Your order</h1>
         </div>
 
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1fr_400px] lg:gap-20">
 
-          {/* ── Order summary (always visible, right column on desktop) ── */}
+          {/* ── Order summary (right col desktop / top mobile) ── */}
           <div className="order-first lg:order-last lg:sticky lg:top-28 lg:self-start">
             <div className="border border-border p-6">
               <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Order summary</p>
@@ -523,7 +652,7 @@ function CheckoutPage() {
                   <li key={item.id} className="flex gap-4">
                     <div className="relative aspect-[3/4] w-16 shrink-0 overflow-hidden bg-muted">
                       <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
-                      <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-ink font-mono text-[9px] text-background">
+                      <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-foreground font-mono text-[9px] text-background">
                         {item.quantity}
                       </span>
                     </div>
@@ -558,14 +687,8 @@ function CheckoutPage() {
                   <div className="flex items-center justify-between font-mono text-[11px] text-green-400">
                     <span className="flex items-center gap-2">
                       Discount
-                      {step !== "payment" && (
-                        <button
-                          onClick={() => setAppliedDiscount(null)}
-                          className="font-mono text-[9px] text-muted-foreground/50 hover:text-clay transition-colors"
-                          title="Remove"
-                        >
-                          ✕
-                        </button>
+                      {!formDisabled && (
+                        <button onClick={() => setAppliedDiscount(null)} className="font-mono text-[9px] text-muted-foreground/50 hover:text-clay transition-colors" title="Remove">✕</button>
                       )}
                     </span>
                     <span>−{discount.toFixed(0)} L</span>
@@ -587,8 +710,8 @@ function CheckoutPage() {
                 )}
               </div>
 
-              {/* Coupon input — only on shipping step */}
-              {step !== "payment" && (
+              {/* Coupon — hidden when card payment form is active */}
+              {!formDisabled && (
                 !appliedDiscount ? (
                   <div className="mt-5 border-t border-border pt-5">
                     <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Discount code</p>
@@ -599,7 +722,8 @@ function CheckoutPage() {
                         onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError(null); }}
                         onKeyDown={(e) => { if (e.key === "Enter") handleApplyCoupon(); }}
                         placeholder="ENTER CODE"
-                        className="flex-1 border-b border-border bg-transparent pb-2 font-mono text-xs uppercase tracking-widest text-ink outline-none placeholder:text-muted-foreground/30 focus:border-ink/60"
+                        style={{ fontSize: '16px' }}
+                        className="flex-1 border-b border-border bg-transparent pb-2 font-mono uppercase tracking-widest text-ink outline-none placeholder:text-muted-foreground/30 focus:border-ink/60"
                       />
                       <button
                         onClick={handleApplyCoupon}
@@ -609,9 +733,7 @@ function CheckoutPage() {
                         {couponApplying ? "…" : "Apply"}
                       </button>
                     </div>
-                    {couponError && (
-                      <p className="mt-1.5 font-mono text-[9px] uppercase tracking-widest text-clay">{couponError}</p>
-                    )}
+                    {couponError && <p className="mt-1.5 font-mono text-[9px] uppercase tracking-widest text-clay">{couponError}</p>}
                   </div>
                 ) : (
                   <div className="mt-5 border-t border-border pt-5">
@@ -635,113 +757,172 @@ function CheckoutPage() {
             </Link>
           </div>
 
-          {/* ── Left column: shipping form OR payment form ── */}
-          <div className="lg:order-first">
+          {/* ── Left column: always-visible form ── */}
+          <div className="lg:order-first space-y-10">
 
-            {/* ── STEP 1: Shipping details ── */}
-            {(step === "shipping" || step === "initiating") && (
-              <div className="space-y-10">
-                <fieldset>
-                  <legend className="mb-6 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Contact</legend>
-                  <div className="space-y-5">
-                    <Field label="Email address" value={form.email} onChange={(v) => set("email", v)} error={errors.email} type="email" placeholder="you@somewhere.com" />
-                    <Field label="Phone number" value={form.phone} onChange={(v) => set("phone", v)} error={errors.phone} type="tel" placeholder="+355 69 123 4567" inputMode="tel" />
-                  </div>
-                </fieldset>
+            {/* Contact */}
+            <fieldset disabled={formDisabled} className="disabled:opacity-50">
+              <legend className="mb-6 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Contact</legend>
+              <div className="space-y-5">
+                <Field label="Email address" value={form.email} onChange={(v) => set("email", v)} error={errors.email} type="email" placeholder="you@somewhere.com" />
+                <Field label="Phone number" value={form.phone} onChange={(v) => set("phone", v)} error={errors.phone} type="tel" placeholder="+355 69 123 4567" inputMode="tel" />
+              </div>
+            </fieldset>
 
-                <fieldset>
-                  <legend className="mb-6 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Shipping address</legend>
-                  <div className="space-y-5">
-                    <div className="grid grid-cols-2 gap-4">
-                      <Field label="First name" value={form.firstName} onChange={(v) => set("firstName", v)} error={errors.firstName} />
-                      <Field label="Last name" value={form.lastName} onChange={(v) => set("lastName", v)} error={errors.lastName} />
-                    </div>
-                    <Field label="Address" value={form.address} onChange={(v) => set("address", v)} error={errors.address} placeholder="Street and number" />
-                    <Field label="Apartment, suite, etc. (optional)" value={form.address2} onChange={(v) => set("address2", v)} />
-                    <div className="grid grid-cols-2 gap-4">
-                      <Field label="City" value={form.city} onChange={(v) => set("city", v)} error={errors.city} />
-                      <Field label="Postal code" value={form.postalCode} onChange={(v) => set("postalCode", v)} error={errors.postalCode} />
-                    </div>
-                    <Field label="Country" value={form.country} onChange={(v) => set("country", v)} error={errors.country} placeholder="e.g. Albania" />
-                  </div>
-                </fieldset>
+            {/* Shipping address */}
+            <fieldset disabled={formDisabled} className="disabled:opacity-50">
+              <legend className="mb-6 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Shipping address</legend>
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="First name" value={form.firstName} onChange={(v) => set("firstName", v)} error={errors.firstName} />
+                  <Field label="Last name" value={form.lastName} onChange={(v) => set("lastName", v)} error={errors.lastName} />
+                </div>
+                <Field label="Address" value={form.address} onChange={(v) => set("address", v)} error={errors.address} placeholder="Street and number" />
+                <Field label="Apartment, suite, etc. (optional)" value={form.address2} onChange={(v) => set("address2", v)} />
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="City" value={form.city} onChange={(v) => set("city", v)} error={errors.city} />
+                  <Field label="Postal code" value={form.postalCode} onChange={(v) => set("postalCode", v)} error={errors.postalCode} />
+                </div>
+                <Field label="Country" value={form.country} onChange={(v) => set("country", v)} error={errors.country} placeholder="e.g. Albania" />
+              </div>
+            </fieldset>
 
-                {placeError && (
-                  <p className="font-mono text-[11px] text-clay">{placeError}</p>
-                )}
+            {/* Payment method selector */}
+            <div>
+              <p className="mb-4 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Payment method</p>
+              <div className="space-y-2">
+                {(["cod", "card"] as const).map((method) => {
+                  const active = paymentMethod === method;
+                  const locked = formDisabled && paymentMethod !== method;
+                  return (
+                    <button
+                      key={method}
+                      type="button"
+                      disabled={formDisabled}
+                      onClick={() => {
+                        setPaymentMethod(method);
+                        setPlaceError(null);
+                      }}
+                      className={`w-full flex items-center justify-between border px-5 py-4 text-left transition-colors duration-150 disabled:cursor-default ${
+                        active
+                          ? "border-foreground/40 bg-muted"
+                          : "border-border bg-transparent hover:border-border/70"
+                      }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <span className={`h-4 w-4 rounded-full border flex items-center justify-center shrink-0 ${active ? "border-foreground" : "border-muted-foreground/40"}`}>
+                          {active && <span className="h-2 w-2 rounded-full bg-foreground" />}
+                        </span>
+                        <div>
+                          <p className="font-mono text-[11px] uppercase tracking-widest text-ink">
+                            {method === "cod" ? "Cash on delivery" : "Card"}
+                          </p>
+                          <p className="mt-0.5 font-mono text-[9px] text-muted-foreground/50">
+                            {method === "cod" ? "Pay when your order arrives" : "Visa, Mastercard — secured by POK Pay"}
+                          </p>
+                        </div>
+                      </div>
+                      {method === "card" && (
+                        <div className="flex items-center gap-1.5 opacity-40">
+                          <CardBrand name="VISA" />
+                          <CardBrand name="MC" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-                <button
-                  onClick={handleContinueToPayment}
-                  disabled={step === "initiating"}
-                  className="w-full bg-ink py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-colors hover:bg-ink/90 disabled:opacity-50"
-                >
-                  {step === "initiating" ? (
-                    <span className="flex items-center justify-center gap-3">
+            {/* Inline card payment form */}
+            {step === "card-payment" && pokOrderId && (
+              <div className="border border-border">
+                <div className="border-b border-border px-5 py-3">
+                  <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/50">Secured payment — POK Pay</p>
+                </div>
+                <div className="p-5">
+                  {placing ? (
+                    <div className="flex items-center justify-center gap-3 py-6">
                       <Spinner />
-                      Preparing payment…
-                    </span>
+                      <p className="font-mono text-[11px] text-muted-foreground">Confirming your order…</p>
+                    </div>
                   ) : (
-                    `Continue to payment — ${total.toFixed(0)} L`
+                    mounted && (
+                      <Suspense fallback={
+                        <div className="flex items-center justify-center gap-3 py-10">
+                          <Spinner />
+                          <p className="font-mono text-[11px] text-muted-foreground">Loading payment form…</p>
+                        </div>
+                      }>
+                        <GuestCheckoutForm
+                          orderId={pokOrderId}
+                          onSuccess={handlePokSuccess}
+                          onError={handlePokError}
+                          options={{
+                            env: (import.meta.env.VITE_POK_ENV as "production" | "staging") ?? "staging",
+                            locale: "al",
+                            countrySelect: "modal",
+                            initialState: {
+                              email: form.email,
+                              holdersName: `${form.firstName} ${form.lastName}`.trim(),
+                              address1: form.address,
+                              locality: form.city,
+                              postalCode: form.postalCode,
+                              phoneNumber: form.phone,
+                              countryCode: form.country,
+                              cardNumber: "",
+                              expiration: "",
+                              securityCode: "",
+                              administrativeArea: "",
+                            },
+                          }}
+                        />
+                      </Suspense>
+                    )
                   )}
-                </button>
+                </div>
+              </div>
+            )}
+
+            {/* Error */}
+            {placeError && (
+              <p className="font-mono text-[11px] text-clay">{placeError}</p>
+            )}
+
+            {/* CTA — hidden when POK form is active */}
+            {step !== "card-payment" && (
+              <div className="space-y-4">
+                {paymentMethod === "cod" ? (
+                  <button
+                    onClick={handlePlaceCodOrder}
+                    disabled={placing || step === "initiating"}
+                    className="w-full bg-foreground py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-opacity hover:opacity-80 disabled:opacity-50"
+                  >
+                    {placing ? (
+                      <span className="flex items-center justify-center gap-3"><Spinner />Placing order…</span>
+                    ) : (
+                      `Place order — ${total.toFixed(0)} L`
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleInitiateCardPayment}
+                    disabled={step === "initiating"}
+                    className="w-full bg-foreground py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-opacity hover:opacity-80 disabled:opacity-50"
+                  >
+                    {step === "initiating" ? (
+                      <span className="flex items-center justify-center gap-3"><Spinner />Preparing payment…</span>
+                    ) : (
+                      `Continue to card payment — ${total.toFixed(0)} L`
+                    )}
+                  </button>
+                )}
 
                 <p className="text-center font-mono text-[9px] uppercase tracking-widest text-muted-foreground/40">
                   By placing your order you agree to our{" "}
                   <a href="#" className="underline underline-offset-2 hover:text-muted-foreground">Terms</a> and{" "}
                   <a href="#" className="underline underline-offset-2 hover:text-muted-foreground">Privacy policy</a>
                 </p>
-              </div>
-            )}
-
-            {/* ── STEP 2: POK Pay payment form ── */}
-            {step === "payment" && pokOrderId && (
-              <div className="space-y-6">
-                {placeError && (
-                  <div className="border border-clay/30 bg-clay/5 px-5 py-4">
-                    <p className="font-mono text-[11px] text-clay">{placeError}</p>
-                  </div>
-                )}
-
-                {placing && (
-                  <div className="flex items-center justify-center gap-3 py-6">
-                    <Spinner />
-                    <p className="font-mono text-[11px] text-muted-foreground">Confirming your order…</p>
-                  </div>
-                )}
-
-                {/* Render GuestCheckoutForm only in the browser */}
-                {mounted && !placing && (
-                  <Suspense fallback={
-                    <div className="flex items-center justify-center gap-3 py-10">
-                      <Spinner />
-                      <p className="font-mono text-[11px] text-muted-foreground">Loading payment form…</p>
-                    </div>
-                  }>
-                    <GuestCheckoutForm
-                      orderId={pokOrderId}
-                      onSuccess={handlePokSuccess}
-                      onError={handlePokError}
-                      options={{
-                        env: (import.meta.env.VITE_POK_ENV as "production" | "staging") ?? "staging",
-                        locale: "al",
-                        countrySelect: "modal",
-                        initialState: {
-                          email: form.email,
-                          holdersName: `${form.firstName} ${form.lastName}`.trim(),
-                          address1: form.address,
-                          locality: form.city,
-                          postalCode: form.postalCode,
-                          phoneNumber: form.phone,
-                          countryCode: form.country,
-                          cardNumber: "",
-                          expiration: "",
-                          securityCode: "",
-                          administrativeArea: "",
-                        },
-                      }}
-                    />
-                  </Suspense>
-                )}
               </div>
             )}
 
@@ -760,6 +941,14 @@ function Spinner() {
       <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
       <path d="M12 2a10 10 0 0 1 10 10" />
     </svg>
+  );
+}
+
+function CardBrand({ name }: { name: string }) {
+  return (
+    <span className="border border-muted-foreground/20 px-1.5 py-0.5 font-mono text-[8px] tracking-wider text-muted-foreground/50">
+      {name}
+    </span>
   );
 }
 
@@ -785,7 +974,9 @@ function Field({ label, value, onChange, error, type = "text", placeholder, maxL
         placeholder={placeholder}
         maxLength={maxLength}
         inputMode={inputMode}
-        className={`mt-2 w-full border-b bg-transparent pb-2.5 text-[14px] text-ink outline-none placeholder:text-muted-foreground/30 transition-colors focus:border-ink/60 ${
+        // font-size ≥ 16px prevents iOS Safari from zooming on focus
+        style={{ fontSize: '16px' }}
+        className={`mt-2 w-full border-b bg-transparent pb-2.5 text-ink outline-none placeholder:text-muted-foreground/30 transition-colors focus:border-ink/60 ${
           error ? "border-clay" : "border-border"
         }`}
       />

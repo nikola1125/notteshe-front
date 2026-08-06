@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import aboutHero from "@/assets/about-hero.jpg";
+import aboutMid from "@/assets/about-mid.png";
 
 export const Route = createFileRoute("/about")({
   component: AboutPage,
@@ -84,9 +85,9 @@ function AboutPage() {
       {/* ── 4. FULL IMAGE BREAK ──────────────────────────────────────── */}
       <section className="h-[70vw] max-h-[680px] min-h-[300px] overflow-hidden md:h-[55vw]">
         <img
-          src={aboutHero}
+          src={aboutMid}
           alt="Notteshe"
-          className="h-full w-full object-cover object-[center_30%]"
+          className="h-full w-full object-cover object-center"
         />
       </section>
 

@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
 export const Route = createFileRoute("/contact")({
@@ -6,7 +6,6 @@ export const Route = createFileRoute("/contact")({
 });
 
 function ContactPage() {
-  const router = useRouter();
   const [form, setForm] = useState({ name: "", email: "", message: "" });
   const [errors, setErrors] = useState<Partial<typeof form>>({});
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
@@ -40,7 +39,7 @@ function ContactPage() {
       <div className="mx-auto max-w-[1600px] px-5 pb-32 pt-24 md:px-12 md:pt-32">
 
         <button
-          onClick={() => router.history.back()}
+          onClick={() => window.history.back()}
           className="mb-10 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-ink"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2">

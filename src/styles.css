@@ -136,7 +136,9 @@
   }
 }
 
-/* ── POK payment form theming ─────────────────────────────────────────────── */
+/* ── POK payment form + country modal theming ────────────────────────────── */
+/* Shared token block — applied to both the inline form and the portal modal  */
+.pok-payment-modal-backdrop,
 #pok-payment-container {
   --pok-primary:              oklch(0.68 0.16 12);
   --pok-primary-hover:        oklch(0.63 0.17 12);
@@ -166,9 +168,52 @@
   --pok-font:                 var(--font-mono);
 }
 
-#pok-payment-container * {
+#pok-payment-container *,
+.pok-payment-modal * {
   font-family: var(--font-mono) !important;
   letter-spacing: 0.04em;
+}
+
+/* Modal backdrop — dark scrim */
+.pok-payment-modal-backdrop {
+  background: oklch(0.08 0.04 320 / 0.85) !important;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* Modal panel */
+.pok-payment-modal {
+  border-radius: 0 !important;
+  border: 1px solid oklch(0.3 0.05 322) !important;
+  box-shadow: 0 24px 60px oklch(0.08 0.04 320 / 0.7) !important;
+}
+
+/* Search bar */
+.pok-payment-modal-search {
+  border-radius: 0 !important;
+  font-size: 13px !important;
+  letter-spacing: 0.06em !important;
+}
+
+/* Country list items */
+.pok-payment-option {
+  border-radius: 0 !important;
+  font-size: 12px !important;
+  letter-spacing: 0.06em !important;
+}
+
+/* Selected item — use clay accent, not blue */
+.pok-payment-option-selected,
+.pok-payment-option-selected:hover,
+.pok-payment-option-selected.pok-payment-option-active {
+  background: oklch(0.68 0.16 12 / 0.15) !important;
+  color: oklch(0.68 0.16 12) !important;
+}
+
+/* Hover / keyboard-active item */
+.pok-payment-option:hover,
+.pok-payment-option-active {
+  background: oklch(0.3 0.05 322 / 0.6) !important;
 }
 
 #pok-payment-container input,

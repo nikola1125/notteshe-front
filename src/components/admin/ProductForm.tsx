@@ -131,10 +131,16 @@ export function ProductForm({
     setColours((prev) => prev.filter((_, idx) => idx !== i));
   }
 
+  const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
+
   async function handleCoverChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = "";
+    if (file.size > MAX_IMAGE_BYTES) {
+      toast.error("Image must be under 10 MB.");
+      return;
+    }
     setUploadingCover(true);
     try {
       const base64 = await fileToBase64(file);
@@ -157,6 +163,10 @@ export function ProductForm({
     setUploadingGallery(true);
     try {
       for (const file of files) {
+        if (file.size > MAX_IMAGE_BYTES) {
+          toast.error(`${file.name} is over 10 MB — skipped.`);
+          continue;
+        }
         const base64 = await fileToBase64(file);
         const result = await uploadImageFn({ data: { base64 } });
         setImages((prev) => [

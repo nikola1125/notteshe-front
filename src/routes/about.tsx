@@ -82,7 +82,7 @@ function AboutPage() {
       </section>
 
       {/* ── 4. FULL IMAGE BREAK ──────────────────────────────────────── */}
-      <section className="h-[40vw] max-h-[280px] min-h-[160px] overflow-hidden md:h-[18vw]">
+      <section className="h-[60vw] max-h-[500px] min-h-[220px] overflow-hidden md:h-[38vw]">
         <img
           src={aboutMid}
           alt="Notteshe"

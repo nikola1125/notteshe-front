@@ -86,7 +86,7 @@ function AboutPage() {
         <img
           src={aboutMid}
           alt="Notteshe"
-          className="w-full max-h-[360px] object-cover object-center rounded-sm md:max-h-[420px]"
+          className="w-full max-h-[520px] object-cover object-center rounded-sm md:max-h-[640px]"
         />
       </section>
 

@@ -256,11 +256,19 @@ function AuditLogPage() {
 
       {/* Table */}
       <div className="overflow-x-auto rounded-lg border border-[var(--color-border)]">
-        <table className="w-full">
+        <table className="w-full table-fixed">
           <thead>
             <tr className="border-b border-[var(--color-border)] bg-[var(--color-paper)]">
-              {["Date", "Event", "POK Order ID", "Email", "Amount", "Detail", ""].map((h) => (
-                <th key={h} className="px-4 py-3 text-left font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
+              {([
+                ["Date",         "w-[160px]"],
+                ["Event",        "w-[120px]"],
+                ["POK Order ID", "w-[130px]"],
+                ["Email",        "w-[190px]"],
+                ["Amount",       "w-[90px]"],
+                ["Detail",       ""],
+                ["",             "w-[100px]"],
+              ] as [string, string][]).map(([h, cls]) => (
+                <th key={h} className={`px-4 py-3 text-left font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)] ${cls}`}>
                   {h}
                 </th>
               ))}

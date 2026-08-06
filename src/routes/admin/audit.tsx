@@ -335,7 +335,7 @@ function AuditLogPage() {
                       <td colSpan={7} className="px-6 py-4">
                         <div className="space-y-2">
                           <p className="font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]/60">Raw payload</p>
-                          <pre className="overflow-x-auto rounded border border-[var(--color-border)] bg-[var(--color-background)] p-4 font-mono text-[10px] text-[var(--color-foreground)] leading-relaxed">
+                          <pre className="overflow-x-auto whitespace-pre rounded border border-[var(--color-border)] bg-[var(--color-background)] p-4 font-mono text-[10px] text-[var(--color-foreground)] leading-relaxed" style={{ maxWidth: "calc(100vw - 14rem - 3rem)" }}>
                             {JSON.stringify(r.detail, null, 2)}
                           </pre>
                         </div>

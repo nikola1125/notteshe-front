@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 
 export const Route = createFileRoute("/contact")({
@@ -6,6 +6,7 @@ export const Route = createFileRoute("/contact")({
 });
 
 function ContactPage() {
+  const router = useRouter();
   const [form, setForm] = useState({ name: "", email: "", message: "" });
   const [errors, setErrors] = useState<Partial<typeof form>>({});
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
@@ -36,7 +37,18 @@ function ContactPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-[1600px] px-5 pb-32 pt-32 md:px-12 md:pt-40">
+      <div className="mx-auto max-w-[1600px] px-5 pb-32 pt-24 md:px-12 md:pt-32">
+
+        <button
+          onClick={() => router.history.back()}
+          className="mb-10 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-ink"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2">
+            <path d="M9 2 4 7l5 5" />
+          </svg>
+          Back
+        </button>
+
         <div className="grid grid-cols-1 gap-20 md:grid-cols-2">
 
           {/* Left */}
@@ -83,7 +95,8 @@ function ContactPage() {
                     onChange={(e) => set("message", e.target.value)}
                     rows={5}
                     placeholder="How can we help?"
-                    className={`mt-2 w-full resize-none border-b bg-transparent pb-2.5 text-[14px] text-ink outline-none placeholder:text-muted-foreground/30 transition-colors focus:border-ink/60 ${errors.message ? "border-clay" : "border-border"}`}
+                    style={{ fontSize: '16px' }}
+                    className={`mt-2 w-full resize-none border-b bg-transparent pb-2.5 text-ink outline-none placeholder:text-muted-foreground/30 transition-colors focus:border-ink/60 ${errors.message ? "border-clay" : "border-border"}`}
                   />
                   {errors.message && <p className="mt-1 font-mono text-[9px] uppercase tracking-widest text-clay">{errors.message}</p>}
                 </div>
@@ -123,7 +136,8 @@ function Field({ label, value, onChange, error, type = "text", placeholder }: Fi
       <input
         type={type} value={value} onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`mt-2 w-full border-b bg-transparent pb-2.5 text-[14px] text-ink outline-none placeholder:text-muted-foreground/30 transition-colors focus:border-ink/60 ${error ? "border-clay" : "border-border"}`}
+        style={{ fontSize: '16px' }}
+        className={`mt-2 w-full border-b bg-transparent pb-2.5 text-ink outline-none placeholder:text-muted-foreground/30 transition-colors focus:border-ink/60 ${error ? "border-clay" : "border-border"}`}
       />
       {error && <p className="mt-1 font-mono text-[9px] uppercase tracking-widest text-clay">{error}</p>}
     </div>

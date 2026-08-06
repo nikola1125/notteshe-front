@@ -24,6 +24,16 @@ export function Header() {
     }
     prevCount.current = cartCount;
   }, [cartCount]);
+
+  // Close both dropdowns on any scroll
+  useEffect(() => {
+    function onScroll() {
+      setMenuOpen(false);
+      setUserMenuOpen(false);
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   const wishlistCount = useWishlist((s) => s.ids.length);
 
   return (

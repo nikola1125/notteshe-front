@@ -192,7 +192,9 @@ function ShopPage() {
         <div className="mx-auto flex max-w-[1600px] items-center px-5 md:px-12">
 
           {/* Category tabs — scrollable, stops before the divider */}
-          <div className="flex min-w-0 flex-1 overflow-x-auto scrollbar-hide">
+          {/* Fade on the right hints that more tabs are hiding off-screen */}
+          <div className="relative min-w-0 flex-1 after:pointer-events-none after:absolute after:right-0 after:top-0 after:h-full after:w-10 after:bg-gradient-to-l after:from-background/90 after:to-transparent after:content-[''] md:after:hidden">
+          <div className="flex overflow-x-auto scrollbar-hide">
             <button
               onClick={() => setActiveCategoryId("all")}
               className={`shrink-0 border-b-[1.5px] px-4 py-4 font-mono text-[10px] uppercase tracking-widest transition-colors duration-200 md:px-5 ${
@@ -226,6 +228,7 @@ function ShopPage() {
             >
               Sale
             </button>
+          </div>
           </div>
 
           {/* Divider — always visible, categories scroll before it */}

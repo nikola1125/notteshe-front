@@ -19,7 +19,7 @@ function AboutPage() {
         />
         <div className="absolute inset-0 bg-black/55" />
 
-        <div className="absolute inset-0 flex flex-col justify-between px-8 py-10 md:px-14 md:py-14">
+        <div className="absolute inset-0 flex flex-col justify-between px-8 py-10 pt-20 md:px-14 md:py-14 md:pt-20">
           <div className="flex items-center justify-between">
             <span className="font-mono text-[9px] uppercase tracking-[0.4em] text-white/40">Our Story</span>
             <span className="font-mono text-[9px] uppercase tracking-[0.4em] text-white/40">Est. 2024</span>

@@ -256,19 +256,11 @@ function AuditLogPage() {
 
       {/* Table */}
       <div className="overflow-x-auto rounded-lg border border-[var(--color-border)]">
-        <table className="w-full table-fixed">
+        <table className="w-full">
           <thead>
             <tr className="border-b border-[var(--color-border)] bg-[var(--color-paper)]">
-              {([
-                ["Date",         "w-[160px]"],
-                ["Event",        "w-[120px]"],
-                ["POK Order ID", "w-[130px]"],
-                ["Email",        "w-[190px]"],
-                ["Amount",       "w-[90px]"],
-                ["Detail",       ""],
-                ["",             "w-[100px]"],
-              ] as [string, string][]).map(([h, cls]) => (
-                <th key={h} className={`px-4 py-3 text-left font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)] ${cls}`}>
+              {["Date", "Event", "POK Order ID", "Email", "Amount", "Detail", ""].map((h) => (
+                <th key={h} className="px-4 py-3 text-left font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
                   {h}
                 </th>
               ))}
@@ -340,12 +332,14 @@ function AuditLogPage() {
                   </tr>
                   {isExpanded && (
                     <tr key={`${r.id}-expanded`} className="bg-[var(--color-muted)]/10">
-                      <td colSpan={7} className="px-6 py-4">
-                        <div className="space-y-2">
+                      <td colSpan={7} className="overflow-hidden p-0">
+                        <div className="px-6 py-4 space-y-2">
                           <p className="font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]/60">Raw payload</p>
-                          <pre className="w-full max-w-full overflow-x-auto whitespace-pre rounded border border-[var(--color-border)] bg-[var(--color-background)] p-4 font-mono text-[10px] text-[var(--color-foreground)] leading-relaxed">
-                            {JSON.stringify(r.detail, null, 2)}
-                          </pre>
+                          <div className="overflow-x-auto rounded border border-[var(--color-border)]">
+                            <pre className="whitespace-pre bg-[var(--color-background)] p-4 font-mono text-[10px] text-[var(--color-foreground)] leading-relaxed">
+                              {JSON.stringify(r.detail, null, 2)}
+                            </pre>
+                          </div>
                         </div>
                       </td>
                     </tr>

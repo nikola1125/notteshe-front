@@ -137,110 +137,156 @@
 }
 
 /* ── POK payment form + country modal theming ────────────────────────────── */
-/* Shared token block — applied to both the inline form and the portal modal  */
-.pok-payment-modal-backdrop,
+/*
+ * The modal is a React portal on document.body — outside #pok-payment-container.
+ * POK's own CSS re-declares the default tokens on .pok-payment-modal-backdrop.
+ * We need !important on each custom property to win that cascade.
+ */
+
+/* Tokens — form container */
 #pok-payment-container {
-  --pok-primary:              oklch(0.68 0.16 12);
-  --pok-primary-hover:        oklch(0.63 0.17 12);
-  --pok-primary-active:       oklch(0.58 0.18 12);
-  --pok-primary-tint:         oklch(0.68 0.16 12 / 0.06);
-  --pok-primary-tint-strong:  oklch(0.68 0.16 12 / 0.12);
-  --pok-primary-ring:         oklch(0.68 0.16 12 / 0.25);
-
-  --pok-surface:              oklch(0.2 0.055 320);
-  --pok-surface-soft:         oklch(0.23 0.055 320);
-  --pok-surface-overlay:      oklch(0.16 0.05 320);
-
-  --pok-text:                 oklch(0.96 0.012 330);
-  --pok-text-muted:           oklch(0.72 0.03 325);
-  --pok-text-on-primary:      oklch(0.98 0.005 330);
-
-  --pok-border:               oklch(0.3 0.05 322);
-  --pok-border-strong:        oklch(0.38 0.055 322);
-
-  --pok-radius:               0px;
-  --pok-radius-sm:            0px;
-
-  --pok-shadow-card:          none;
-  --pok-shadow-input:         none;
-  --pok-shadow-dropdown:      0 8px 24px oklch(0.1 0.05 320 / 0.6);
-
-  --pok-font:                 var(--font-mono);
+  --pok-primary:              #b85c3a !important;
+  --pok-primary-hover:        #a34f30 !important;
+  --pok-primary-active:       #8f4328 !important;
+  --pok-primary-tint:         rgba(184,92,58,0.06) !important;
+  --pok-primary-tint-strong:  rgba(184,92,58,0.12) !important;
+  --pok-primary-ring:         rgba(184,92,58,0.25) !important;
+  --pok-surface:              #201520 !important;
+  --pok-surface-soft:         #261d26 !important;
+  --pok-text:                 #f2eaf0 !important;
+  --pok-text-muted:           #a08898 !important;
+  --pok-border:               #3d2d3d !important;
+  --pok-border-strong:        #503a50 !important;
+  --pok-radius:               0px !important;
+  --pok-radius-sm:            0px !important;
+  --pok-shadow-card:          none !important;
+  --pok-shadow-input:         none !important;
 }
 
-#pok-payment-container *,
-.pok-payment-modal * {
-  font-family: var(--font-mono) !important;
-  letter-spacing: 0.04em;
-}
-
-/* Modal backdrop — dark scrim */
+/* Tokens — modal portal (same values, duplicated so the portal subtree resolves them) */
 .pok-payment-modal-backdrop {
-  background: oklch(0.08 0.04 320 / 0.85) !important;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  --pok-primary:              #b85c3a !important;
+  --pok-primary-hover:        #a34f30 !important;
+  --pok-primary-active:       #8f4328 !important;
+  --pok-primary-tint:         rgba(184,92,58,0.06) !important;
+  --pok-primary-ring:         rgba(184,92,58,0.25) !important;
+  --pok-surface:              #201520 !important;
+  --pok-surface-soft:         #261d26 !important;
+  --pok-text:                 #f2eaf0 !important;
+  --pok-text-muted:           #a08898 !important;
+  --pok-border:               #3d2d3d !important;
+  --pok-border-strong:        #503a50 !important;
+  --pok-radius:               0px !important;
+  --pok-radius-sm:            0px !important;
+  /* Dark semi-transparent backdrop */
+  background: rgba(10, 6, 12, 0.82) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
 }
 
 /* Modal panel */
 .pok-payment-modal {
+  background: #201520 !important;
   border-radius: 0 !important;
-  border: 1px solid oklch(0.3 0.05 322) !important;
-  box-shadow: 0 24px 60px oklch(0.08 0.04 320 / 0.7) !important;
+  border: 1px solid #3d2d3d !important;
+  box-shadow: 0 32px 64px rgba(0,0,0,0.7) !important;
 }
 
-/* Search bar */
+/* Modal header */
+.pok-payment-modal-header {
+  border-bottom: 1px solid #3d2d3d !important;
+  background: #201520 !important;
+}
+
+/* Search input — must stay ≥ 16px or iOS Safari zooms on focus */
 .pok-payment-modal-search {
+  background: #261d26 !important;
+  color: #f2eaf0 !important;
+  border: 1px solid #3d2d3d !important;
   border-radius: 0 !important;
-  font-size: 13px !important;
-  letter-spacing: 0.06em !important;
+  font-size: 16px !important;
+  font-family: var(--font-mono) !important;
+  letter-spacing: 0.05em !important;
 }
 
-/* Country list items */
+.pok-payment-modal-search::placeholder {
+  color: #a08898 !important;
+  opacity: 0.6 !important;
+}
+
+.pok-payment-modal-search:focus {
+  border-color: #503a50 !important;
+  outline: none !important;
+}
+
+/* Close button */
+.pok-payment-modal-close {
+  color: #a08898 !important;
+}
+.pok-payment-modal-close:hover {
+  color: #f2eaf0 !important;
+  background: #261d26 !important;
+}
+
+/* Scrollable list area */
+.pok-payment-modal-body {
+  background: #201520 !important;
+}
+.pok-payment-modal-body::-webkit-scrollbar-thumb {
+  background: #3d2d3d !important;
+}
+
+/* List items */
 .pok-payment-option {
+  background: transparent !important;
+  color: #f2eaf0 !important;
   border-radius: 0 !important;
-  font-size: 12px !important;
-  letter-spacing: 0.06em !important;
+  font-size: 14px !important;
+  font-family: var(--font-mono) !important;
+  letter-spacing: 0.04em !important;
+}
+.pok-payment-option:hover,
+.pok-payment-option-active {
+  background: #261d26 !important;
 }
 
-/* Selected item — use clay accent, not blue */
+/* Selected country — clay accent */
 .pok-payment-option-selected,
 .pok-payment-option-selected:hover,
 .pok-payment-option-selected.pok-payment-option-active {
-  background: oklch(0.68 0.16 12 / 0.15) !important;
-  color: oklch(0.68 0.16 12) !important;
+  background: rgba(184,92,58,0.15) !important;
+  color: #b85c3a !important;
 }
 
-/* Hover / keyboard-active item */
-.pok-payment-option:hover,
-.pok-payment-option-active {
-  background: oklch(0.3 0.05 322 / 0.6) !important;
+/* Font overrides for the form fields */
+#pok-payment-container * {
+  font-family: var(--font-mono) !important;
 }
 
 #pok-payment-container input,
 #pok-payment-container select {
   border-radius: 0 !important;
-  font-size: 12px !important;
-  text-transform: uppercase;
-  letter-spacing: 0.08em !important;
+  /* Keep ≥ 16px to prevent iOS zoom */
+  font-size: 16px !important;
+  letter-spacing: 0.05em !important;
 }
 
-#pok-payment-container input::placeholder,
-#pok-payment-container select::placeholder {
-  opacity: 0.35;
+#pok-payment-container input::placeholder {
+  opacity: 0.35 !important;
 }
 
 #pok-payment-container label {
-  font-size: 9px !important;
-  letter-spacing: 0.3em !important;
-  text-transform: uppercase;
-  opacity: 0.5;
+  font-size: 10px !important;
+  letter-spacing: 0.25em !important;
+  text-transform: uppercase !important;
+  opacity: 0.55 !important;
 }
 
 #pok-payment-container button[type="submit"] {
   border-radius: 0 !important;
-  font-size: 10px !important;
-  letter-spacing: 0.22em !important;
-  text-transform: uppercase;
+  font-size: 11px !important;
+  letter-spacing: 0.2em !important;
+  text-transform: uppercase !important;
   font-weight: 400 !important;
 }
 /* ─────────────────────────────────────────────────────────────────────────── */

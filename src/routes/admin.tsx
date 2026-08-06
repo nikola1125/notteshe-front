@@ -38,7 +38,7 @@ function AdminLayout() {
     <div className="flex min-h-[100dvh] bg-[var(--color-background)] text-[var(--color-foreground)]">
       <div className="flex w-full flex-col lg:flex-row">
         <AdminSidebar adminName={admin.name} adminRole={admin.role} />
-        <main className="flex-1">
+        <main className="flex-1 lg:ml-56">
           <Outlet />
         </main>
       </div>

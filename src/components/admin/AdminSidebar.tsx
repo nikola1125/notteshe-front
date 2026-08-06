@@ -167,7 +167,7 @@ export function AdminSidebar({ adminName, adminRole }: AdminSidebarProps) {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden w-56 shrink-0 border-r border-[var(--color-border)] bg-[var(--color-paper)] lg:flex lg:flex-col sticky top-0 h-screen overflow-y-auto">
+      <aside className="hidden w-56 shrink-0 border-r border-[var(--color-border)] bg-[var(--color-paper)] lg:flex lg:flex-col fixed top-0 left-0 h-screen overflow-y-auto z-30">
         {sidebarContent}
       </aside>
 

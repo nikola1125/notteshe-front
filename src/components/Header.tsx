@@ -52,7 +52,7 @@ export function Header() {
         {/* Actions */}
         <div className="flex items-center">
           {/* Account */}
-          <div className="relative">
+          <div className="relative" onMouseLeave={() => setUserMenuOpen(false)}>
             {session?.user ? (
               <button
                 onClick={() => setUserMenuOpen((v) => !v)}
@@ -178,9 +178,14 @@ export function Header() {
 
       <div className="mx-5 border-b border-border/40 md:mx-12" />
 
+      {/* Mobile menu backdrop */}
+      {menuOpen && (
+        <div className="fixed inset-0 z-40 md:hidden" onClick={() => setMenuOpen(false)} />
+      )}
+
       {/* Mobile dropdown */}
       <div
-        className="overflow-hidden transition-[max-height] duration-500 ease-in-out md:hidden"
+        className="relative z-50 overflow-hidden transition-[max-height] duration-500 ease-in-out md:hidden"
         style={{ maxHeight: menuOpen ? "360px" : "0px" }}
       >
         <nav className="flex flex-col gap-0 bg-background/95 px-5 pb-5 pt-3">

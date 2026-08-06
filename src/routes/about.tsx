@@ -24,9 +24,8 @@ function AboutPage() {
             <span className="font-mono text-[9px] uppercase tracking-[0.4em] text-white/40">Our Story</span>
             <span className="font-mono text-[9px] uppercase tracking-[0.4em] text-white/40">Est. 2024</span>
           </div>
-
           <div>
-            <p className="font-mono text-[9px] uppercase tracking-[0.35em] text-white/30 mb-6">Tirana, Albania</p>
+            <p className="font-mono text-[9px] uppercase tracking-[0.35em] text-white/30 mb-4">Tirana, Albania</p>
             <h1 className="serif text-[clamp(3rem,10vw,7rem)] font-light leading-[1.0] text-white">
               Rooted<br />in craft,<br />dressed<br />in night.
             </h1>
@@ -35,11 +34,11 @@ function AboutPage() {
       </section>
 
       {/* ── 2. MANIFESTO BAR ─────────────────────────────────────────── */}
-      <section className="bg-muted px-8 py-16 md:px-14 md:py-20">
+      <section className="bg-muted px-8 py-14 md:px-14 md:py-20">
         <p className="serif text-2xl font-light leading-[1.4] text-white md:text-4xl md:leading-[1.3] max-w-3xl">
           "Notteshe was born from a belief that clothing should feel like a second skin — unhurried, intentional, and made to last far beyond a single season."
         </p>
-        <div className="mt-10 flex gap-10 border-t border-white/10 pt-8">
+        <div className="mt-8 flex gap-8 border-t border-white/10 pt-6">
           {[["Founded", "2024"], ["Origin", "Tirana, AL"], ["Made in", "IT · JP"], ["Seasons", "Two / year"]].map(([k, v]) => (
             <div key={k}>
               <p className="font-mono text-[8px] uppercase tracking-[0.3em] text-white/25">{k}</p>
@@ -52,12 +51,12 @@ function AboutPage() {
       {/* ── 3. ORIGIN ────────────────────────────────────────────────── */}
       <section className="border-b border-border">
         <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr]">
-          <div className="px-8 py-16 md:px-14 md:py-24">
+          <div className="px-8 py-14 md:px-14 md:py-20">
             <p className="font-mono text-[9px] uppercase tracking-[0.35em] text-muted-foreground">01 — The Origin</p>
-            <h2 className="serif mt-8 text-4xl font-light leading-[1.1] text-ink md:text-5xl">
+            <h2 className="serif mt-6 text-4xl font-light leading-[1.1] text-ink md:text-5xl">
               Born in Tirana,<br />cut for the world.
             </h2>
-            <p className="mt-8 text-[14px] font-light leading-relaxed text-ink/60">
+            <p className="mt-6 text-[14px] font-light leading-relaxed text-ink/60">
               Our collections draw from the textures and silences of the Mediterranean — natural fibres, muted tones, and shapes that move with the body rather than against it.
             </p>
             <p className="mt-4 text-[14px] font-light leading-relaxed text-ink/45">
@@ -67,12 +66,12 @@ function AboutPage() {
 
           <div className="hidden md:block bg-border" />
 
-          <div className="px-8 py-16 md:px-14 md:py-24">
+          <div className="px-8 py-14 md:px-14 md:py-20">
             <p className="font-mono text-[9px] uppercase tracking-[0.35em] text-muted-foreground">02 — The Name</p>
-            <h2 className="serif mt-8 text-4xl font-light leading-[1.1] text-ink md:text-5xl">
+            <h2 className="serif mt-6 text-4xl font-light leading-[1.1] text-ink md:text-5xl">
               Notte — the quiet<br />hours of making.
             </h2>
-            <p className="mt-8 text-[14px] font-light leading-relaxed text-ink/60">
+            <p className="mt-6 text-[14px] font-light leading-relaxed text-ink/60">
               Notteshe comes from the Albanian word for "night" — a nod to the quiet hours when creativity feels most honest, and to the timeless quality we bring to everything we make.
             </p>
             <p className="mt-4 text-[14px] font-light leading-relaxed text-ink/45">
@@ -83,7 +82,7 @@ function AboutPage() {
       </section>
 
       {/* ── 4. FULL IMAGE BREAK ──────────────────────────────────────── */}
-      <section className="h-[70vw] max-h-[680px] min-h-[300px] overflow-hidden md:h-[55vw]">
+      <section className="h-[70vw] max-h-[560px] min-h-[260px] overflow-hidden md:h-[50vw]">
         <img
           src={aboutMid}
           alt="Notteshe"
@@ -92,46 +91,44 @@ function AboutPage() {
       </section>
 
       {/* ── 5. PHILOSOPHY ────────────────────────────────────────────── */}
-      <section className="bg-muted text-white">
-        <div className="px-8 py-20 md:px-14 md:py-32">
-          <p className="font-mono text-[9px] uppercase tracking-[0.35em] text-white/25">Philosophy</p>
-          <h2 className="serif mt-8 text-[clamp(2.5rem,7vw,5.5rem)] font-light leading-[1.05] max-w-5xl">
-            We believe{" "}
-            <em className="not-italic text-clay">restraint</em>{" "}
-            is the most radical thing a garment can wear.
-          </h2>
+      <section className="bg-muted text-white px-8 py-14 md:px-14 md:py-20">
+        <p className="font-mono text-[9px] uppercase tracking-[0.35em] text-white/25">Philosophy</p>
+        <h2 className="serif mt-6 text-[clamp(2.2rem,6vw,4.5rem)] font-light leading-[1.05] max-w-4xl">
+          We believe{" "}
+          <em className="not-italic text-clay">restraint</em>{" "}
+          is the most radical thing a garment can wear.
+        </h2>
 
-          <div className="mt-16 grid grid-cols-1 gap-0 border-t border-white/10 md:grid-cols-3">
-            {[
-              { n: "I", title: "Slow fashion", body: "Two collections a year. No drops, no hype — just considered design." },
-              { n: "II", title: "Natural craft", body: "Six mills in Italy and Japan. Cut in ateliers we visit ourselves." },
-              { n: "III", title: "Transparent", body: "We show our cost of production. No inflated markups." },
-            ].map((v, i) => (
-              <div key={v.n} className={`py-10 pr-8 md:py-12 md:pr-14 ${i > 0 ? "border-t border-white/10 md:border-t-0 md:border-l md:pl-14 md:pr-0" : ""}`}>
-                <p className="serif text-sm text-white/20">{v.n}</p>
-                <p className="mt-3 font-mono text-[9px] uppercase tracking-[0.3em] text-white/40">{v.title}</p>
-                <p className="mt-3 text-[13px] font-light leading-relaxed text-white/50">{v.body}</p>
-              </div>
-            ))}
-          </div>
+        <div className="mt-10 grid grid-cols-1 gap-0 border-t border-white/10 md:grid-cols-3">
+          {[
+            { n: "I", title: "Slow fashion", body: "Two collections a year. No drops, no hype — just considered design." },
+            { n: "II", title: "Natural craft", body: "Six mills in Italy and Japan. Cut in ateliers we visit ourselves." },
+            { n: "III", title: "Transparent", body: "We show our cost of production. No inflated markups." },
+          ].map((v, i) => (
+            <div key={v.n} className={`py-8 pr-8 md:py-10 md:pr-14 ${i > 0 ? "border-t border-white/10 md:border-t-0 md:border-l md:pl-14 md:pr-0" : ""}`}>
+              <p className="serif text-sm text-white/20">{v.n}</p>
+              <p className="mt-3 font-mono text-[9px] uppercase tracking-[0.3em] text-white/40">{v.title}</p>
+              <p className="mt-3 text-[13px] font-light leading-relaxed text-white/50">{v.body}</p>
+            </div>
+          ))}
         </div>
       </section>
 
       {/* ── 6. GRUA E FORTË ──────────────────────────────────────────── */}
-      <section className="border-b border-border px-8 py-20 md:px-14 md:py-32">
-        <div className="grid grid-cols-1 gap-14 md:grid-cols-[1fr_1.2fr] md:gap-20">
+      <section className="border-b border-border px-8 py-14 md:px-14 md:py-20">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-[1fr_1.2fr] md:gap-16">
           <div>
             <p className="font-mono text-[9px] uppercase tracking-[0.35em] text-muted-foreground">Identity</p>
-            <h2 className="serif mt-8 text-5xl font-light leading-[1.05] md:text-6xl">
+            <h2 className="serif mt-6 text-5xl font-light leading-[1.05] md:text-6xl">
               Notteshe —<br />
               <em className="not-italic text-clay">Grua e Fortë.</em>
             </h2>
-            <p className="mt-6 font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground/60">
+            <p className="mt-4 font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground/60">
               The strong woman.
             </p>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-5">
             <p className="text-[14px] font-light leading-relaxed text-ink/65">
               In Albanian, <em className="not-italic text-ink font-normal">grua e fortë</em> — the strong woman. Not strong in the way the world demands of her: loud, unyielding, armored. Strong in the way she has always known herself to be: quiet, certain, unbreakable.
             </p>
@@ -141,7 +138,7 @@ function AboutPage() {
             <p className="text-[14px] font-light leading-relaxed text-ink/50">
               Every silhouette is sculpted with intention — from the sun-warmed streets of Tirana to wherever she chooses to stand.
             </p>
-            <div className="border-t border-border pt-8">
+            <div className="border-t border-border pt-6">
               <p className="serif text-xl font-light text-ink md:text-2xl">
                 Notteshe is born in Albania.<br />Worn by the world.
               </p>
@@ -154,11 +151,11 @@ function AboutPage() {
       </section>
 
       {/* ── 7. CTA ───────────────────────────────────────────────────── */}
-      <section className="bg-muted px-8 py-24 md:px-14 md:py-36">
-        <div className="flex flex-col gap-14 md:flex-row md:items-end md:justify-between">
+      <section className="bg-muted px-8 py-14 md:px-14 md:py-20">
+        <div className="flex flex-col gap-10 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="font-mono text-[9px] uppercase tracking-[0.35em] text-white/25">Explore the collection</p>
-            <h2 className="serif mt-5 text-6xl font-light text-white md:text-8xl">
+            <h2 className="serif mt-4 text-6xl font-light text-white md:text-8xl">
               Wear<br />the night.
             </h2>
           </div>

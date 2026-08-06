@@ -347,3 +347,94 @@ export async function pokRefund(pokOrderId: string, reason?: string): Promise<vo
   if (reason) body.refundReason = reason;
   await pokAction(`${pokOrderId}/refund`, body);
 }
+
+// ─── Saved card / card tokenization APIs ─────────────────────────────────────
+
+export async function pokTokenizeCard(cardData: {
+  csFlexCard: { jwe: string; [k: string]: unknown };
+  billingInfo: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    countryCode: string;
+    administrativeArea: string;
+    locality: string;
+    address1: string;
+    postalCode: string;
+    phoneNumber: string;
+  };
+  securityCode: string;
+}): Promise<{ id: string; hiddenNumber: string }> {
+  const token = await pokAuth();
+  const res = await fetch(`${POK_BASE}credit-debit-cards/tokenize-guest-card`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(cardData),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`POK tokenize-guest-card failed (${res.status}): ${text}`);
+  }
+  const json = await res.json();
+  const card = json?.data?.creditDebitCard;
+  if (!card?.id) throw new Error("POK tokenize-guest-card returned no card id");
+  return { id: card.id, hiddenNumber: card.hiddenNumber ?? "" };
+}
+
+export async function pokSetupTokenized3ds(
+  creditDebitCardId: string,
+  pokOrderId: string
+): Promise<{
+  payerAuthSetupReferenceId: string;
+  deviceDataCollection?: { accessToken: string; url: string };
+  creditDebitCardId: string;
+}> {
+  const token = await pokAuth();
+  const res = await fetch(`${POK_BASE}credit-debit-cards/${creditDebitCardId}/setup-tokenized-3ds`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ sdkOrder: { id: pokOrderId } }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`POK setup-tokenized-3ds failed (${res.status}): ${text}`);
+  }
+  const json = await res.json();
+  const pa = json?.data?.payerAuthentication;
+  if (!pa) throw new Error("POK setup-tokenized-3ds returned no payerAuthentication");
+  return {
+    payerAuthSetupReferenceId: pa.payerAuthSetupReferenceId,
+    deviceDataCollection: pa.deviceDataCollection ?? undefined,
+    creditDebitCardId: pa.creditDebitCard?.id ?? creditDebitCardId,
+  };
+}
+
+export async function pokGuestConfirm(
+  pokOrderId: string,
+  creditCardId: string,
+  consumerAuthInfo?: Record<string, unknown>
+): Promise<void> {
+  await pokAction(`${pokOrderId}/guest-confirm`, {
+    creditCardId,
+    ...(consumerAuthInfo ? { consumerAuthenticationInformation: consumerAuthInfo } : {}),
+  });
+}
+
+export async function pokGetGuestCardsInfo(cardIds: string[]): Promise<
+  Array<{ brand?: string; number?: string; label?: string; type?: string }>
+> {
+  if (cardIds.length === 0) return [];
+  try {
+    const token = await pokAuth();
+    const res = await fetch(`${POK_BASE}credit-debit-cards/get-guest-cards-information`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ cardIds }),
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json?.data?.cards ?? [];
+  } catch {
+    return [];
+  }
+}

@@ -1,6 +1,7 @@
 import "@nebula-ltd/pok-payments-js/lib/index.css";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef, Suspense, lazy } from "react";
+import type { AddCardData, PayerAuthentication } from "@nebula-ltd/pok-payments-js";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { useCart } from "@/store/cartStore";
@@ -14,6 +15,22 @@ const GuestCheckoutForm = lazy(() =>
     default: m.GuestCheckoutForm,
   }))
 );
+
+const AddCardForm = lazy(() =>
+  import("@nebula-ltd/pok-payments-js/react").then((m) => ({
+    default: m.AddCardForm,
+  }))
+);
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface SavedCardDisplay {
+  id: string;
+  pokCardId: string;
+  brand: string | null;
+  lastFour: string | null;
+  label: string | null;
+}
 
 // ─── Server functions ─────────────────────────────────────────────────────────
 
@@ -95,13 +112,12 @@ const placeCodOrder = createServerFn({ method: "POST" })
       orders, orderItem, productSize, product, shippingConfig,
       discountCode: discountCodeTable, auditLog,
     } = await import("@/db/schema");
-    const { inArray, and, eq, sql, gt } = await import("drizzle-orm");
+    const { inArray, and, eq, sql } = await import("drizzle-orm");
     const { randomUUID } = await import("node:crypto");
 
     const session = await requireAuth();
     const userId = session.user.id;
 
-    // Server-side prices
     const productIds = [...new Set(data.items.map((i) => i.productId))];
     const [productRows, sizeRows] = await Promise.all([
       db().select({ id: product.id, price: product.price, originalPrice: product.originalPrice, isSale: product.isSale })
@@ -117,7 +133,6 @@ const placeCodOrder = createServerFn({ method: "POST" })
       return { ...item, price: p.price, originalPrice: p.isSale ? (p.originalPrice ?? null) : null };
     });
 
-    // Stock check
     for (const item of data.items) {
       const row = sizeRows.find((s) => s.productId === item.productId && s.label === item.size);
       if (!row || row.stock < item.quantity) {
@@ -125,14 +140,12 @@ const placeCodOrder = createServerFn({ method: "POST" })
       }
     }
 
-    // Totals
     const subtotal = itemsWithPrices.reduce((s, i) => s + i.price * i.quantity, 0);
     const [cfg] = await db()
       .select({ enabled: shippingConfig.enabled, fee: shippingConfig.fee, freeThreshold: shippingConfig.freeThreshold })
       .from(shippingConfig).limit(1);
     const shippingFee = cfg?.enabled ? (subtotal >= (cfg.freeThreshold ?? 200) ? 0 : (cfg.fee ?? 12)) : 0;
 
-    // Discount validation
     let discountAmount = 0;
     let validatedDiscountCode: string | null = null;
     if (data.discountCode) {
@@ -154,7 +167,6 @@ const placeCodOrder = createServerFn({ method: "POST" })
 
     const total = Math.max(0, subtotal + shippingFee - discountAmount);
 
-    // Decrement stock
     for (const item of itemsWithPrices) {
       const updated = await db()
         .update(productSize)
@@ -319,10 +331,153 @@ const getCartPrices = createServerFn({ method: "POST" })
     return products.map((p) => ({ id: p.id, price: p.price ?? 0, originalPrice: p.isSale ? p.originalPrice : null }));
   });
 
+const getSavedCards = createServerFn({ method: "GET" }).handler(async (): Promise<SavedCardDisplay[]> => {
+  const { requireAuth } = await import("@/lib/auth/session");
+  const { db } = await import("@/db");
+  const { savedCard } = await import("@/db/schema");
+  const { eq, desc } = await import("drizzle-orm");
+
+  const session = await requireAuth();
+  const rows = await db()
+    .select()
+    .from(savedCard)
+    .where(eq(savedCard.userId, session.user.id))
+    .orderBy(desc(savedCard.createdAt));
+
+  return rows.map((r) => ({
+    id: r.id,
+    pokCardId: r.pokCardId,
+    brand: r.brand,
+    lastFour: r.lastFour,
+    label: r.label,
+  }));
+});
+
+const AddCardDataSchema = z.object({
+  csFlexCard: z.object({ jwe: z.string() }).passthrough(),
+  billingInfo: z.object({
+    firstName: z.string(),
+    lastName: z.string(),
+    email: z.string(),
+    countryCode: z.string(),
+    administrativeArea: z.string(),
+    locality: z.string(),
+    address1: z.string(),
+    postalCode: z.string(),
+    phoneNumber: z.string(),
+  }),
+  securityCode: z.string(),
+});
+
+const tokenizeAndSaveCard = createServerFn({ method: "POST" })
+  .validator((d: unknown) => AddCardDataSchema.parse(d))
+  .handler(async ({ data }) => {
+    const { requireAuth } = await import("@/lib/auth/session");
+    const { db } = await import("@/db");
+    const { savedCard } = await import("@/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const { randomUUID } = await import("node:crypto");
+    const { pokTokenizeCard, pokGetGuestCardsInfo } = await import("@/lib/pok");
+
+    const session = await requireAuth();
+    const userId = session.user.id;
+
+    // Tokenize the card via POK
+    const { id: pokCardId, hiddenNumber } = await pokTokenizeCard({
+      csFlexCard: data.csFlexCard,
+      billingInfo: data.billingInfo,
+      securityCode: data.securityCode,
+    });
+
+    // If this card is already saved for this user, return the existing record
+    const existing = await db()
+      .select({ id: savedCard.id })
+      .from(savedCard)
+      .where(eq(savedCard.pokCardId, pokCardId))
+      .limit(1);
+    if (existing[0]) return { id: existing[0].id };
+
+    // Fetch display info (brand, masked number)
+    const [cardInfo] = await pokGetGuestCardsInfo([pokCardId]);
+
+    const brand = cardInfo?.brand ?? null;
+    const number = cardInfo?.number ?? hiddenNumber;
+    const lastFour = number?.slice(-4) ?? null;
+    const label = brand && lastFour ? `${brand} **** ${lastFour}` : lastFour ? `**** ${lastFour}` : null;
+
+    const id = randomUUID();
+    await db().insert(savedCard).values({ id, userId, pokCardId, brand, lastFour, label });
+    return { id };
+  });
+
+const setupSavedCard = createServerFn({ method: "POST" })
+  .validator((d: unknown) =>
+    z.object({ pokOrderId: z.string(), savedCardDbId: z.string() }).parse(d)
+  )
+  .handler(async ({ data }) => {
+    const { requireAuth } = await import("@/lib/auth/session");
+    const { db } = await import("@/db");
+    const { savedCard } = await import("@/db/schema");
+    const { and, eq } = await import("drizzle-orm");
+    const { pokSetupTokenized3ds } = await import("@/lib/pok");
+
+    const session = await requireAuth();
+
+    // Verify the card belongs to the current user
+    const [card] = await db()
+      .select()
+      .from(savedCard)
+      .where(and(eq(savedCard.id, data.savedCardDbId), eq(savedCard.userId, session.user.id)))
+      .limit(1);
+
+    if (!card) throw new Error("Saved card not found.");
+
+    const setup = await pokSetupTokenized3ds(card.pokCardId, data.pokOrderId);
+
+    return {
+      payerAuthSetupReferenceId: setup.payerAuthSetupReferenceId,
+      deviceDataCollection: setup.deviceDataCollection ?? null,
+      pokCardId: setup.creditDebitCardId,
+    };
+  });
+
+const confirmSavedCardPayment = createServerFn({ method: "POST" })
+  .validator((d: unknown) =>
+    z.object({ pokOrderId: z.string(), pokCardId: z.string() }).parse(d)
+  )
+  .handler(async ({ data }) => {
+    const { requireAuth } = await import("@/lib/auth/session");
+    const { pokGuestConfirm } = await import("@/lib/pok");
+    await requireAuth();
+    await pokGuestConfirm(data.pokOrderId, data.pokCardId);
+    return { success: true };
+  });
+
+const deleteSavedCard = createServerFn({ method: "POST" })
+  .validator((d: unknown) => z.object({ savedCardDbId: z.string() }).parse(d))
+  .handler(async ({ data }) => {
+    const { requireAuth } = await import("@/lib/auth/session");
+    const { db } = await import("@/db");
+    const { savedCard } = await import("@/db/schema");
+    const { and, eq } = await import("drizzle-orm");
+
+    const session = await requireAuth();
+    await db()
+      .delete(savedCard)
+      .where(and(eq(savedCard.id, data.savedCardDbId), eq(savedCard.userId, session.user.id)));
+    return { success: true };
+  });
+
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export const Route = createFileRoute("/checkout")({
-  loader: () => getShipping(),
+  loader: async () => {
+    const [shippingData, savedCardsData] = await Promise.all([
+      getShipping(),
+      getSavedCards().catch(() => [] as SavedCardDisplay[]),
+    ]);
+    return { ...shippingData, savedCards: savedCardsData };
+  },
   component: CheckoutPage,
 });
 
@@ -345,8 +500,10 @@ const EMPTY_FORM: ShippingForm = {
   address: "", address2: "", city: "", postalCode: "", country: "",
 };
 
-type PaymentMethod = "cod" | "card";
-type CheckoutStep = "details" | "initiating" | "card-payment";
+type PaymentMethod = "cod" | "new-card" | "saved-card";
+type CheckoutStep = "details" | "initiating" | "card-payment" | "saved-card-payment" | "save-card-prompt";
+
+const POK_ENV = (typeof import.meta !== "undefined" && import.meta.env?.VITE_POK_ENV as "production" | "staging") || "staging";
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -354,12 +511,22 @@ function CheckoutPage() {
   const { items, addItem, removeItem, updateQuantity, clearCart } = useCart();
   const { data: session, isPending: sessionLoading } = useSession();
   const { openAuthModal } = useAuthStore();
-  const shippingCfg = Route.useLoaderData();
+  const loaderData = Route.useLoaderData();
+  const shippingCfg = loaderData;
+  const savedCards: SavedCardDisplay[] = loaderData.savedCards ?? [];
   const navigate = useNavigate();
 
+  const hasSavedCards = savedCards.length > 0;
+
   const [step, setStep] = useState<CheckoutStep>("details");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cod");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    hasSavedCards ? "saved-card" : "cod"
+  );
+  const [selectedSavedCardId, setSelectedSavedCardId] = useState<string | null>(
+    savedCards[0]?.id ?? null
+  );
   const [pokOrderId, setPokOrderId] = useState<string | null>(null);
+  const [payerAuth, setPayerAuth] = useState<PayerAuthentication | null>(null);
   const [mounted, setMounted] = useState(false);
 
   const [form, setForm] = useState<ShippingForm>(EMPTY_FORM);
@@ -377,8 +544,16 @@ function CheckoutPage() {
   } | null>(null);
   const [priceWarning, setPriceWarning] = useState(false);
 
+  // Save-card-prompt state (shown after a new card payment succeeds)
+  const [cardSaving, setCardSaving] = useState(false);
+  const [cardSaved, setCardSaved] = useState(false);
+
+  // Saved cards list (mutable — can add/delete without re-loading)
+  const [localSavedCards, setLocalSavedCards] = useState<SavedCardDisplay[]>(savedCards);
+
   useEffect(() => setMounted(true), []);
 
+  // Sync price changes from server
   useEffect(() => {
     if (items.length === 0) return;
     const ids = [...new Set(items.map((i) => i.productId))];
@@ -402,6 +577,7 @@ function CheckoutPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Pre-fill form from session
   useEffect(() => {
     if (!session?.user) return;
     const fullName = session.user.name ?? "";
@@ -416,13 +592,34 @@ function CheckoutPage() {
     }));
   }, [session?.user?.id]);
 
+  // Mount setUpCardTokenPayment SDK when we enter saved-card-payment step
+  useEffect(() => {
+    if (step !== "saved-card-payment" || !payerAuth || !pokOrderId || !mounted) return;
+
+    let cancelled = false;
+
+    import("@nebula-ltd/pok-payments-js").then(({ setUpCardTokenPayment }) => {
+      if (cancelled) return;
+      setUpCardTokenPayment({
+        containerId: "pok-saved-card-container",
+        orderId: pokOrderId,
+        payerAuthentication: payerAuth,
+        env: POK_ENV,
+        onSuccess: handleSavedCardPokSuccess,
+        onError: handlePokError,
+      });
+    }).catch(() => {});
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, payerAuth, pokOrderId, mounted]);
+
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
   const shipping = !shippingCfg.enabled ? 0
     : subtotal >= shippingCfg.freeThreshold ? 0
     : shippingCfg.fee;
   const discount = appliedDiscount?.discountAmount ?? 0;
-  // Payment fee only applies to card payments
-  const paymentFee = paymentMethod === "card" && shippingCfg.paymentFeeEnabled
+  const paymentFee = (paymentMethod === "new-card" || paymentMethod === "saved-card") && shippingCfg.paymentFeeEnabled
     ? Math.round(((subtotal + shipping - discount) * (shippingCfg.paymentFeePercent / 100) + shippingCfg.paymentFeeFixed) * 100) / 100
     : 0;
   const total = Math.max(0, subtotal + shipping - discount + paymentFee);
@@ -463,7 +660,21 @@ function CheckoutPage() {
     return Object.keys(next).length === 0;
   }
 
-  // COD path: place order directly
+  function buildOrderItems() {
+    return items.map((i) => ({ productId: i.productId, name: i.name, size: i.size, colour: i.colour, quantity: i.quantity, image: i.image }));
+  }
+
+  function buildShippingForm() {
+    return {
+      email: form.email, phone: form.phone,
+      firstName: form.firstName, lastName: form.lastName,
+      address: form.address, address2: form.address2 || undefined,
+      city: form.city, postalCode: form.postalCode, country: form.country,
+    };
+  }
+
+  // ── COD path ──────────────────────────────────────────────────────────────────
+
   const handlePlaceCodOrder = useCallback(async () => {
     if (initiatingRef.current) return;
     if (!validateShipping()) return;
@@ -474,13 +685,8 @@ function CheckoutPage() {
       await placeCodOrder({
         data: {
           discountCode: appliedDiscount?.code,
-          shippingForm: {
-            email: form.email, phone: form.phone,
-            firstName: form.firstName, lastName: form.lastName,
-            address: form.address, address2: form.address2 || undefined,
-            city: form.city, postalCode: form.postalCode, country: form.country,
-          },
-          items: items.map((i) => ({ productId: i.productId, name: i.name, size: i.size, colour: i.colour, quantity: i.quantity, image: i.image })),
+          shippingForm: buildShippingForm(),
+          items: buildOrderItems(),
         },
       });
       clearCart();
@@ -495,7 +701,8 @@ function CheckoutPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form, items, appliedDiscount]);
 
-  // Card path: create POK order, show form inline
+  // ── New card path ─────────────────────────────────────────────────────────────
+
   const handleInitiateCardPayment = useCallback(async () => {
     if (initiatingRef.current) return;
     if (!validateShipping()) return;
@@ -509,13 +716,8 @@ function CheckoutPage() {
         data: {
           merchantReference: ref,
           discountCode: appliedDiscount?.code,
-          shippingForm: {
-            email: form.email, phone: form.phone,
-            firstName: form.firstName, lastName: form.lastName,
-            address: form.address, address2: form.address2 || undefined,
-            city: form.city, postalCode: form.postalCode, country: form.country,
-          },
-          items: items.map((i) => ({ productId: i.productId, name: i.name, size: i.size, colour: i.colour, quantity: i.quantity, image: i.image })),
+          shippingForm: buildShippingForm(),
+          items: buildOrderItems(),
         },
       });
       setPokOrderId(id);
@@ -537,6 +739,72 @@ function CheckoutPage() {
     setPlaceError(null);
     try {
       await placeOrder({ data: { pokOrderId: pokOrderId! } });
+      // Show save-card prompt before navigating
+      setStep("save-card-prompt");
+    } catch (err) {
+      const msg =
+        (err as { data?: { message?: string } })?.data?.message ??
+        (err instanceof Error ? err.message : null);
+      logPlaceOrderError({ data: { pokOrderId: pokOrderId!, errorMessage: msg ?? undefined, email: form.email } }).catch(() => {});
+      setPlaceError(
+        `Your payment was processed but we couldn't record the order${msg ? `: ${msg}` : "."}  Please contact hello@notteshe.com immediately.`
+      );
+    } finally {
+      setPlacing(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pokOrderId, form.email]);
+
+  // ── Saved card path ───────────────────────────────────────────────────────────
+
+  const handleInitiateSavedCardPayment = useCallback(async () => {
+    if (initiatingRef.current) return;
+    if (!validateShipping()) return;
+    if (!selectedSavedCardId) return;
+    initiatingRef.current = true;
+    successFiredRef.current = false;
+    setStep("initiating");
+    setPlaceError(null);
+    try {
+      const ref = crypto.randomUUID();
+      const { pokOrderId: id } = await createPokOrder({
+        data: {
+          merchantReference: ref,
+          discountCode: appliedDiscount?.code,
+          shippingForm: buildShippingForm(),
+          items: buildOrderItems(),
+        },
+      });
+      setPokOrderId(id);
+
+      const setup = await setupSavedCard({ data: { pokOrderId: id, savedCardDbId: selectedSavedCardId } });
+
+      setPayerAuth({
+        deviceDataCollection: setup.deviceDataCollection ?? undefined,
+        creditDebitCard: { id: setup.pokCardId },
+        payerAuthSetupReferenceId: setup.payerAuthSetupReferenceId,
+      });
+      setStep("saved-card-payment");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : null;
+      setPlaceError(msg ?? "Could not set up saved card payment. Please try again.");
+      setStep("details");
+    } finally {
+      initiatingRef.current = false;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, items, appliedDiscount, selectedSavedCardId]);
+
+  const handleSavedCardPokSuccess = useCallback(async () => {
+    if (successFiredRef.current) return;
+    successFiredRef.current = true;
+    setPlacing(true);
+    setPlaceError(null);
+    try {
+      const card = localSavedCards.find((c) => c.id === selectedSavedCardId);
+      if (!card) throw new Error("Saved card not found.");
+      await confirmSavedCardPayment({ data: { pokOrderId: pokOrderId!, pokCardId: card.pokCardId } });
+      await placeOrder({ data: { pokOrderId: pokOrderId! } });
       clearCart();
       void navigate({ to: "/order-confirmed" });
     } catch (err) {
@@ -550,7 +818,10 @@ function CheckoutPage() {
     } finally {
       setPlacing(false);
     }
-  }, [pokOrderId, form.email, clearCart, navigate]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pokOrderId, selectedSavedCardId, localSavedCards, form.email, clearCart, navigate]);
+
+  // ── Shared error handler ──────────────────────────────────────────────────────
 
   const handlePokError = useCallback((err: { type?: string; message?: string }) => {
     if (pokOrderId) {
@@ -559,13 +830,49 @@ function CheckoutPage() {
     setPlaceError(err.message ?? "Payment was not completed. Please try again.");
     setStep("details");
     setPokOrderId(null);
+    setPayerAuth(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pokOrderId, form.email, total]);
+
+  // ── Save card handlers ────────────────────────────────────────────────────────
+
+  const handleSaveCardSuccess = useCallback(async (cardData: AddCardData) => {
+    setCardSaving(true);
+    try {
+      await tokenizeAndSaveCard({ data: cardData });
+      setCardSaved(true);
+      // Reload saved cards for future visits (non-blocking)
+      getSavedCards().then((cards) => setLocalSavedCards(cards)).catch(() => {});
+    } catch {
+      setPlaceError("Could not save card. Your order is confirmed — you can continue.");
+    } finally {
+      setCardSaving(false);
+    }
+  }, []);
+
+  function finishAndNavigate() {
+    clearCart();
+    void navigate({ to: "/order-confirmed" });
+  }
+
+  // ── Shared reset ──────────────────────────────────────────────────────────────
 
   function handleChangePaymentMethod() {
     setStep("details");
     setPokOrderId(null);
+    setPayerAuth(null);
     setPlaceError(null);
     successFiredRef.current = false;
+  }
+
+  async function handleDeleteSavedCard(id: string) {
+    await deleteSavedCard({ data: { savedCardDbId: id } }).catch(() => {});
+    const next = localSavedCards.filter((c) => c.id !== id);
+    setLocalSavedCards(next);
+    if (selectedSavedCardId === id) {
+      setSelectedSavedCardId(next[0]?.id ?? null);
+      if (next.length === 0) setPaymentMethod("cod");
+    }
   }
 
   // ─── Guards ──────────────────────────────────────────────────────────────────
@@ -596,7 +903,7 @@ function CheckoutPage() {
     );
   }
 
-  if (items.length === 0) {
+  if (items.length === 0 && step !== "save-card-prompt") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-5 text-center">
         <p className="serif text-3xl text-ink">Your bag is empty.</p>
@@ -607,9 +914,90 @@ function CheckoutPage() {
     );
   }
 
-  const formDisabled = step === "card-payment" || step === "initiating";
+  const formDisabled = step !== "details";
 
   // ─── Render ──────────────────────────────────────────────────────────────────
+
+  // Save card prompt (full-screen step after new card payment)
+  if (step === "save-card-prompt") {
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <div className="mx-auto max-w-xl px-5 pb-24 pt-24 md:px-12 md:pt-32">
+          <div className="mb-10">
+            <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-full border border-border">
+              <svg width="16" height="12" viewBox="0 0 22 16" fill="none" stroke="currentColor" strokeWidth="1.2">
+                <polyline points="1 8 7 14 21 1" />
+              </svg>
+            </div>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Order placed</p>
+            <h1 className="serif mt-2 text-4xl text-ink">Save your card?</h1>
+            <p className="mt-4 text-[13px] font-light leading-relaxed text-muted-foreground">
+              Save your card for a faster checkout next time. Your details are securely tokenized by POK Pay — we never store raw card data.
+            </p>
+          </div>
+
+          {cardSaved ? (
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 border border-border/40 bg-muted px-5 py-4">
+                <svg width="14" height="14" viewBox="0 0 22 16" fill="none" stroke="currentColor" strokeWidth="1.4" className="text-green-400 shrink-0">
+                  <polyline points="1 8 7 14 21 1" />
+                </svg>
+                <p className="font-mono text-[11px] text-ink">Card saved successfully.</p>
+              </div>
+              <button
+                onClick={finishAndNavigate}
+                className="w-full bg-foreground py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-opacity hover:opacity-80"
+              >
+                Continue to order confirmation
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="border border-border">
+                <div className="border-b border-border px-5 py-3">
+                  <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/50">Secured by POK Pay</p>
+                </div>
+                <div className="p-5">
+                  {cardSaving ? (
+                    <div className="flex items-center justify-center gap-3 py-8">
+                      <Spinner />
+                      <p className="font-mono text-[11px] text-muted-foreground">Saving your card…</p>
+                    </div>
+                  ) : (
+                    mounted && (
+                      <Suspense fallback={
+                        <div className="flex items-center justify-center gap-3 py-10">
+                          <Spinner />
+                        </div>
+                      }>
+                        <AddCardForm
+                          onSuccess={handleSaveCardSuccess}
+                          onError={() => setPlaceError("Could not save card. You can skip this step.")}
+                          options={{ env: POK_ENV, locale: "al", countrySelect: "modal" }}
+                          buttonTitle="Save card"
+                        />
+                      </Suspense>
+                    )
+                  )}
+                </div>
+              </div>
+
+              {placeError && (
+                <p className="font-mono text-[11px] text-clay">{placeError}</p>
+              )}
+
+              <button
+                onClick={finishAndNavigate}
+                className="w-full py-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60 transition-colors hover:text-ink"
+              >
+                Skip — go to order confirmation →
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -626,7 +1014,7 @@ function CheckoutPage() {
         <div className="mb-10 md:mb-14">
           <button
             onClick={() => {
-              if (step === "card-payment") handleChangePaymentMethod();
+              if (step !== "details") handleChangePaymentMethod();
               else window.history.back();
             }}
             className="mb-6 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-ink"
@@ -634,7 +1022,7 @@ function CheckoutPage() {
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2">
               <path d="M9 2 4 7l5 5" />
             </svg>
-            {step === "card-payment" ? "Change payment method" : "Back"}
+            {step !== "details" ? "Change payment method" : "Back"}
           </button>
 
           <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Checkout</p>
@@ -710,7 +1098,6 @@ function CheckoutPage() {
                 )}
               </div>
 
-              {/* Coupon — hidden when card payment form is active */}
               {!formDisabled && (
                 !appliedDiscount ? (
                   <div className="mt-5 border-t border-border pt-5">
@@ -791,50 +1178,103 @@ function CheckoutPage() {
             <div>
               <p className="mb-4 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Payment method</p>
               <div className="space-y-2">
-                {(["cod", "card"] as const).map((method) => {
-                  const active = paymentMethod === method;
-                  const locked = formDisabled && paymentMethod !== method;
+
+                {/* Saved cards */}
+                {localSavedCards.map((card) => {
+                  const active = paymentMethod === "saved-card" && selectedSavedCardId === card.id;
                   return (
-                    <button
-                      key={method}
-                      type="button"
-                      disabled={formDisabled}
-                      onClick={() => {
-                        setPaymentMethod(method);
-                        setPlaceError(null);
-                      }}
-                      className={`w-full flex items-center justify-between border px-5 py-4 text-left transition-colors duration-150 disabled:cursor-default ${
-                        active
-                          ? "border-foreground/40 bg-muted"
-                          : "border-border bg-transparent hover:border-border/70"
-                      }`}
-                    >
-                      <div className="flex items-center gap-4">
+                    <div key={card.id} className={`flex items-center border transition-colors duration-150 ${active ? "border-foreground/40 bg-muted" : "border-border"}`}>
+                      <button
+                        type="button"
+                        disabled={formDisabled}
+                        onClick={() => {
+                          setPaymentMethod("saved-card");
+                          setSelectedSavedCardId(card.id);
+                          setPlaceError(null);
+                        }}
+                        className="flex flex-1 items-center gap-4 px-5 py-4 text-left disabled:cursor-default"
+                      >
                         <span className={`h-4 w-4 rounded-full border flex items-center justify-center shrink-0 ${active ? "border-foreground" : "border-muted-foreground/40"}`}>
                           {active && <span className="h-2 w-2 rounded-full bg-foreground" />}
                         </span>
-                        <div>
-                          <p className="font-mono text-[11px] uppercase tracking-widest text-ink">
-                            {method === "cod" ? "Cash on delivery" : "Card"}
-                          </p>
-                          <p className="mt-0.5 font-mono text-[9px] text-muted-foreground/50">
-                            {method === "cod" ? "Pay when your order arrives" : "Visa, Mastercard — secured by POK Pay"}
-                          </p>
+                        <div className="flex flex-1 items-center justify-between">
+                          <div>
+                            <p className="font-mono text-[11px] uppercase tracking-widest text-ink">
+                              {card.label ?? `**** ${card.lastFour ?? "••••"}`}
+                            </p>
+                            <p className="mt-0.5 font-mono text-[9px] text-muted-foreground/50">Saved card</p>
+                          </div>
+                          <CardBrandIcon brand={card.brand} />
                         </div>
-                      </div>
-                      {method === "card" && (
-                        <div className="flex items-center gap-1.5 opacity-40">
-                          <CardBrand name="VISA" />
-                          <CardBrand name="MC" />
-                        </div>
+                      </button>
+                      {!formDisabled && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSavedCard(card.id)}
+                          className="px-4 py-4 text-muted-foreground/30 transition-colors hover:text-clay"
+                          title="Remove saved card"
+                          aria-label="Remove saved card"
+                        >
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
+                            <path d="M1 1l10 10M11 1 1 11" />
+                          </svg>
+                        </button>
                       )}
-                    </button>
+                    </div>
                   );
                 })}
+
+                {/* New card */}
+                <button
+                  type="button"
+                  disabled={formDisabled}
+                  onClick={() => { setPaymentMethod("new-card"); setPlaceError(null); }}
+                  className={`w-full flex items-center justify-between border px-5 py-4 text-left transition-colors duration-150 disabled:cursor-default ${
+                    paymentMethod === "new-card"
+                      ? "border-foreground/40 bg-muted"
+                      : "border-border bg-transparent hover:border-border/70"
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <span className={`h-4 w-4 rounded-full border flex items-center justify-center shrink-0 ${paymentMethod === "new-card" ? "border-foreground" : "border-muted-foreground/40"}`}>
+                      {paymentMethod === "new-card" && <span className="h-2 w-2 rounded-full bg-foreground" />}
+                    </span>
+                    <div>
+                      <p className="font-mono text-[11px] uppercase tracking-widest text-ink">
+                        {localSavedCards.length > 0 ? "New card" : "Card"}
+                      </p>
+                      <p className="mt-0.5 font-mono text-[9px] text-muted-foreground/50">Visa, Mastercard — secured by POK Pay</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 opacity-40">
+                    <CardBrand name="VISA" />
+                    <CardBrand name="MC" />
+                  </div>
+                </button>
+
+                {/* Cash on delivery */}
+                <button
+                  type="button"
+                  disabled={formDisabled}
+                  onClick={() => { setPaymentMethod("cod"); setPlaceError(null); }}
+                  className={`w-full flex items-center gap-4 border px-5 py-4 text-left transition-colors duration-150 disabled:cursor-default ${
+                    paymentMethod === "cod"
+                      ? "border-foreground/40 bg-muted"
+                      : "border-border bg-transparent hover:border-border/70"
+                  }`}
+                >
+                  <span className={`h-4 w-4 rounded-full border flex items-center justify-center shrink-0 ${paymentMethod === "cod" ? "border-foreground" : "border-muted-foreground/40"}`}>
+                    {paymentMethod === "cod" && <span className="h-2 w-2 rounded-full bg-foreground" />}
+                  </span>
+                  <div>
+                    <p className="font-mono text-[11px] uppercase tracking-widest text-ink">Cash on delivery</p>
+                    <p className="mt-0.5 font-mono text-[9px] text-muted-foreground/50">Pay when your order arrives</p>
+                  </div>
+                </button>
               </div>
             </div>
 
-            {/* Inline card payment form */}
+            {/* Inline new-card payment form */}
             {step === "card-payment" && pokOrderId && (
               <div className="border border-border">
                 <div className="border-b border-border px-5 py-3">
@@ -859,7 +1299,7 @@ function CheckoutPage() {
                           onSuccess={handlePokSuccess}
                           onError={handlePokError}
                           options={{
-                            env: (import.meta.env.VITE_POK_ENV as "production" | "staging") ?? "staging",
+                            env: POK_ENV,
                             locale: "al",
                             countrySelect: "modal",
                             initialState: {
@@ -884,37 +1324,66 @@ function CheckoutPage() {
               </div>
             )}
 
+            {/* Saved-card 3DS container */}
+            {step === "saved-card-payment" && (
+              <div className="border border-border">
+                <div className="border-b border-border px-5 py-3">
+                  <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/50">Secured payment — POK Pay</p>
+                </div>
+                <div className="p-5">
+                  {placing ? (
+                    <div className="flex items-center justify-center gap-3 py-6">
+                      <Spinner />
+                      <p className="font-mono text-[11px] text-muted-foreground">Confirming your order…</p>
+                    </div>
+                  ) : (
+                    <div id="pok-saved-card-container">
+                      <div className="flex items-center justify-center gap-3 py-10">
+                        <Spinner />
+                        <p className="font-mono text-[11px] text-muted-foreground">Preparing payment…</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Error */}
             {placeError && (
               <p className="font-mono text-[11px] text-clay">{placeError}</p>
             )}
 
-            {/* CTA — hidden when POK form is active */}
-            {step !== "card-payment" && (
+            {/* CTA */}
+            {step === "details" && (
               <div className="space-y-4">
-                {paymentMethod === "cod" ? (
+                {paymentMethod === "cod" && (
                   <button
                     onClick={handlePlaceCodOrder}
-                    disabled={placing || step === "initiating"}
+                    disabled={placing}
                     className="w-full bg-foreground py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-opacity hover:opacity-80 disabled:opacity-50"
                   >
-                    {placing ? (
-                      <span className="flex items-center justify-center gap-3"><Spinner />Placing order…</span>
-                    ) : (
-                      `Place order — ${total.toFixed(0)} L`
-                    )}
+                    {placing
+                      ? <span className="flex items-center justify-center gap-3"><Spinner />Placing order…</span>
+                      : `Place order — ${total.toFixed(0)} L`}
                   </button>
-                ) : (
+                )}
+
+                {paymentMethod === "new-card" && (
                   <button
                     onClick={handleInitiateCardPayment}
-                    disabled={step === "initiating"}
+                    className="w-full bg-foreground py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-opacity hover:opacity-80"
+                  >
+                    {`Continue to card payment — ${total.toFixed(0)} L`}
+                  </button>
+                )}
+
+                {paymentMethod === "saved-card" && (
+                  <button
+                    onClick={handleInitiateSavedCardPayment}
+                    disabled={!selectedSavedCardId}
                     className="w-full bg-foreground py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-opacity hover:opacity-80 disabled:opacity-50"
                   >
-                    {step === "initiating" ? (
-                      <span className="flex items-center justify-center gap-3"><Spinner />Preparing payment…</span>
-                    ) : (
-                      `Continue to card payment — ${total.toFixed(0)} L`
-                    )}
+                    {`Pay with saved card — ${total.toFixed(0)} L`}
                   </button>
                 )}
 
@@ -923,6 +1392,14 @@ function CheckoutPage() {
                   <a href="#" className="underline underline-offset-2 hover:text-muted-foreground">Terms</a> and{" "}
                   <a href="#" className="underline underline-offset-2 hover:text-muted-foreground">Privacy policy</a>
                 </p>
+              </div>
+            )}
+
+            {/* Initiating spinner (between details and payment form appearing) */}
+            {step === "initiating" && (
+              <div className="flex items-center gap-3 py-4">
+                <Spinner />
+                <p className="font-mono text-[11px] text-muted-foreground">Preparing payment…</p>
               </div>
             )}
 
@@ -952,6 +1429,13 @@ function CardBrand({ name }: { name: string }) {
   );
 }
 
+function CardBrandIcon({ brand }: { brand: string | null }) {
+  const upper = (brand ?? "").toUpperCase();
+  if (upper.includes("VISA")) return <CardBrand name="VISA" />;
+  if (upper.includes("MASTER")) return <CardBrand name="MC" />;
+  return null;
+}
+
 interface FieldProps {
   label: string;
   value: string;
@@ -974,7 +1458,6 @@ function Field({ label, value, onChange, error, type = "text", placeholder, maxL
         placeholder={placeholder}
         maxLength={maxLength}
         inputMode={inputMode}
-        // font-size ≥ 16px prevents iOS Safari from zooming on focus
         style={{ fontSize: '16px' }}
         className={`mt-2 w-full border-b bg-transparent pb-2.5 text-ink outline-none placeholder:text-muted-foreground/30 transition-colors focus:border-ink/60 ${
           error ? "border-clay" : "border-border"

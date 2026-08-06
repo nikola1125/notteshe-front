@@ -326,6 +326,20 @@ export const newsletterSubscriber = pgTable("newsletter_subscriber", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// ─── Saved Card (POK tokenized cards for returning customers) ────────────────
+
+export const savedCard = pgTable("saved_card", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  pokCardId: text("pok_card_id").notNull().unique(),
+  brand: text("brand"),
+  lastFour: text("last_four"),
+  label: text("label"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  index("saved_card_user_idx").on(t.userId),
+]);
+
 // ─── Type exports ─────────────────────────────────────────────────────────────
 
 export type User = typeof user.$inferSelect;
@@ -349,3 +363,4 @@ export type AdminUser = typeof adminUser.$inferSelect;
 export type AuditLog = typeof auditLog.$inferSelect;
 export type PendingOrder = typeof pendingOrder.$inferSelect;
 export type DiscountCode = typeof discountCode.$inferSelect;
+export type SavedCard = typeof savedCard.$inferSelect;

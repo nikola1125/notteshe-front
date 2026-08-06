@@ -932,7 +932,7 @@ function CheckoutPage() {
             <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Order placed</p>
             <h1 className="serif mt-2 text-4xl text-ink">Save your card?</h1>
             <p className="mt-4 text-[13px] font-light leading-relaxed text-muted-foreground">
-              Save your card for a faster checkout next time. Your details are securely tokenized by POK Pay — we never store raw card data.
+              Enter your card number, expiry, and CVC to save for next time. Name, address, and contact are pre-filled. Your card is securely tokenized by POK Pay — we never store raw card data.
             </p>
           </div>
 
@@ -973,7 +973,24 @@ function CheckoutPage() {
                         <AddCardForm
                           onSuccess={handleSaveCardSuccess}
                           onError={() => setPlaceError("Could not save card. You can skip this step.")}
-                          options={{ env: POK_ENV, locale: "al", countrySelect: "modal" }}
+                          options={{
+                            env: POK_ENV,
+                            locale: "al",
+                            countrySelect: "modal",
+                            initialState: {
+                              cardNumber: "",
+                              expiration: "",
+                              securityCode: "",
+                              holdersName: `${form.firstName} ${form.lastName}`.trim(),
+                              email: form.email,
+                              countryCode: form.country,
+                              address1: form.address,
+                              locality: form.city,
+                              postalCode: form.postalCode,
+                              phoneNumber: form.phone,
+                              administrativeArea: "",
+                            },
+                          }}
                           buttonTitle="Save card"
                         />
                       </Suspense>

@@ -7,7 +7,7 @@ import { useSession, signOut } from "@/lib/auth/client";
 
 export function Header() {
   const location = useLocation();
-  const isSale = location.pathname === "/shop" && location.search.includes("sale=1");
+  const isSale = location.pathname === "/shop" && (location.search as Record<string, string>)["sale"] === "1";
   const isShop = location.pathname.startsWith("/shop") && !isSale;
   const isStory = location.pathname === "/about";
   const isContact = location.pathname === "/contact";

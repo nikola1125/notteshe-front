@@ -9,6 +9,7 @@ import {
   Truck,
   Tag,
   Mail,
+  Bell,
   ScrollText,
   Warehouse,
   Shirt,
@@ -38,6 +39,7 @@ const NAV_ITEMS: Array<{ label: string; href: string; icon: React.ElementType; e
   { label: "Shipping", href: "/admin/shipping", icon: Truck },
   { label: "Discounts", href: "/admin/discounts", icon: Tag },
   { label: "Newsletter", href: "/admin/newsletter", icon: Mail },
+  { label: "Notifications", href: "/admin/notifications", icon: Bell },
 ];
 
 const LOG_SUB_ITEMS = [

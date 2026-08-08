@@ -29,6 +29,7 @@ import { Route as AdminAuditRouteImport } from './routes/admin/audit'
 import { Route as AdminDiscountsRouteImport } from './routes/admin/discounts'
 import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
 import { Route as AdminNewsletterRouteImport } from './routes/admin/newsletter'
+import { Route as AdminNotificationsRouteImport } from './routes/admin/notifications'
 import { Route as AdminPermanentWardrobeRouteImport } from './routes/admin/permanent-wardrobe'
 import { Route as AdminShippingRouteImport } from './routes/admin/shipping'
 import { Route as ShopIndexRouteImport } from './routes/shop/index'
@@ -143,6 +144,11 @@ const AdminNewsletterRoute = AdminNewsletterRouteImport.update({
   path: '/newsletter',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminNotificationsRoute = AdminNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminPermanentWardrobeRoute = AdminPermanentWardrobeRouteImport.update({
   id: '/permanent-wardrobe',
   path: '/permanent-wardrobe',
@@ -229,6 +235,7 @@ export interface FileRoutesByFullPath {
   '/admin/discounts': typeof AdminDiscountsRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/newsletter': typeof AdminNewsletterRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/permanent-wardrobe': typeof AdminPermanentWardrobeRoute
   '/admin/shipping': typeof AdminShippingRoute
   '/shop/$slug': typeof ShopSlugRoute
@@ -262,6 +269,7 @@ export interface FileRoutesByTo {
   '/admin/discounts': typeof AdminDiscountsRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/newsletter': typeof AdminNewsletterRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/permanent-wardrobe': typeof AdminPermanentWardrobeRoute
   '/admin/shipping': typeof AdminShippingRoute
   '/shop/$slug': typeof ShopSlugRoute
@@ -298,6 +306,7 @@ export interface FileRoutesById {
   '/admin/discounts': typeof AdminDiscountsRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/newsletter': typeof AdminNewsletterRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/permanent-wardrobe': typeof AdminPermanentWardrobeRoute
   '/admin/shipping': typeof AdminShippingRoute
   '/shop/$slug': typeof ShopSlugRoute
@@ -335,6 +344,7 @@ export interface FileRouteTypes {
     | '/admin/discounts'
     | '/admin/inventory'
     | '/admin/newsletter'
+    | '/admin/notifications'
     | '/admin/permanent-wardrobe'
     | '/admin/shipping'
     | '/shop/$slug'
@@ -368,6 +378,7 @@ export interface FileRouteTypes {
     | '/admin/discounts'
     | '/admin/inventory'
     | '/admin/newsletter'
+    | '/admin/notifications'
     | '/admin/permanent-wardrobe'
     | '/admin/shipping'
     | '/shop/$slug'
@@ -403,6 +414,7 @@ export interface FileRouteTypes {
     | '/admin/discounts'
     | '/admin/inventory'
     | '/admin/newsletter'
+    | '/admin/notifications'
     | '/admin/permanent-wardrobe'
     | '/admin/shipping'
     | '/shop/$slug'
@@ -578,6 +590,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminNewsletterRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/notifications': {
+      id: '/admin/notifications'
+      path: '/notifications'
+      fullPath: '/admin/notifications'
+      preLoaderRoute: typeof AdminNotificationsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/permanent-wardrobe': {
       id: '/admin/permanent-wardrobe'
       path: '/permanent-wardrobe'
@@ -691,6 +710,7 @@ interface AdminRouteChildren {
   AdminDiscountsRoute: typeof AdminDiscountsRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminNewsletterRoute: typeof AdminNewsletterRoute
+  AdminNotificationsRoute: typeof AdminNotificationsRoute
   AdminPermanentWardrobeRoute: typeof AdminPermanentWardrobeRoute
   AdminShippingRoute: typeof AdminShippingRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -709,6 +729,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminDiscountsRoute: AdminDiscountsRoute,
   AdminInventoryRoute: AdminInventoryRoute,
   AdminNewsletterRoute: AdminNewsletterRoute,
+  AdminNotificationsRoute: AdminNotificationsRoute,
   AdminPermanentWardrobeRoute: AdminPermanentWardrobeRoute,
   AdminShippingRoute: AdminShippingRoute,
   AdminIndexRoute: AdminIndexRoute,

@@ -118,7 +118,7 @@ function NewProduct() {
   async function handleSave(data: ProductFormData) {
     await createProduct({ data });
     toast.success("Product created");
-    await router.navigate({ to: "/admin/products/" });
+    await router.navigate({ to: "/admin/products" });
   }
 
   return (

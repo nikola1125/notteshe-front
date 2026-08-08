@@ -142,10 +142,19 @@ function Customers() {
             {filtered.map((c) => (
               <tr
                 key={c.id}
-                onClick={() => void navigate({ to: "/admin/customers/$id", params: { id: c.id } })}
                 className="cursor-pointer hover:bg-[var(--color-muted)]/30 active:opacity-60"
+                onClick={() => navigate({ to: "/admin/customers/$id", params: { id: c.id } })}
               >
-                <td className="px-4 py-3 text-sm text-[var(--color-foreground)]">{c.name}</td>
+                <td className="px-4 py-3">
+                  <Link
+                    to="/admin/customers/$id"
+                    params={{ id: c.id }}
+                    className="text-sm text-[var(--color-foreground)]"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {c.name}
+                  </Link>
+                </td>
                 <td className="px-4 py-3 font-mono text-xs text-[var(--color-muted-foreground)]">{c.email}</td>
                 <td className="px-4 py-3 font-mono text-xs text-[var(--color-foreground)]">{c.totalOrders}</td>
                 <td className="px-4 py-3 font-mono text-xs text-[var(--color-clay)]">{fmt(c.totalSpent)}</td>

@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { BackButton } from "@/components/admin/BackButton";
 import { eq, desc, count, sum } from "drizzle-orm";
@@ -54,6 +54,7 @@ export const Route = createFileRoute("/admin/customers/")({
 function Customers() {
   const customers = Route.useLoaderData();
   const [search, setSearch] = useState("");
+  const navigate = useNavigate();
 
   const filtered = search.trim()
     ? customers.filter(
@@ -139,12 +140,12 @@ function Customers() {
               </tr>
             )}
             {filtered.map((c) => (
-              <tr key={c.id} className="cursor-pointer hover:bg-[var(--color-muted)]/30">
-                <td className="px-4 py-3">
-                  <Link to="/admin/customers/$id" params={{ id: c.id }} className="text-sm text-[var(--color-foreground)] hover:text-[var(--color-clay)]">
-                    {c.name}
-                  </Link>
-                </td>
+              <tr
+                key={c.id}
+                onClick={() => void navigate({ to: "/admin/customers/$id", params: { id: c.id } })}
+                className="cursor-pointer hover:bg-[var(--color-muted)]/30 active:opacity-60"
+              >
+                <td className="px-4 py-3 text-sm text-[var(--color-foreground)]">{c.name}</td>
                 <td className="px-4 py-3 font-mono text-xs text-[var(--color-muted-foreground)]">{c.email}</td>
                 <td className="px-4 py-3 font-mono text-xs text-[var(--color-foreground)]">{c.totalOrders}</td>
                 <td className="px-4 py-3 font-mono text-xs text-[var(--color-clay)]">{fmt(c.totalSpent)}</td>

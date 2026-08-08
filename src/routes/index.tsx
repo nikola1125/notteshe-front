@@ -484,20 +484,12 @@ function Index() {
             <p className="serif mt-6 text-2xl leading-[1.25] text-ink md:text-[2.8rem] md:leading-[1.1]">
               Notteshe — <em className="italic text-clay">Grua e Fortë.</em>
             </p>
-            <div className="mt-8 space-y-4 border-l-2 border-border pl-6">
-              <p className="text-[13px] leading-relaxed text-muted-foreground">
-                Notteshe is not just a name. It is a declaration.
-              </p>
-              <p className="text-[13px] leading-relaxed text-muted-foreground">
-                In Albanian, grua e fortë — the strong woman. Not strong in the way the world demands of her: loud, unyielding, armored. Strong in the way she has always known herself to be: quiet, certain, unbreakable.
-              </p>
-              <p className="text-[13px] leading-relaxed text-muted-foreground">
-                We design for the woman who moves through a room and leaves something behind. Who dresses not to be seen, but because she sees herself. Every silhouette is sculpted with intention — from the sun-warmed streets of Tirana to wherever she chooses to stand.
-              </p>
-            </div>
-            <div className="mt-10 space-y-1">
-              <p className="serif text-xl text-ink md:text-2xl">Notteshe is born in Albania. Worn by the world.</p>
-              <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">This is not fashion. This is identity, cut in cloth.</p>
+            <p className="mt-8 text-[13px] leading-relaxed text-muted-foreground border-l-2 border-clay pl-5">
+              Quiet, certain, unbreakable. We design for the woman who moves through a room and leaves something behind — not to be seen, but because she sees herself.
+            </p>
+            <div className="mt-10 flex flex-col gap-3">
+              <p className="serif text-xl text-ink md:text-2xl">Born in Albania. Worn by the world.</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">This is not fashion. This is identity.</p>
             </div>
           </div>
         </div>

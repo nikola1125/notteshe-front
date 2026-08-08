@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { BackButton } from "@/components/admin/BackButton";
 import { eq, desc, count, sum } from "drizzle-orm";
@@ -54,7 +54,6 @@ export const Route = createFileRoute("/admin/customers/")({
 function Customers() {
   const customers = Route.useLoaderData();
   const [search, setSearch] = useState("");
-  const navigate = useNavigate();
 
   const filtered = search.trim()
     ? customers.filter(
@@ -95,8 +94,8 @@ function Customers() {
         />
       </div>
 
-      {/* Mobile cards */}
-      <div className="space-y-2 lg:hidden">
+      {/* Customer list — cards for all screen sizes, always clickable */}
+      <div className="space-y-2">
         {filtered.length === 0 && (
           <p className="py-12 text-center font-mono text-xs text-[var(--color-muted-foreground)]">No customers found</p>
         )}
@@ -105,64 +104,21 @@ function Customers() {
             key={c.id}
             to="/admin/customers/$id"
             params={{ id: c.id }}
-            className="flex items-center justify-between rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] px-4 py-3 transition-colors hover:bg-[var(--color-muted)]/20 active:opacity-60"
+            className="flex items-center gap-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] px-4 py-3 transition-colors hover:bg-[var(--color-muted)]/20 active:opacity-60"
           >
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-[var(--color-foreground)]">{c.name}</p>
               <p className="truncate font-mono text-[10px] text-[var(--color-muted-foreground)]">{c.email}</p>
             </div>
-            <div className="ml-4 shrink-0 text-right">
+            <div className="hidden shrink-0 text-right sm:block">
+              <p className="font-mono text-[10px] text-[var(--color-muted-foreground)]">{fmtDate(c.joinedAt)}</p>
+            </div>
+            <div className="shrink-0 text-right">
               <p className="font-mono text-xs text-[var(--color-clay)]">{fmt(c.totalSpent)}</p>
-              <p className="font-mono text-[10px] text-[var(--color-muted-foreground)]">{c.totalOrders} orders</p>
+              <p className="font-mono text-[10px] text-[var(--color-muted-foreground)]">{c.totalOrders} order{c.totalOrders !== 1 ? "s" : ""}</p>
             </div>
           </Link>
         ))}
-      </div>
-
-      {/* Desktop table */}
-      <div className="hidden overflow-x-auto rounded-lg border border-[var(--color-border)] lg:block">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-[var(--color-border)] bg-[var(--color-paper)]">
-              {["Name", "Email", "Orders", "Total Spent", "Joined"].map((h) => (
-                <th key={h} className="px-4 py-3 text-left font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--color-border)] bg-[var(--color-paper)]">
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={5} className="py-12 text-center font-mono text-xs text-[var(--color-muted-foreground)]">
-                  No customers found
-                </td>
-              </tr>
-            )}
-            {filtered.map((c) => (
-              <tr
-                key={c.id}
-                className="cursor-pointer hover:bg-[var(--color-muted)]/30 active:opacity-60"
-                onClick={() => navigate({ to: "/admin/customers/$id", params: { id: c.id } })}
-              >
-                <td className="px-4 py-3">
-                  <Link
-                    to="/admin/customers/$id"
-                    params={{ id: c.id }}
-                    className="text-sm text-[var(--color-foreground)]"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {c.name}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 font-mono text-xs text-[var(--color-muted-foreground)]">{c.email}</td>
-                <td className="px-4 py-3 font-mono text-xs text-[var(--color-foreground)]">{c.totalOrders}</td>
-                <td className="px-4 py-3 font-mono text-xs text-[var(--color-clay)]">{fmt(c.totalSpent)}</td>
-                <td className="px-4 py-3 font-mono text-xs text-[var(--color-muted-foreground)]">{fmtDate(c.joinedAt)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
     </div>
   );

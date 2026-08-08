@@ -194,7 +194,7 @@ function ShopPage() {
           {/* Category tabs — scrollable, stops before the divider */}
           {/* Fade on the right hints that more tabs are hiding off-screen */}
           <div className="relative min-w-0 flex-1 after:pointer-events-none after:absolute after:right-0 after:top-0 after:h-full after:w-10 after:bg-gradient-to-l after:from-background/90 after:to-transparent after:content-[''] md:after:hidden">
-          <div className="flex overflow-x-auto scrollbar-hide">
+          <div className="flex overflow-x-auto scrollbar-hide pr-10 md:pr-0">
             <button
               onClick={() => setActiveCategoryId("all")}
               className={`shrink-0 border-b-[1.5px] px-4 py-4 font-mono text-[10px] uppercase tracking-widest transition-colors duration-200 md:px-5 ${

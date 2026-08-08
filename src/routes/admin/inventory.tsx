@@ -9,6 +9,7 @@ import { db } from "@/db";
 import { product, productSize, productImage } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAudit } from "@/lib/admin/audit";
+import { ChevronDown } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -198,6 +199,15 @@ function InventoryPage() {
   }
 
   const inputClass = "w-16 rounded border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-1 text-center font-mono text-xs text-[var(--color-foreground)] outline-none focus:border-[var(--color-clay)]";
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  function toggleExpand(id: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
 
   return (
     <div className="p-6 lg:p-8">
@@ -214,102 +224,106 @@ function InventoryPage() {
       </div>
 
       <div className="space-y-3">
-        {filtered.map((p) => (
-          <div key={p.id} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)]">
-            {/* Product header */}
-            <div className="flex items-center justify-between gap-4 border-b border-[var(--color-border)] px-4 py-3">
-              <div className="flex items-center gap-3">
+        {filtered.map((p) => {
+          const isOpen = expanded.has(p.id);
+          return (
+            <div key={p.id} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)]">
+              {/* Product header — click anywhere to expand */}
+              <button
+                onClick={() => toggleExpand(p.id)}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left"
+              >
                 {p.coverImageUrl ? (
-                  <img
-                    src={p.coverImageUrl}
-                    alt={p.name}
-                    className="h-10 w-8 rounded object-cover"
-                  />
+                  <img src={p.coverImageUrl} alt={p.name} className="h-10 w-8 shrink-0 rounded object-cover" />
                 ) : (
-                  <div className="h-10 w-8 rounded bg-[var(--color-border)]" />
+                  <div className="h-10 w-8 shrink-0 rounded bg-[var(--color-border)]" />
                 )}
-                <span className="font-mono text-[11px] text-[var(--color-foreground)]">{p.name}</span>
-                <span className="font-mono text-[10px] text-[var(--color-muted-foreground)]">
-                  {p.totalStock} total
-                </span>
-                {p.totalStock === 0 && (
-                  <span className="rounded bg-red-500/20 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-red-400">
-                    No stock
-                  </span>
-                )}
-                {p.totalStock > 0 && p.totalStock <= 5 && (
-                  <span className="rounded bg-amber-500/20 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-amber-400">
-                    Low
-                  </span>
-                )}
-              </div>
-              {/* In-stock toggle */}
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-[10px] text-[var(--color-muted-foreground)]">In stock</span>
-                <div
-                  role="checkbox"
-                  aria-checked={p.inStock}
-                  tabIndex={0}
-                  onClick={() => handleToggleInStock(p.id)}
-                  onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleToggleInStock(p.id); }}
-                  className={`h-5 w-9 cursor-pointer rounded-full transition-colors ${p.inStock ? "bg-[var(--color-clay)]" : "bg-[var(--color-muted)]"}`}
-                >
-                  <div className={`mt-0.5 ml-0.5 h-4 w-4 rounded-full bg-white transition-transform ${p.inStock ? "translate-x-4" : "translate-x-0"}`} />
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="truncate font-mono text-[11px] text-[var(--color-foreground)]">{p.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[10px] text-[var(--color-muted-foreground)]">{p.totalStock} total</span>
+                    {p.totalStock === 0 && (
+                      <span className="rounded bg-red-500/20 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-red-400">No stock</span>
+                    )}
+                    {p.totalStock > 0 && p.totalStock <= 5 && (
+                      <span className="rounded bg-amber-500/20 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-amber-400">Low</span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
+                <ChevronDown
+                  size={14}
+                  className={`shrink-0 text-[var(--color-muted-foreground)] transition-transform ${isOpen ? "rotate-180" : ""}`}
+                />
+              </button>
 
-            {/* Sizes */}
-            {p.sizes.length === 0 ? (
-              <p className="px-4 py-3 font-mono text-[10px] text-[var(--color-muted-foreground)]">No sizes defined</p>
-            ) : (
-              <div className="divide-y divide-[var(--color-border)]">
-                {p.sizes.map((s) => (
-                  <div key={s.id} className="flex items-center gap-4 px-4 py-2.5">
-                    <span className="w-16 font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
-                      {s.label}
-                    </span>
-
-                    {/* Available toggle */}
+              {/* Expanded content */}
+              {isOpen && (
+                <div className="border-t border-[var(--color-border)]">
+                  {/* In-stock toggle */}
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <span className="font-mono text-[10px] text-[var(--color-muted-foreground)]">Overall in stock</span>
                     <div
                       role="checkbox"
-                      aria-checked={s.available}
+                      aria-checked={p.inStock}
                       tabIndex={0}
-                      onClick={() => handleToggleAvailable(s.id, p.id)}
-                      onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleToggleAvailable(s.id, p.id); }}
-                      className={`h-4 w-8 cursor-pointer rounded-full transition-colors ${s.available ? "bg-[var(--color-clay)]" : "bg-[var(--color-muted)]"}`}
+                      onClick={() => handleToggleInStock(p.id)}
+                      onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleToggleInStock(p.id); }}
+                      className={`h-5 w-9 cursor-pointer rounded-full transition-colors ${p.inStock ? "bg-[var(--color-clay)]" : "bg-[var(--color-muted)]"}`}
                     >
-                      <div className={`mt-0.5 ml-0.5 h-3 w-3 rounded-full bg-white transition-transform ${s.available ? "translate-x-4" : "translate-x-0"}`} />
-                    </div>
-                    <span className="font-mono text-[9px] text-[var(--color-muted-foreground)]">
-                      {s.available ? "Available" : "Unavailable"}
-                    </span>
-
-                    {/* Stock input */}
-                    <div className="ml-auto flex items-center gap-2">
-                      <span className="font-mono text-[10px] text-[var(--color-muted-foreground)]">Qty</span>
-                      <input
-                        type="number"
-                        min="0"
-                        value={s.stock}
-                        onChange={(e) => handleStockChange(s.id, p.id, e.target.value)}
-                        onBlur={() => handleSaveSize(s.id, p.id)}
-                        className={inputClass}
-                      />
-                      <button
-                        onClick={() => handleSaveSize(s.id, p.id)}
-                        disabled={saving === s.id}
-                        className="rounded bg-[var(--color-clay)] px-2.5 py-1 font-mono text-[9px] uppercase tracking-widest text-white transition-opacity hover:opacity-80 disabled:opacity-40"
-                      >
-                        {saving === s.id ? "…" : "Save"}
-                      </button>
+                      <div className={`mt-0.5 ml-0.5 h-4 w-4 rounded-full bg-white transition-transform ${p.inStock ? "translate-x-4" : "translate-x-0"}`} />
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+
+                  {/* Sizes */}
+                  {p.sizes.length === 0 ? (
+                    <p className="px-4 pb-3 font-mono text-[10px] text-[var(--color-muted-foreground)]">No sizes defined</p>
+                  ) : (
+                    <div className="divide-y divide-[var(--color-border)]">
+                      {p.sizes.map((s) => (
+                        <div key={s.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5">
+                          <span className="w-12 font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
+                            {s.label}
+                          </span>
+                          <div
+                            role="checkbox"
+                            aria-checked={s.available}
+                            tabIndex={0}
+                            onClick={() => handleToggleAvailable(s.id, p.id)}
+                            onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleToggleAvailable(s.id, p.id); }}
+                            className={`h-4 w-8 cursor-pointer rounded-full transition-colors ${s.available ? "bg-[var(--color-clay)]" : "bg-[var(--color-muted)]"}`}
+                          >
+                            <div className={`mt-0.5 ml-0.5 h-3 w-3 rounded-full bg-white transition-transform ${s.available ? "translate-x-4" : "translate-x-0"}`} />
+                          </div>
+                          <span className="font-mono text-[9px] text-[var(--color-muted-foreground)]">
+                            {s.available ? "Available" : "Unavailable"}
+                          </span>
+                          <div className="ml-auto flex items-center gap-2">
+                            <span className="font-mono text-[10px] text-[var(--color-muted-foreground)]">Qty</span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={s.stock}
+                              onChange={(e) => handleStockChange(s.id, p.id, e.target.value)}
+                              onBlur={() => handleSaveSize(s.id, p.id)}
+                              className={inputClass}
+                            />
+                            <button
+                              onClick={() => handleSaveSize(s.id, p.id)}
+                              disabled={saving === s.id}
+                              className="rounded bg-[var(--color-clay)] px-2.5 py-1 font-mono text-[9px] uppercase tracking-widest text-white transition-opacity hover:opacity-80 disabled:opacity-40"
+                            >
+                              {saving === s.id ? "…" : "Save"}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         {filtered.length === 0 && (
           <p className="py-12 text-center font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">

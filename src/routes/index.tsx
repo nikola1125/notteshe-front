@@ -497,8 +497,8 @@ function Index() {
 
       {/* ─── Newsletter ─── */}
       <section className="reveal mx-auto mt-20 max-w-[1600px] px-5 md:mt-40 md:px-12">
-        <div className="grid grid-cols-12 items-end gap-10 border-t border-border pt-16">
-          <div className="col-span-12 md:col-span-6">
+        <div className="border-t border-border pt-16 flex flex-col gap-10 md:grid md:grid-cols-2 md:items-end md:gap-12">
+          <div>
             <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Correspondence</p>
             <h2 className="serif mt-4 text-4xl leading-tight text-ink md:text-6xl">
               Join the <em className="italic text-clay">quiet</em> list.
@@ -585,7 +585,7 @@ function NewsletterForm() {
 
   if (status === "done") {
     return (
-      <div className="col-span-12 md:col-span-6">
+      <div className="w-full">
         <p className="font-mono text-[11px] uppercase tracking-widest text-clay">You're on the list.</p>
         <p className="mt-2 text-[13px] font-light text-muted-foreground">We'll be in touch — quietly.</p>
       </div>
@@ -593,7 +593,7 @@ function NewsletterForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="col-span-12 min-w-0 md:col-span-6">
+    <form onSubmit={handleSubmit} className="w-full min-w-0">
       <label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Your address</label>
       <div className="mt-3 w-full border-b border-ink/20 pb-3 transition-colors focus-within:border-ink/50">
         <input

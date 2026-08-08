@@ -340,6 +340,18 @@ export const savedCard = pgTable("saved_card", {
   index("saved_card_user_idx").on(t.userId),
 ]);
 
+// ─── Contact Messages ─────────────────────────────────────────────────────────
+
+export const contactMessage = pgTable("contact_message", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  subject: text("subject"),
+  message: text("message").notNull(),
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // ─── Type exports ─────────────────────────────────────────────────────────────
 
 export type User = typeof user.$inferSelect;

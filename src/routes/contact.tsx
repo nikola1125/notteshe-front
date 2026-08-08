@@ -1,5 +1,28 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
 import { useState } from "react";
+import { db } from "@/db";
+import { contactMessage } from "@/db/schema";
+import { z } from "zod";
+import { nanoid } from "nanoid";
+
+const ContactSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+  message: z.string().min(1),
+});
+
+const submitContact = createServerFn({ method: "POST" })
+  .validator(ContactSchema)
+  .handler(async ({ data }) => {
+    await db().insert(contactMessage).values({
+      id: nanoid(),
+      name: data.name,
+      email: data.email,
+      message: data.message,
+    });
+    return { ok: true };
+  });
 
 export const Route = createFileRoute("/contact")({
   component: ContactPage,
@@ -29,9 +52,12 @@ function ContactPage() {
     e.preventDefault();
     if (!validate()) return;
     setStatus("sending");
-    // TODO: wire to API route when Resend is configured
-    await new Promise((r) => setTimeout(r, 800));
-    setStatus("sent");
+    try {
+      await submitContact({ data: { name: form.name, email: form.email, message: form.message } });
+      setStatus("sent");
+    } catch {
+      setStatus("error");
+    }
   }
 
   return (
@@ -99,21 +125,28 @@ function ContactPage() {
                   />
                   {errors.message && <p className="mt-1 font-mono text-[9px] uppercase tracking-widest text-clay">{errors.message}</p>}
                 </div>
-                <button
-                  type="submit"
-                  disabled={status === "sending"}
-                  className="w-full bg-ink py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-colors hover:bg-ink/90 disabled:opacity-50 md:w-auto md:px-12"
-                >
-                  {status === "sending" ? (
-                    <span className="flex items-center gap-3">
-                      <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-                        <path d="M12 2a10 10 0 0 1 10 10" />
-                      </svg>
-                      Sending…
-                    </span>
-                  ) : "Send message"}
-                </button>
+                <div className="space-y-3">
+                  <button
+                    type="submit"
+                    disabled={status === "sending"}
+                    className="w-full bg-ink py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-colors hover:bg-ink/90 disabled:opacity-50 md:w-auto md:px-12"
+                  >
+                    {status === "sending" ? (
+                      <span className="flex items-center gap-3">
+                        <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                          <path d="M12 2a10 10 0 0 1 10 10" />
+                        </svg>
+                        Sending…
+                      </span>
+                    ) : "Send message"}
+                  </button>
+                  {status === "error" && (
+                    <p className="font-mono text-[9px] uppercase tracking-widest text-clay">
+                      Something went wrong. Please try again.
+                    </p>
+                  )}
+                </div>
               </form>
             )}
           </div>

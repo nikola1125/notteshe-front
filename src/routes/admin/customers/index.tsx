@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { BackButton } from "@/components/admin/BackButton";
 import { eq, desc, count, sum } from "drizzle-orm";
@@ -52,7 +52,8 @@ export const Route = createFileRoute("/admin/customers/")({
 });
 
 function Customers() {
-  const customers = Route.useLoaderData();
+  const customers = Route.useLoaderData() as CustomerRow[];
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
 
   const filtered = search.trim()
@@ -99,12 +100,12 @@ function Customers() {
         {filtered.length === 0 && (
           <p className="py-12 text-center font-mono text-xs text-[var(--color-muted-foreground)]">No customers found</p>
         )}
-        {filtered.map((c) => (
-          <Link
+        {(filtered as CustomerRow[]).map((c) => (
+          <button
             key={c.id}
-            to="/admin/customers/$id"
-            params={{ id: c.id }}
-            className="flex items-center gap-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] px-4 py-3 transition-colors hover:bg-[var(--color-muted)]/20 active:opacity-60"
+            type="button"
+            onClick={() => navigate({ to: "/admin/customers/$id", params: { id: c.id } })}
+            className="flex w-full items-center gap-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] px-4 py-3 text-left transition-colors hover:bg-[var(--color-muted)]/20 active:opacity-60"
           >
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-[var(--color-foreground)]">{c.name}</p>
@@ -117,7 +118,7 @@ function Customers() {
               <p className="font-mono text-xs text-[var(--color-clay)]">{fmt(c.totalSpent)}</p>
               <p className="font-mono text-[10px] text-[var(--color-muted-foreground)]">{c.totalOrders} order{c.totalOrders !== 1 ? "s" : ""}</p>
             </div>
-          </Link>
+          </button>
         ))}
       </div>
     </div>

@@ -110,8 +110,18 @@ const updateCustomer = createServerFn({ method: "POST" })
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 
+function CustomerDetailError({ error }: { error: Error }) {
+  return (
+    <div className="p-6 lg:p-8">
+      <BackButton />
+      <p className="font-mono text-sm text-red-500">Failed to load customer: {error.message}</p>
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/admin/customers/$id")({
   loader: ({ params }) => getCustomerDetail({ data: { id: params.id } }),
+  errorComponent: CustomerDetailError,
   component: CustomerDetail,
 });
 
@@ -133,8 +143,8 @@ function fmtDate(iso: string) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 function CustomerDetail() {
-  const initial = Route.useLoaderData();
-  const [customer, setCustomer] = useState(initial);
+  const initial = Route.useLoaderData() as CustomerDetail;
+  const [customer, setCustomer] = useState<CustomerDetail>(initial);
   const [tab, setTab] = useState<"profile" | "orders">("profile");
   const [name, setName] = useState(initial.name);
   const [phone, setPhone] = useState(initial.phone ?? "");

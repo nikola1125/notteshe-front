@@ -503,7 +503,7 @@ function Index() {
             <h2 className="serif mt-4 text-4xl leading-tight text-ink md:text-6xl">
               Join the <em className="italic text-clay">quiet</em> list.
             </h2>
-            <p className="mt-5 max-w-md text-[13px] leading-relaxed text-muted-foreground">
+            <p className="mt-5 text-[13px] leading-relaxed text-muted-foreground">
               New arrivals, early access, and the occasional word from us. Sent no more than once a month. Nothing more.
             </p>
           </div>
@@ -593,16 +593,16 @@ function NewsletterForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="col-span-12 md:col-span-6">
+    <form onSubmit={handleSubmit} className="col-span-12 min-w-0 md:col-span-6">
       <label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Your address</label>
-      <div className="mt-3 border-b border-ink/20 pb-3 transition-colors focus-within:border-ink/50">
+      <div className="mt-3 w-full border-b border-ink/20 pb-3 transition-colors focus-within:border-ink/50">
         <input
           ref={inputRef}
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@somewhere.com"
-          className="w-full bg-transparent text-[15px] text-ink outline-none placeholder:text-muted-foreground/35"
+          className="w-full min-w-0 bg-transparent text-[15px] text-ink outline-none placeholder:text-muted-foreground/35"
         />
       </div>
       <button

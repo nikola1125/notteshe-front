@@ -442,16 +442,17 @@ export function ProductForm({
               <input
                 type="number"
                 min="0"
-                value={s.stock}
+                value={s.stock === 0 ? "" : s.stock}
+                placeholder="0"
                 onChange={(e) =>
                   setSizes((prev) =>
                     prev.map((sz, idx) =>
-                      idx === i ? { ...sz, stock: parseInt(e.target.value) || 0 } : sz
+                      idx === i ? { ...sz, stock: e.target.value === "" ? 0 : parseInt(e.target.value) || 0 } : sz
                     )
                   )
                 }
+                onFocus={(e) => e.target.select()}
                 className="w-24 rounded border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-1 font-mono text-xs text-[var(--color-foreground)] outline-none focus:border-[var(--color-clay)]"
-                placeholder="Stock"
               />
               <span className="font-mono text-[10px] text-[var(--color-muted-foreground)]">units</span>
             </div>

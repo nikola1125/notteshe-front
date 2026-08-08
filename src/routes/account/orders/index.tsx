@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
+import { useState } from "react";
 import { requireAuth } from "@/lib/auth/session";
 import { db } from "@/db";
 import { orders, orderItem } from "@/db/schema";
@@ -64,6 +65,15 @@ const STATUS_COLOR: Record<string, string> = {
 
 function OrdersPage() {
   const rows = Route.useLoaderData();
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  function copyRef(e: React.MouseEvent, orderId: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    navigator.clipboard.writeText(orderId.slice(0, 8).toUpperCase());
+    setCopiedId(orderId);
+    setTimeout(() => setCopiedId(null), 1500);
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -108,7 +118,25 @@ function OrdersPage() {
                       <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                         Order ref
                       </p>
-                      <p className="serif mt-1 text-xl text-ink">{order.id.slice(0, 8).toUpperCase()}</p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <p className="serif text-xl text-ink">{order.id.slice(0, 8).toUpperCase()}</p>
+                        <button
+                          onClick={(e) => copyRef(e, order.id)}
+                          className="flex items-center justify-center text-muted-foreground/50 transition-colors hover:text-ink active:scale-90"
+                          aria-label="Copy order reference"
+                        >
+                          {copiedId === order.id ? (
+                            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M2 7l3 3 6-6" />
+                            </svg>
+                          ) : (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="9" y="9" width="13" height="13" rx="2" />
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
                     </div>
                     <div className="text-right">
                       <p className={`font-mono text-[10px] uppercase tracking-widest ${STATUS_COLOR[order.status] ?? "text-ink"}`}>

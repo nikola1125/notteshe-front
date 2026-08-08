@@ -22,10 +22,29 @@ interface OrderItemRow {
   unitPrice: number;
 }
 
+interface ShippingAddress {
+  firstName?: string;
+  lastName?: string;
+  line1?: string;
+  line2?: string;
+  city?: string;
+  postalCode?: string;
+  country?: string;
+  phone?: string;
+  email?: string;
+}
+
 interface OrderRow {
   id: string;
   status: string;
+  subtotal: number;
+  shippingFee: number;
+  paymentFee: number;
+  discountCode: string | null;
+  discountAmount: number;
   total: number;
+  pokOrderId: string | null;
+  shippingAddress: ShippingAddress;
   createdAt: string;
   items: OrderItemRow[];
 }
@@ -80,7 +99,14 @@ const getCustomerDetail = createServerFn({ method: "GET" })
       orders: orderRows.map((o, i) => ({
         id: o.id,
         status: o.status,
+        subtotal: Number(o.subtotal),
+        shippingFee: Number(o.shippingFee),
+        paymentFee: Number(o.paymentFee ?? 0),
+        discountCode: o.discountCode ?? null,
+        discountAmount: Number(o.discountAmount ?? 0),
         total: Number(o.total),
+        pokOrderId: o.pokOrderId ?? null,
+        shippingAddress: (o.shippingAddress ?? {}) as ShippingAddress,
         createdAt: o.createdAt.toISOString(),
         items: (allItems[i] ?? []).map((it) => ({
           id: it.id,
@@ -299,34 +325,97 @@ function CustomerDetail() {
                   />
                 </button>
 
-                {/* Expanded order items */}
+                {/* Expanded order detail */}
                 {isOpen && (
-                  <div className="border-t border-[var(--color-border)] divide-y divide-[var(--color-border)]">
-                    {o.items.length === 0 && (
-                      <p className="px-4 py-3 font-mono text-[10px] text-[var(--color-muted-foreground)]">No items</p>
-                    )}
-                    {o.items.map((it) => (
-                      <div key={it.id} className="flex items-center gap-3 px-4 py-3">
-                        {it.productSnapshot?.image && (
-                          <img
-                            src={it.productSnapshot.image}
-                            alt={it.productSnapshot.name ?? ""}
-                            className="h-12 w-9 shrink-0 rounded object-cover"
-                          />
+                  <div className="border-t border-[var(--color-border)] px-4 py-4 space-y-5">
+
+                    {/* Items */}
+                    <div>
+                      <p className="mb-2 font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]">Items</p>
+                      <div className="divide-y divide-[var(--color-border)] rounded border border-[var(--color-border)]">
+                        {o.items.length === 0 && (
+                          <p className="px-3 py-2 font-mono text-[10px] text-[var(--color-muted-foreground)]">No items</p>
                         )}
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm text-[var(--color-foreground)]">
-                            {it.productSnapshot?.name ?? "—"}
-                          </p>
-                          <p className="font-mono text-[10px] text-[var(--color-muted-foreground)]">
-                            {it.size} · {it.colour} · ×{it.quantity}
-                          </p>
-                        </div>
-                        <span className="font-mono text-xs text-[var(--color-clay)]">
-                          {(it.unitPrice * it.quantity).toFixed(2)} L
-                        </span>
+                        {o.items.map((it) => (
+                          <div key={it.id} className="flex items-center gap-3 px-3 py-2.5">
+                            {it.productSnapshot?.image && (
+                              <img
+                                src={it.productSnapshot.image}
+                                alt={it.productSnapshot.name ?? ""}
+                                className="h-12 w-9 shrink-0 rounded object-cover"
+                              />
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm text-[var(--color-foreground)]">
+                                {it.productSnapshot?.name ?? "—"}
+                              </p>
+                              <p className="font-mono text-[10px] text-[var(--color-muted-foreground)]">
+                                {it.size} · {it.colour} · ×{it.quantity}
+                              </p>
+                            </div>
+                            <span className="font-mono text-xs text-[var(--color-clay)]">
+                              {(it.unitPrice * it.quantity).toFixed(2)} L
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    </div>
+
+                    {/* Bottom row: totals + shipping + payment */}
+                    <div className="grid gap-4 sm:grid-cols-3">
+
+                      {/* Totals */}
+                      <div>
+                        <p className="mb-2 font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]">Summary</p>
+                        <div className="space-y-1">
+                          <div className="flex justify-between font-mono text-[10px]">
+                            <span className="text-[var(--color-muted-foreground)]">Subtotal</span>
+                            <span>{o.subtotal.toFixed(2)} L</span>
+                          </div>
+                          <div className="flex justify-between font-mono text-[10px]">
+                            <span className="text-[var(--color-muted-foreground)]">Shipping</span>
+                            <span>{o.shippingFee === 0 ? "Free" : `${o.shippingFee.toFixed(2)} L`}</span>
+                          </div>
+                          {o.paymentFee > 0 && (
+                            <div className="flex justify-between font-mono text-[10px]">
+                              <span className="text-[var(--color-muted-foreground)]">Payment fee</span>
+                              <span>{o.paymentFee.toFixed(2)} L</span>
+                            </div>
+                          )}
+                          {o.discountCode && (
+                            <div className="flex justify-between font-mono text-[10px] text-green-400">
+                              <span>Discount ({o.discountCode})</span>
+                              <span>−{o.discountAmount.toFixed(2)} L</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between border-t border-[var(--color-border)] pt-1 font-mono text-xs font-medium">
+                            <span>Total</span>
+                            <span className="text-[var(--color-clay)]">{o.total.toFixed(2)} L</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Shipping address */}
+                      <div>
+                        <p className="mb-2 font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]">Ship to</p>
+                        <div className="space-y-0.5 font-mono text-[10px] text-[var(--color-foreground)]">
+                          <p>{o.shippingAddress.firstName} {o.shippingAddress.lastName}</p>
+                          <p className="text-[var(--color-muted-foreground)]">{o.shippingAddress.line1}{o.shippingAddress.line2 ? `, ${o.shippingAddress.line2}` : ""}</p>
+                          <p className="text-[var(--color-muted-foreground)]">{o.shippingAddress.postalCode} {o.shippingAddress.city}</p>
+                          <p className="text-[var(--color-muted-foreground)]">{o.shippingAddress.country}</p>
+                          {o.shippingAddress.phone && <p className="text-[var(--color-muted-foreground)]">{o.shippingAddress.phone}</p>}
+                        </div>
+                      </div>
+
+                      {/* Payment */}
+                      <div>
+                        <p className="mb-2 font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]">Payment</p>
+                        <p className="font-mono text-[10px] text-[var(--color-foreground)]">
+                          {o.pokOrderId ? "Card (POK Pay)" : "Cash on Delivery"}
+                        </p>
+                      </div>
+                    </div>
+
                   </div>
                 )}
               </div>

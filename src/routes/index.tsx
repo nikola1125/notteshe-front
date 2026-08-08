@@ -464,6 +464,14 @@ function Index() {
 
       {/* ─── Philosophy ─── */}
       <section className="mx-auto mt-20 max-w-[1600px] px-5 md:mt-32 md:px-12">
+        {/* Mobile: heading shown above the image */}
+        <div className="mb-6 md:hidden">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Philosophy</p>
+          <p className="serif mt-4 text-2xl leading-[1.25] text-ink">
+            Notteshe — <em className="italic text-clay">Grua e Fortë.</em>
+          </p>
+        </div>
+
         <div className="grid grid-cols-12 gap-8 md:gap-12">
           <div className="col-span-12 md:col-span-5">
             <div className="aspect-[3/4] overflow-hidden bg-muted md:aspect-[4/5] md:sticky md:top-24">
@@ -478,8 +486,9 @@ function Index() {
             </div>
           </div>
           <div className="col-span-12 flex flex-col justify-center md:col-span-7 md:pl-6 md:pt-6">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Philosophy</p>
-            <p className="serif mt-6 text-2xl leading-[1.25] text-ink md:text-[2.8rem] md:leading-[1.1]">
+            {/* Desktop: heading inside the grid */}
+            <p className="hidden md:block font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Philosophy</p>
+            <p className="hidden md:block serif mt-6 text-[2.8rem] leading-[1.1] text-ink">
               Notteshe — <em className="italic text-clay">Grua e Fortë.</em>
             </p>
             <p className="mt-8 text-[13px] leading-relaxed text-muted-foreground border-l-2 border-clay pl-5">

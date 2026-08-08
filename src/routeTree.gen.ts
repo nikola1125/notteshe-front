@@ -29,7 +29,6 @@ import { Route as AdminAuditRouteImport } from './routes/admin/audit'
 import { Route as AdminDiscountsRouteImport } from './routes/admin/discounts'
 import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
 import { Route as AdminNewsletterRouteImport } from './routes/admin/newsletter'
-import { Route as AdminNotificationsRouteImport } from './routes/admin/notifications'
 import { Route as AdminPermanentWardrobeRouteImport } from './routes/admin/permanent-wardrobe'
 import { Route as AdminShippingRouteImport } from './routes/admin/shipping'
 import { Route as ShopIndexRouteImport } from './routes/shop/index'
@@ -38,6 +37,8 @@ import { Route as AccountOrdersIndexRouteImport } from './routes/account/orders/
 import { Route as AccountOrdersIdRouteImport } from './routes/account/orders/$id'
 import { Route as AdminCustomersIndexRouteImport } from './routes/admin/customers/index'
 import { Route as AdminCustomersIdRouteImport } from './routes/admin/customers/$id'
+import { Route as AdminNotificationsGeneralRouteImport } from './routes/admin/notifications/general'
+import { Route as AdminNotificationsRequestsRouteImport } from './routes/admin/notifications/requests'
 import { Route as AdminOrdersIndexRouteImport } from './routes/admin/orders/index'
 import { Route as AdminOrdersIdRouteImport } from './routes/admin/orders/$id'
 import { Route as AdminProductsIndexRouteImport } from './routes/admin/products/index'
@@ -144,11 +145,6 @@ const AdminNewsletterRoute = AdminNewsletterRouteImport.update({
   path: '/newsletter',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminNotificationsRoute = AdminNotificationsRouteImport.update({
-  id: '/notifications',
-  path: '/notifications',
-  getParentRoute: () => AdminRoute,
-} as any)
 const AdminPermanentWardrobeRoute = AdminPermanentWardrobeRouteImport.update({
   id: '/permanent-wardrobe',
   path: '/permanent-wardrobe',
@@ -189,6 +185,18 @@ const AdminCustomersIdRoute = AdminCustomersIdRouteImport.update({
   path: '/customers/$id',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminNotificationsGeneralRoute =
+  AdminNotificationsGeneralRouteImport.update({
+    id: '/notifications/general',
+    path: '/notifications/general',
+    getParentRoute: () => AdminRoute,
+  } as any)
+const AdminNotificationsRequestsRoute =
+  AdminNotificationsRequestsRouteImport.update({
+    id: '/notifications/requests',
+    path: '/notifications/requests',
+    getParentRoute: () => AdminRoute,
+  } as any)
 const AdminOrdersIndexRoute = AdminOrdersIndexRouteImport.update({
   id: '/orders/',
   path: '/orders/',
@@ -235,7 +243,6 @@ export interface FileRoutesByFullPath {
   '/admin/discounts': typeof AdminDiscountsRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/newsletter': typeof AdminNewsletterRoute
-  '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/permanent-wardrobe': typeof AdminPermanentWardrobeRoute
   '/admin/shipping': typeof AdminShippingRoute
   '/shop/$slug': typeof ShopSlugRoute
@@ -243,6 +250,8 @@ export interface FileRoutesByFullPath {
   '/shop/': typeof ShopIndexRoute
   '/account/orders/$id': typeof AccountOrdersIdRoute
   '/admin/customers/$id': typeof AdminCustomersIdRoute
+  '/admin/notifications/general': typeof AdminNotificationsGeneralRoute
+  '/admin/notifications/requests': typeof AdminNotificationsRequestsRoute
   '/admin/orders/$id': typeof AdminOrdersIdRoute
   '/admin/products/$id': typeof AdminProductsIdRoute
   '/admin/products/new': typeof AdminProductsNewRoute
@@ -269,7 +278,6 @@ export interface FileRoutesByTo {
   '/admin/discounts': typeof AdminDiscountsRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/newsletter': typeof AdminNewsletterRoute
-  '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/permanent-wardrobe': typeof AdminPermanentWardrobeRoute
   '/admin/shipping': typeof AdminShippingRoute
   '/shop/$slug': typeof ShopSlugRoute
@@ -277,6 +285,8 @@ export interface FileRoutesByTo {
   '/shop': typeof ShopIndexRoute
   '/account/orders/$id': typeof AccountOrdersIdRoute
   '/admin/customers/$id': typeof AdminCustomersIdRoute
+  '/admin/notifications/general': typeof AdminNotificationsGeneralRoute
+  '/admin/notifications/requests': typeof AdminNotificationsRequestsRoute
   '/admin/orders/$id': typeof AdminOrdersIdRoute
   '/admin/products/$id': typeof AdminProductsIdRoute
   '/admin/products/new': typeof AdminProductsNewRoute
@@ -306,7 +316,6 @@ export interface FileRoutesById {
   '/admin/discounts': typeof AdminDiscountsRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/newsletter': typeof AdminNewsletterRoute
-  '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/permanent-wardrobe': typeof AdminPermanentWardrobeRoute
   '/admin/shipping': typeof AdminShippingRoute
   '/shop/$slug': typeof ShopSlugRoute
@@ -314,6 +323,8 @@ export interface FileRoutesById {
   '/shop/': typeof ShopIndexRoute
   '/account/orders/$id': typeof AccountOrdersIdRoute
   '/admin/customers/$id': typeof AdminCustomersIdRoute
+  '/admin/notifications/general': typeof AdminNotificationsGeneralRoute
+  '/admin/notifications/requests': typeof AdminNotificationsRequestsRoute
   '/admin/orders/$id': typeof AdminOrdersIdRoute
   '/admin/products/$id': typeof AdminProductsIdRoute
   '/admin/products/new': typeof AdminProductsNewRoute
@@ -344,7 +355,6 @@ export interface FileRouteTypes {
     | '/admin/discounts'
     | '/admin/inventory'
     | '/admin/newsletter'
-    | '/admin/notifications'
     | '/admin/permanent-wardrobe'
     | '/admin/shipping'
     | '/shop/$slug'
@@ -352,6 +362,8 @@ export interface FileRouteTypes {
     | '/shop/'
     | '/account/orders/$id'
     | '/admin/customers/$id'
+    | '/admin/notifications/general'
+    | '/admin/notifications/requests'
     | '/admin/orders/$id'
     | '/admin/products/$id'
     | '/admin/products/new'
@@ -378,7 +390,6 @@ export interface FileRouteTypes {
     | '/admin/discounts'
     | '/admin/inventory'
     | '/admin/newsletter'
-    | '/admin/notifications'
     | '/admin/permanent-wardrobe'
     | '/admin/shipping'
     | '/shop/$slug'
@@ -386,6 +397,8 @@ export interface FileRouteTypes {
     | '/shop'
     | '/account/orders/$id'
     | '/admin/customers/$id'
+    | '/admin/notifications/general'
+    | '/admin/notifications/requests'
     | '/admin/orders/$id'
     | '/admin/products/$id'
     | '/admin/products/new'
@@ -414,7 +427,6 @@ export interface FileRouteTypes {
     | '/admin/discounts'
     | '/admin/inventory'
     | '/admin/newsletter'
-    | '/admin/notifications'
     | '/admin/permanent-wardrobe'
     | '/admin/shipping'
     | '/shop/$slug'
@@ -422,6 +434,8 @@ export interface FileRouteTypes {
     | '/shop/'
     | '/account/orders/$id'
     | '/admin/customers/$id'
+    | '/admin/notifications/general'
+    | '/admin/notifications/requests'
     | '/admin/orders/$id'
     | '/admin/products/$id'
     | '/admin/products/new'
@@ -590,13 +604,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminNewsletterRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/notifications': {
-      id: '/admin/notifications'
-      path: '/notifications'
-      fullPath: '/admin/notifications'
-      preLoaderRoute: typeof AdminNotificationsRouteImport
-      parentRoute: typeof AdminRoute
-    }
     '/admin/permanent-wardrobe': {
       id: '/admin/permanent-wardrobe'
       path: '/permanent-wardrobe'
@@ -651,6 +658,20 @@ declare module '@tanstack/react-router' {
       path: '/customers/$id'
       fullPath: '/admin/customers/$id'
       preLoaderRoute: typeof AdminCustomersIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/notifications/general': {
+      id: '/admin/notifications/general'
+      path: '/notifications/general'
+      fullPath: '/admin/notifications/general'
+      preLoaderRoute: typeof AdminNotificationsGeneralRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/notifications/requests': {
+      id: '/admin/notifications/requests'
+      path: '/notifications/requests'
+      fullPath: '/admin/notifications/requests'
+      preLoaderRoute: typeof AdminNotificationsRequestsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/orders/': {
@@ -710,11 +731,12 @@ interface AdminRouteChildren {
   AdminDiscountsRoute: typeof AdminDiscountsRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminNewsletterRoute: typeof AdminNewsletterRoute
-  AdminNotificationsRoute: typeof AdminNotificationsRoute
   AdminPermanentWardrobeRoute: typeof AdminPermanentWardrobeRoute
   AdminShippingRoute: typeof AdminShippingRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminCustomersIdRoute: typeof AdminCustomersIdRoute
+  AdminNotificationsGeneralRoute: typeof AdminNotificationsGeneralRoute
+  AdminNotificationsRequestsRoute: typeof AdminNotificationsRequestsRoute
   AdminOrdersIdRoute: typeof AdminOrdersIdRoute
   AdminProductsIdRoute: typeof AdminProductsIdRoute
   AdminProductsNewRoute: typeof AdminProductsNewRoute
@@ -729,11 +751,12 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminDiscountsRoute: AdminDiscountsRoute,
   AdminInventoryRoute: AdminInventoryRoute,
   AdminNewsletterRoute: AdminNewsletterRoute,
-  AdminNotificationsRoute: AdminNotificationsRoute,
   AdminPermanentWardrobeRoute: AdminPermanentWardrobeRoute,
   AdminShippingRoute: AdminShippingRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminCustomersIdRoute: AdminCustomersIdRoute,
+  AdminNotificationsGeneralRoute: AdminNotificationsGeneralRoute,
+  AdminNotificationsRequestsRoute: AdminNotificationsRequestsRoute,
   AdminOrdersIdRoute: AdminOrdersIdRoute,
   AdminProductsIdRoute: AdminProductsIdRoute,
   AdminProductsNewRoute: AdminProductsNewRoute,

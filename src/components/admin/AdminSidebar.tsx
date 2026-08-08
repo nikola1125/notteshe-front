@@ -39,12 +39,16 @@ const NAV_ITEMS: Array<{ label: string; href: string; icon: React.ElementType; e
   { label: "Shipping", href: "/admin/shipping", icon: Truck },
   { label: "Discounts", href: "/admin/discounts", icon: Tag },
   { label: "Newsletter", href: "/admin/newsletter", icon: Mail },
-  { label: "Notifications", href: "/admin/notifications", icon: Bell },
 ];
 
 const LOG_SUB_ITEMS = [
   { label: "Payment Log", href: "/admin/audit", icon: CreditCard },
   { label: "Activities", href: "/admin/activities", icon: Activity },
+] as const;
+
+const NOTIFICATION_SUB_ITEMS = [
+  { label: "General", href: "/admin/notifications/general" },
+  { label: "Requests", href: "/admin/notifications/requests" },
 ] as const;
 
 export function AdminSidebar({ adminName, adminRole }: AdminSidebarProps) {
@@ -54,6 +58,9 @@ export function AdminSidebar({ adminName, adminRole }: AdminSidebarProps) {
 
   const logsActive = LOG_SUB_ITEMS.some((item) => location.pathname.startsWith(item.href));
   const [logsOpen, setLogsOpen] = useState(logsActive);
+
+  const notificationsActive = NOTIFICATION_SUB_ITEMS.some((item) => location.pathname.startsWith(item.href));
+  const [notificationsOpen, setNotificationsOpen] = useState(notificationsActive);
 
   function isActive(href: string, exact?: boolean) {
     if (exact) return location.pathname === href;
@@ -103,6 +110,47 @@ export function AdminSidebar({ adminName, adminRole }: AdminSidebarProps) {
             </Link>
           );
         })}
+
+        {/* Notifications dropdown */}
+        <button
+          onClick={() => setNotificationsOpen((v) => !v)}
+          className={[
+            "flex w-full items-center gap-3 rounded px-3 py-2.5 text-sm transition-colors",
+            notificationsActive
+              ? "bg-[var(--color-clay)]/15 text-[var(--color-clay)]"
+              : "text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]",
+          ].join(" ")}
+        >
+          <Bell size={16} strokeWidth={1.5} />
+          <span className="flex-1 text-left font-mono text-xs tracking-wide">Notifications</span>
+          <ChevronDown
+            size={12}
+            strokeWidth={1.5}
+            className={`transition-transform ${notificationsOpen ? "rotate-180" : ""}`}
+          />
+        </button>
+        {notificationsOpen && (
+          <div className="ml-4 space-y-0.5 border-l border-[var(--color-border)] pl-3">
+            {NOTIFICATION_SUB_ITEMS.map(({ label, href }) => {
+              const active = isActive(href);
+              return (
+                <Link
+                  key={href}
+                  to={href}
+                  onClick={() => setMobileOpen(false)}
+                  className={[
+                    "flex items-center gap-3 rounded px-3 py-2 text-sm transition-colors",
+                    active
+                      ? "bg-[var(--color-clay)]/15 text-[var(--color-clay)]"
+                      : "text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]",
+                  ].join(" ")}
+                >
+                  <span className="font-mono text-xs tracking-wide">{label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
 
         {/* Logs dropdown */}
         <button

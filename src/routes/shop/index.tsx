@@ -301,7 +301,7 @@ function ShopPage() {
                       alt={p.name}
                       loading={i < 4 ? "eager" : "lazy"}
                       draggable={false}
-                      className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05] touch-pan-y"
+                      className="h-full w-full object-cover transition-transform duration-700 ease-out md:group-hover:scale-[1.05] touch-pan-y"
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center">
@@ -323,17 +323,17 @@ function ShopPage() {
 
                   <WishlistButton
                     productId={p.id}
-                    className="absolute right-3 top-3 h-8 w-8 rounded-full bg-background/70 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                    className="absolute right-3 top-3 h-8 w-8 rounded-full bg-background/70 backdrop-blur-sm opacity-0 md:group-hover:opacity-100 transition-opacity duration-200"
                   />
 
-                  <div className="absolute bottom-0 left-0 right-0 translate-y-full border-t border-ink/10 bg-background/90 py-3.5 text-center font-mono text-[10px] uppercase tracking-widest text-ink backdrop-blur-sm transition-transform duration-300 ease-out group-hover:translate-y-0">
+                  <div className="absolute bottom-0 left-0 right-0 translate-y-full border-t border-ink/10 bg-background/90 py-3.5 text-center font-mono text-[10px] uppercase tracking-widest text-ink backdrop-blur-sm transition-transform duration-300 ease-out md:group-hover:translate-y-0">
                     View piece
                   </div>
                 </div>
 
                 <div className="mt-4 flex items-start justify-between">
                   <div>
-                    <h3 className="relative inline-block serif text-[15px] text-ink after:absolute after:bottom-[-2px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 group-hover:after:scale-x-100">
+                    <h3 className="relative inline-block serif text-[15px] text-ink after:absolute after:bottom-[-2px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 md:group-hover:after:scale-x-100">
                       {p.name}
                     </h3>
                     {p.colourCount > 0 && (

@@ -593,6 +593,16 @@ function OrderDetail() {
             </address>
           </div>
 
+          {/* Payment Method */}
+          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-5">
+            <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
+              Payment Method
+            </p>
+            <p className="font-mono text-xs text-[var(--color-foreground)]">
+              {data.order.pokOrderId ? "Card (POK Pay)" : "Cash on Delivery"}
+            </p>
+          </div>
+
           {/* Tracking */}
           {data.order.trackingNumber && (
             <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-5">

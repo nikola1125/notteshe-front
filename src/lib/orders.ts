@@ -192,6 +192,7 @@ export const placeOrder = createServerFn({ method: "POST" })
       subtotal: orderData.subtotal,
       shippingFee: orderData.shippingFee,
       total: orderData.total,
+      paymentMethod: "Card (POK Pay)",
     }).catch((err) => console.error("[resend] order confirmation failed:", err));
 
     return { orderId };

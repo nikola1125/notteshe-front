@@ -1,7 +1,7 @@
 import "@nebula-ltd/pok-payments-js/lib/index.css";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef, Suspense, lazy } from "react";
-import type { AddCardData, PayerAuthentication } from "@nebula-ltd/pok-payments-js";
+import type { PayerAuthentication } from "@nebula-ltd/pok-payments-js";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { useCart } from "@/store/cartStore";
@@ -13,12 +13,6 @@ import { createPokOrder } from "@/lib/pok";
 const GuestCheckoutForm = lazy(() =>
   import("@nebula-ltd/pok-payments-js/react").then((m) => ({
     default: m.GuestCheckoutForm,
-  }))
-);
-
-const AddCardForm = lazy(() =>
-  import("@nebula-ltd/pok-payments-js/react").then((m) => ({
-    default: m.AddCardForm,
   }))
 );
 
@@ -246,6 +240,7 @@ const placeCodOrder = createServerFn({ method: "POST" })
       subtotal,
       shippingFee,
       total,
+      paymentMethod: "Cash on Delivery",
     }).catch((err) => console.error("[resend] COD confirmation failed:", err));
 
     return { orderId };
@@ -353,63 +348,6 @@ const getSavedCards = createServerFn({ method: "GET" }).handler(async (): Promis
   }));
 });
 
-const AddCardDataSchema = z.object({
-  csFlexCard: z.object({ jwe: z.string() }).passthrough(),
-  billingInfo: z.object({
-    firstName: z.string(),
-    lastName: z.string(),
-    email: z.string(),
-    countryCode: z.string(),
-    administrativeArea: z.string(),
-    locality: z.string(),
-    address1: z.string(),
-    postalCode: z.string(),
-    phoneNumber: z.string(),
-  }),
-  securityCode: z.string(),
-});
-
-const tokenizeAndSaveCard = createServerFn({ method: "POST" })
-  .validator((d: unknown) => AddCardDataSchema.parse(d))
-  .handler(async ({ data }) => {
-    const { requireAuth } = await import("@/lib/auth/session");
-    const { db } = await import("@/db");
-    const { savedCard } = await import("@/db/schema");
-    const { eq } = await import("drizzle-orm");
-    const { randomUUID } = await import("node:crypto");
-    const { pokTokenizeCard, pokGetGuestCardsInfo } = await import("@/lib/pok");
-
-    const session = await requireAuth();
-    const userId = session.user.id;
-
-    // Tokenize the card via POK
-    const { id: pokCardId, hiddenNumber } = await pokTokenizeCard({
-      csFlexCard: data.csFlexCard,
-      billingInfo: data.billingInfo,
-      securityCode: data.securityCode,
-    });
-
-    // If this card is already saved for this user, return the existing record
-    const existing = await db()
-      .select({ id: savedCard.id })
-      .from(savedCard)
-      .where(eq(savedCard.pokCardId, pokCardId))
-      .limit(1);
-    if (existing[0]) return { id: existing[0].id };
-
-    // Fetch display info (brand, masked number)
-    const [cardInfo] = await pokGetGuestCardsInfo([pokCardId]);
-
-    const brand = cardInfo?.brand ?? null;
-    const number = cardInfo?.number ?? hiddenNumber;
-    const lastFour = number?.slice(-4) ?? null;
-    const label = brand && lastFour ? `${brand} **** ${lastFour}` : lastFour ? `**** ${lastFour}` : null;
-
-    const id = randomUUID();
-    await db().insert(savedCard).values({ id, userId, pokCardId, brand, lastFour, label });
-    return { id };
-  });
-
 const setupSavedCard = createServerFn({ method: "POST" })
   .validator((d: unknown) =>
     z.object({ pokOrderId: z.string(), savedCardDbId: z.string() }).parse(d)
@@ -501,7 +439,7 @@ const EMPTY_FORM: ShippingForm = {
 };
 
 type PaymentMethod = "cod" | "new-card" | "saved-card";
-type CheckoutStep = "details" | "initiating" | "card-payment" | "saved-card-payment" | "save-card-prompt";
+type CheckoutStep = "details" | "initiating" | "card-payment" | "saved-card-payment";
 
 const POK_ENV = (typeof import.meta !== "undefined" && import.meta.env?.VITE_POK_ENV as "production" | "staging") || "staging";
 
@@ -545,8 +483,6 @@ function CheckoutPage() {
   const [priceWarning, setPriceWarning] = useState(false);
 
   // Save-card-prompt state (shown after a new card payment succeeds)
-  const [cardSaving, setCardSaving] = useState(false);
-  const [cardSaved, setCardSaved] = useState(false);
 
   // Saved cards list (mutable — can add/delete without re-loading)
   const [localSavedCards, setLocalSavedCards] = useState<SavedCardDisplay[]>(savedCards);
@@ -739,8 +675,8 @@ function CheckoutPage() {
     setPlaceError(null);
     try {
       await placeOrder({ data: { pokOrderId: pokOrderId! } });
-      // Show save-card prompt before navigating
-      setStep("save-card-prompt");
+      clearCart();
+      void navigate({ to: "/order-confirmed" });
     } catch (err) {
       const msg =
         (err as { data?: { message?: string } })?.data?.message ??
@@ -834,27 +770,6 @@ function CheckoutPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pokOrderId, form.email, total]);
 
-  // ── Save card handlers ────────────────────────────────────────────────────────
-
-  const handleSaveCardSuccess = useCallback(async (cardData: AddCardData) => {
-    setCardSaving(true);
-    try {
-      await tokenizeAndSaveCard({ data: cardData });
-      setCardSaved(true);
-      // Reload saved cards for future visits (non-blocking)
-      getSavedCards().then((cards) => setLocalSavedCards(cards)).catch(() => {});
-    } catch {
-      setPlaceError("Could not save card. Your order is confirmed — you can continue.");
-    } finally {
-      setCardSaving(false);
-    }
-  }, []);
-
-  function finishAndNavigate() {
-    clearCart();
-    void navigate({ to: "/order-confirmed" });
-  }
-
   // ── Shared reset ──────────────────────────────────────────────────────────────
 
   function handleChangePaymentMethod() {
@@ -903,7 +818,7 @@ function CheckoutPage() {
     );
   }
 
-  if (items.length === 0 && step !== "save-card-prompt") {
+  if (items.length === 0) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-5 text-center">
         <p className="serif text-3xl text-ink">Your bag is empty.</p>
@@ -917,104 +832,6 @@ function CheckoutPage() {
   const formDisabled = step !== "details";
 
   // ─── Render ──────────────────────────────────────────────────────────────────
-
-  // Save card prompt (full-screen step after new card payment)
-  if (step === "save-card-prompt") {
-    return (
-      <div className="min-h-screen bg-background text-foreground">
-        <div className="mx-auto max-w-xl px-5 pb-24 pt-24 md:px-12 md:pt-32">
-          <div className="mb-10">
-            <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-full border border-border">
-              <svg width="16" height="12" viewBox="0 0 22 16" fill="none" stroke="currentColor" strokeWidth="1.2">
-                <polyline points="1 8 7 14 21 1" />
-              </svg>
-            </div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Order placed</p>
-            <h1 className="serif mt-2 text-4xl text-ink">Save your card?</h1>
-            <p className="mt-4 text-[13px] font-light leading-relaxed text-muted-foreground">
-              Enter your card number, expiry, and CVC to save for next time. Name, address, and contact are pre-filled. Your card is securely tokenized by POK Pay — we never store raw card data.
-            </p>
-          </div>
-
-          {cardSaved ? (
-            <div className="space-y-6">
-              <div className="flex items-center gap-3 border border-border/40 bg-muted px-5 py-4">
-                <svg width="14" height="14" viewBox="0 0 22 16" fill="none" stroke="currentColor" strokeWidth="1.4" className="text-green-400 shrink-0">
-                  <polyline points="1 8 7 14 21 1" />
-                </svg>
-                <p className="font-mono text-[11px] text-ink">Card saved successfully.</p>
-              </div>
-              <button
-                onClick={finishAndNavigate}
-                className="w-full bg-foreground py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-opacity hover:opacity-80"
-              >
-                Continue to order confirmation
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="border border-border">
-                <div className="border-b border-border px-5 py-3">
-                  <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/50">Secured by POK Pay</p>
-                </div>
-                <div className="p-5">
-                  {cardSaving ? (
-                    <div className="flex items-center justify-center gap-3 py-8">
-                      <Spinner />
-                      <p className="font-mono text-[11px] text-muted-foreground">Saving your card…</p>
-                    </div>
-                  ) : (
-                    mounted && (
-                      <Suspense fallback={
-                        <div className="flex items-center justify-center gap-3 py-10">
-                          <Spinner />
-                        </div>
-                      }>
-                        <AddCardForm
-                          onSuccess={handleSaveCardSuccess}
-                          onError={() => setPlaceError("Could not save card. You can skip this step.")}
-                          options={{
-                            env: POK_ENV,
-                            locale: "al",
-                            countrySelect: "modal",
-                            initialState: {
-                              cardNumber: "",
-                              expiration: "",
-                              securityCode: "",
-                              holdersName: `${form.firstName} ${form.lastName}`.trim(),
-                              email: form.email,
-                              countryCode: form.country,
-                              address1: form.address,
-                              locality: form.city,
-                              postalCode: form.postalCode,
-                              phoneNumber: form.phone,
-                              administrativeArea: "",
-                            },
-                          }}
-                          buttonTitle="Save card"
-                        />
-                      </Suspense>
-                    )
-                  )}
-                </div>
-              </div>
-
-              {placeError && (
-                <p className="font-mono text-[11px] text-clay">{placeError}</p>
-              )}
-
-              <button
-                onClick={finishAndNavigate}
-                className="w-full py-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60 transition-colors hover:text-ink"
-              >
-                Skip — go to order confirmation →
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">

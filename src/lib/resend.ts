@@ -20,6 +20,7 @@ interface OrderConfirmationData {
   subtotal: number;
   shippingFee: number;
   total: number;
+  paymentMethod: string;
 }
 
 export async function sendOrderConfirmation(data: OrderConfirmationData) {
@@ -62,6 +63,10 @@ export async function sendOrderConfirmation(data: OrderConfirmationData) {
             <tr>
               <td style="font-size:12px;color:#6B6B6B;padding:4px 0;">Shipping</td>
               <td style="font-size:12px;color:#6B6B6B;text-align:right;padding:4px 0;">${data.shippingFee === 0 ? "Free" : `${data.shippingFee.toFixed(2)} L`}</td>
+            </tr>
+            <tr>
+              <td style="font-size:12px;color:#6B6B6B;padding:4px 0;">Payment method</td>
+              <td style="font-size:12px;color:#6B6B6B;text-align:right;padding:4px 0;">${data.paymentMethod}</td>
             </tr>
             <tr>
               <td style="font-size:14px;font-weight:500;color:#111;padding:12px 0 4px;border-top:1px solid #E0D9D0;">Total</td>

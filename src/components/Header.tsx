@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useCart } from "@/store/cartStore";
 import { useWishlist } from "@/store/wishlistStore";
@@ -6,6 +6,12 @@ import { useAuthStore } from "@/store/authStore";
 import { useSession, signOut } from "@/lib/auth/client";
 
 export function Header() {
+  const location = useLocation();
+  const isSale = location.pathname === "/shop" && location.search.includes("sale=1");
+  const isShop = location.pathname.startsWith("/shop") && !isSale;
+  const isStory = location.pathname === "/about";
+  const isContact = location.pathname === "/contact";
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [badgeBounce, setBadgeBounce] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -49,14 +55,14 @@ export function Header() {
           <Link
             to="/shop"
             search={{ sale: undefined }}
-            className="relative text-[14px] text-ink/75 transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100"
+            className={`relative text-[14px] transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:bg-ink after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100 ${isShop ? "text-ink after:scale-x-100" : "text-ink/75 after:scale-x-0"}`}
           >
             Shop
           </Link>
           <Link to="/shop" // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            search={(() => ({ sale: "1" })) as any} className="relative text-[14px] text-clay after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-clay/80 hover:after:scale-x-100">Sale</Link>
-          <Link to="/about" className="relative text-[14px] text-ink/75 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100">Story</Link>
-          <Link to="/contact" className="relative text-[14px] text-ink/75 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100">Contact</Link>
+            search={(() => ({ sale: "1" })) as any} className={`relative text-[14px] text-clay after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:bg-clay after:transition-transform after:duration-300 hover:text-clay/80 hover:after:scale-x-100 ${isSale ? "after:scale-x-100" : "after:scale-x-0"}`}>Sale</Link>
+          <Link to="/about" className={`relative text-[14px] after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:bg-ink after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100 ${isStory ? "text-ink after:scale-x-100" : "text-ink/75 after:scale-x-0"}`}>Story</Link>
+          <Link to="/contact" className={`relative text-[14px] after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:bg-ink after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100 ${isContact ? "text-ink after:scale-x-100" : "text-ink/75 after:scale-x-0"}`}>Contact</Link>
         </nav>
 
         {/* Actions */}

@@ -565,7 +565,7 @@ function Index() {
 
 function NewsletterForm() {
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "sending" | "done" | "already" | "error">("idle");
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -576,8 +576,8 @@ function NewsletterForm() {
     }
     setStatus("sending");
     try {
-      await subscribeNewsletter({ data: { email } });
-      setStatus("done");
+      const result = await subscribeNewsletter({ data: { email } });
+      setStatus(result.alreadySubscribed ? "already" : "done");
     } catch {
       setStatus("error");
     }
@@ -588,6 +588,15 @@ function NewsletterForm() {
       <div className="w-full">
         <p className="font-mono text-[11px] uppercase tracking-widest text-clay">You're on the list.</p>
         <p className="mt-2 text-[13px] font-light text-muted-foreground">We'll be in touch — quietly.</p>
+      </div>
+    );
+  }
+
+  if (status === "already") {
+    return (
+      <div className="w-full">
+        <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Already subscribed.</p>
+        <p className="mt-2 text-[13px] font-light text-muted-foreground">This address is already on the list.</p>
       </div>
     );
   }

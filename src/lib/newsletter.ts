@@ -7,10 +7,11 @@ export const subscribeNewsletter = createServerFn({ method: "POST" })
     const { db } = await import("@/db");
     const { newsletterSubscriber } = await import("@/db/schema");
 
-    await db()
+    const result = await db()
       .insert(newsletterSubscriber)
       .values({ id: crypto.randomUUID(), email: data.email.toLowerCase().trim() })
-      .onConflictDoNothing();
+      .onConflictDoNothing()
+      .returning({ id: newsletterSubscriber.id });
 
-    return { success: true };
+    return { success: true, alreadySubscribed: result.length === 0 };
   });

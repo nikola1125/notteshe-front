@@ -133,6 +133,10 @@ function ShopPage() {
   const [sortOpen, setSortOpen] = useState(false);
 
   useEffect(() => {
+    setActiveCategoryId(sale === "1" ? "sale" : "all");
+  }, [sale]);
+
+  useEffect(() => {
     const els = document.querySelectorAll<HTMLElement>(".reveal");
     const io = new IntersectionObserver(
       (entries) =>

@@ -224,7 +224,7 @@ function ShopPage() {
             ))}
             <button
               onClick={() => setActiveCategoryId("sale")}
-              className={`shrink-0 border-b-[1.5px] px-4 py-4 font-mono text-[10px] uppercase tracking-widest transition-colors duration-200 md:px-5 ${
+              className={`md:hidden shrink-0 border-b-[1.5px] px-4 py-4 font-mono text-[10px] uppercase tracking-widest transition-colors duration-200 ${
                 activeCategoryId === "sale"
                   ? "border-clay text-clay"
                   : "border-transparent text-clay/60 hover:text-clay"

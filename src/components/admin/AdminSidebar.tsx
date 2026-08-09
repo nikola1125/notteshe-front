@@ -27,6 +27,8 @@ import { logoutAdminFn } from "@/lib/admin/auth";
 interface AdminSidebarProps {
   adminName: string;
   adminRole: string;
+  newOrders?: number;
+  pendingCancellations?: number;
 }
 
 const NAV_ITEMS: Array<{ label: string; href: string; icon: React.ElementType; exact?: boolean }> = [
@@ -51,7 +53,7 @@ const NOTIFICATION_SUB_ITEMS = [
   { label: "Requests", href: "/admin/notifications/requests" },
 ] as const;
 
-export function AdminSidebar({ adminName, adminRole }: AdminSidebarProps) {
+export function AdminSidebar({ adminName, adminRole, newOrders = 0, pendingCancellations = 0 }: AdminSidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const router = useRouter();
@@ -93,6 +95,7 @@ export function AdminSidebar({ adminName, adminRole }: AdminSidebarProps) {
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
         {NAV_ITEMS.map(({ label, href, icon: Icon, exact }) => {
           const active = isActive(href, exact);
+          const badge = href === "/admin/orders" && newOrders > 0 ? newOrders : null;
           return (
             <Link
               key={href}
@@ -106,7 +109,12 @@ export function AdminSidebar({ adminName, adminRole }: AdminSidebarProps) {
               ].join(" ")}
             >
               <Icon size={16} strokeWidth={1.5} />
-              <span className="font-mono text-xs tracking-wide">{label}</span>
+              <span className="flex-1 font-mono text-xs tracking-wide">{label}</span>
+              {badge !== null && (
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-clay)] px-1 font-mono text-[9px] text-white">
+                  {badge}
+                </span>
+              )}
             </Link>
           );
         })}
@@ -123,6 +131,11 @@ export function AdminSidebar({ adminName, adminRole }: AdminSidebarProps) {
         >
           <Bell size={16} strokeWidth={1.5} />
           <span className="flex-1 text-left font-mono text-xs tracking-wide">Notifications</span>
+          {pendingCancellations > 0 && (
+            <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-clay)] px-1 font-mono text-[9px] text-white">
+              {pendingCancellations}
+            </span>
+          )}
           <ChevronDown
             size={12}
             strokeWidth={1.5}
@@ -133,6 +146,7 @@ export function AdminSidebar({ adminName, adminRole }: AdminSidebarProps) {
           <div className="ml-4 space-y-0.5 border-l border-[var(--color-border)] pl-3">
             {NOTIFICATION_SUB_ITEMS.map(({ label, href }) => {
               const active = isActive(href);
+              const subBadge = href === "/admin/notifications/requests" && pendingCancellations > 0 ? pendingCancellations : null;
               return (
                 <Link
                   key={href}
@@ -145,7 +159,12 @@ export function AdminSidebar({ adminName, adminRole }: AdminSidebarProps) {
                       : "text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]",
                   ].join(" ")}
                 >
-                  <span className="font-mono text-xs tracking-wide">{label}</span>
+                  <span className="flex-1 font-mono text-xs tracking-wide">{label}</span>
+                  {subBadge !== null && (
+                    <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-clay)] px-1 font-mono text-[9px] text-white">
+                      {subBadge}
+                    </span>
+                  )}
                 </Link>
               );
             })}

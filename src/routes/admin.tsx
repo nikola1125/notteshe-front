@@ -11,9 +11,12 @@ import { requireAdmin } from "@/lib/admin/auth";
 
 const getAdminCounts = createServerFn({ method: "GET" }).handler(async () => {
   await requireAdmin();
+  const { and } = await import("drizzle-orm");
   const [[newOrders], [pendingCancellations]] = await Promise.all([
     db().select({ count: count() }).from(orders).where(eq(orders.status, "PENDING")),
-    db().select({ count: count() }).from(cancellationRequest).where(eq(cancellationRequest.status, "pending")),
+    db().select({ count: count() }).from(cancellationRequest).where(
+      and(eq(cancellationRequest.status, "pending"), eq(cancellationRequest.isRead, false))
+    ),
   ]);
   return {
     newOrders: newOrders?.count ?? 0,

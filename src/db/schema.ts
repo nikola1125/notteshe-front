@@ -349,6 +349,7 @@ export const cancellationRequest = pgTable("cancellation_request", {
   userName: text("user_name").notNull(),
   userEmail: text("user_email").notNull(),
   status: text("status").notNull().default("pending"), // pending | approved | rejected
+  isRead: boolean("is_read").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

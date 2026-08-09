@@ -4,7 +4,7 @@ import { BackButton } from "@/components/admin/BackButton";
 import { db } from "@/db";
 import { contactMessage, cancellationRequest } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { Link } from "@tanstack/react-router";
 
 interface ContactItem {
@@ -29,6 +29,19 @@ interface CancellationItem {
 }
 
 type RequestItem = ContactItem | CancellationItem;
+
+const markRequestsRead = createServerFn({ method: "POST" }).handler(async () => {
+  await requireAdmin();
+  await db()
+    .update(cancellationRequest)
+    .set({ isRead: true })
+    .where(eq(cancellationRequest.isRead, false));
+  await db()
+    .update(contactMessage)
+    .set({ isRead: true })
+    .where(eq(contactMessage.isRead, false));
+  return { ok: true };
+});
 
 const getRequests = createServerFn({ method: "GET" }).handler(async (): Promise<RequestItem[]> => {
   await requireAdmin();
@@ -65,7 +78,10 @@ const getRequests = createServerFn({ method: "GET" }).handler(async (): Promise<
 });
 
 export const Route = createFileRoute("/admin/notifications/requests")({
-  loader: () => getRequests(),
+  loader: async () => {
+    await markRequestsRead();
+    return getRequests();
+  },
   component: RequestsPage,
 });
 

@@ -340,6 +340,18 @@ export const savedCard = pgTable("saved_card", {
   index("saved_card_user_idx").on(t.userId),
 ]);
 
+// ─── Order Cancellation Requests ─────────────────────────────────────────────
+
+export const cancellationRequest = pgTable("cancellation_request", {
+  id: text("id").primaryKey(),
+  orderId: text("order_id").notNull(),
+  userId: text("user_id").notNull(),
+  userName: text("user_name").notNull(),
+  userEmail: text("user_email").notNull(),
+  status: text("status").notNull().default("pending"), // pending | approved | rejected
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // ─── Contact Messages ─────────────────────────────────────────────────────────
 
 export const contactMessage = pgTable("contact_message", {

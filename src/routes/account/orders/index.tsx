@@ -3,8 +3,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { requireAuth } from "@/lib/auth/session";
 import { db } from "@/db";
-import { orders, orderItem } from "@/db/schema";
+import { orders, cancellationRequest } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { nanoid } from "nanoid";
+import { z } from "zod";
 
 const getMyOrders = createServerFn({ method: "GET" }).handler(async () => {
   const session = await requireAuth();
@@ -23,7 +25,6 @@ const getMyOrders = createServerFn({ method: "GET" }).handler(async () => {
     .where(eq(orders.userId, session.user.id))
     .orderBy(desc(orders.createdAt));
 
-  // Fetch discount fields separately — survives before migration
   const discountMap = new Map<string, { code: string | null; amount: number }>();
   try {
     const dr = await db()
@@ -33,12 +34,40 @@ const getMyOrders = createServerFn({ method: "GET" }).handler(async () => {
     for (const r of dr) discountMap.set(r.id, { code: r.discountCode ?? null, amount: Number(r.discountAmount ?? 0) });
   } catch { /* column not yet migrated */ }
 
+  // Fetch existing cancellation requests for this user's orders
+  const orderIds = rows.map((r) => r.id);
+  const cancelledSet = new Set<string>();
+  if (orderIds.length > 0) {
+    try {
+      const reqs = await db()
+        .select({ orderId: cancellationRequest.orderId })
+        .from(cancellationRequest)
+        .where(eq(cancellationRequest.userId, session.user.id));
+      for (const r of reqs) cancelledSet.add(r.orderId);
+    } catch { /* table not yet migrated */ }
+  }
+
   return rows.map((r) => ({
     ...r,
     discountCode: discountMap.get(r.id)?.code ?? null,
     discountAmount: discountMap.get(r.id)?.amount ?? 0,
+    cancellationRequested: cancelledSet.has(r.id),
   }));
 });
+
+const requestCancellation = createServerFn({ method: "POST" })
+  .validator(z.object({ orderId: z.string() }))
+  .handler(async ({ data }) => {
+    const session = await requireAuth();
+    await db().insert(cancellationRequest).values({
+      id: nanoid(),
+      orderId: data.orderId,
+      userId: session.user.id,
+      userName: session.user.name ?? session.user.email,
+      userEmail: session.user.email,
+    });
+    return { ok: true };
+  });
 
 export const Route = createFileRoute("/account/orders/")({
   component: OrdersPage,
@@ -63,9 +92,16 @@ const STATUS_COLOR: Record<string, string> = {
   REFUNDED: "text-clay",
 };
 
+const CANCELLABLE = new Set(["PENDING", "CONFIRMED"]);
+
 function OrdersPage() {
   const rows = Route.useLoaderData();
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [requestedIds, setRequestedIds] = useState<Set<string>>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    () => new Set((rows as any[]).filter((r) => r.cancellationRequested).map((r) => r.id))
+  );
+  const [loadingId, setLoadingId] = useState<string | null>(null);
 
   function copyRef(e: React.MouseEvent, orderId: string) {
     e.preventDefault();
@@ -73,6 +109,19 @@ function OrdersPage() {
     navigator.clipboard.writeText(orderId.slice(0, 8).toUpperCase());
     setCopiedId(orderId);
     setTimeout(() => setCopiedId(null), 1500);
+  }
+
+  async function handleCancelRequest(e: React.MouseEvent, orderId: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (loadingId || requestedIds.has(orderId)) return;
+    setLoadingId(orderId);
+    try {
+      await requestCancellation({ data: { orderId } });
+      setRequestedIds((prev) => new Set([...prev, orderId]));
+    } finally {
+      setLoadingId(null);
+    }
   }
 
   return (
@@ -96,28 +145,23 @@ function OrdersPage() {
       <div className="mx-auto max-w-[1600px] px-5 py-12 md:px-12 md:py-16">
         {rows.length === 0 ? (
           <div className="flex flex-col items-center gap-6 py-24 text-center">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
-              No orders yet
-            </p>
-            <Link
-              to="/shop"
-              search={{ sale: undefined }}
-              className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground underline underline-offset-4 transition hover:text-ink"
-            >
+            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">No orders yet</p>
+            <Link to="/shop" search={{ sale: undefined }} className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground underline underline-offset-4 transition hover:text-ink">
               Browse the shop
             </Link>
           </div>
         ) : (
           <div className="space-y-4">
-            {rows.map((order) => {
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {(rows as any[]).map((order) => {
               const addr = order.shippingAddress as Record<string, string>;
+              const canCancel = CANCELLABLE.has(order.status);
+              const alreadyRequested = requestedIds.has(order.id);
               return (
                 <Link key={order.id} to="/account/orders/$id" params={{ id: order.id }} className="group block border border-border p-5 md:p-7 transition-colors hover:border-ink/30">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                      <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                        Order ref
-                      </p>
+                      <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Order ref</p>
                       <div className="mt-1 flex items-center gap-2">
                         <p className="serif text-xl text-ink">{order.id.slice(0, 8).toUpperCase()}</p>
                         <button
@@ -145,6 +189,7 @@ function OrdersPage() {
                       <p className="serif mt-1 text-xl text-ink">{order.total.toFixed(0)} L</p>
                     </div>
                   </div>
+
                   <div className="mt-4 flex flex-wrap gap-6 border-t border-border pt-4">
                     <div>
                       <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">Date</p>
@@ -173,7 +218,23 @@ function OrdersPage() {
                       </div>
                     )}
                   </div>
-                  <div className="mt-4 flex justify-end border-t border-border pt-4">
+
+                  <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+                    {canCancel ? (
+                      <button
+                        onClick={(e) => handleCancelRequest(e, order.id)}
+                        disabled={alreadyRequested || loadingId === order.id}
+                        className={`font-mono text-[10px] uppercase tracking-widest transition-colors ${
+                          alreadyRequested
+                            ? "cursor-default text-muted-foreground/40"
+                            : "text-clay/70 hover:text-clay"
+                        }`}
+                      >
+                        {loadingId === order.id ? "Requesting…" : alreadyRequested ? "Cancellation requested" : "Request cancellation"}
+                      </button>
+                    ) : (
+                      <span />
+                    )}
                     <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors group-hover:text-ink">
                       View order →
                     </span>

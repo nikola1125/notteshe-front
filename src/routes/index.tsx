@@ -81,7 +81,7 @@ const getHomeData = createServerFn({ method: "GET" }).handler(async (): Promise<
     .sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0));
 
   return {
-    wardrobe: wardrobeAll.slice(0, 4).map(toHomeProduct),
+    wardrobe: wardrobeAll.map(toHomeProduct),
     wardrobeTotal: wardrobeAll.length,
     sale: prods.filter((p) => p.isSale).slice(0, 4).map(toHomeProduct),
   };
@@ -215,7 +215,7 @@ function Index() {
 
         {/* Mobile: horizontal scroll · Desktop: grid */}
         <div
-          className="-mx-5 flex gap-4 overflow-x-auto overflow-y-hidden scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide overscroll-x-contain md:mx-0 md:grid md:grid-cols-4 md:gap-x-6 md:overflow-visible md:px-0 md:pb-0 md:snap-none md:scroll-pl-0"
+          className="-mx-5 flex gap-4 overflow-x-auto overflow-y-hidden scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide overscroll-x-contain md:mx-0 md:grid md:grid-cols-4 md:gap-x-6 md:gap-y-10 md:overflow-visible md:px-0 md:pb-0 md:snap-none md:scroll-pl-0"
         >
           {wardrobe.length === 0 ? (
             <p className="col-span-4 py-16 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">

@@ -5,7 +5,7 @@ import { eq, desc, sql, and } from "drizzle-orm";
 import { toast } from "sonner";
 import { useState } from "react";
 import { db } from "@/db";
-import { orders, orderItem, productSize, user, auditLog, adminUser } from "@/db/schema";
+import { orders, orderItem, productSize, user, auditLog, adminUser, cancellationRequest } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAudit } from "@/lib/admin/audit";
 import type { PokOrderData } from "@/lib/pok";
@@ -283,8 +283,23 @@ const refreshPokData = createServerFn({ method: "GET" })
     return pokGetOrder(data.pokOrderId);
   });
 
+const markOrderCancellationRead = createServerFn({ method: "POST" })
+  .validator((input: unknown) => ({ orderId: (input as { orderId: string }).orderId }))
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    await db()
+      .update(cancellationRequest)
+      .set({ isRead: true })
+      .where(and(eq(cancellationRequest.orderId, data.orderId), eq(cancellationRequest.isRead, false)));
+    return { ok: true };
+  });
+
 export const Route = createFileRoute("/admin/orders/$id")({
-  loader: ({ params }) => getOrderDetail({ data: { id: params.id } }),
+  loader: async ({ params }) => {
+    const data = await getOrderDetail({ data: { id: params.id } });
+    markOrderCancellationRead({ data: { orderId: params.id } });
+    return data;
+  },
   component: OrderDetail,
 });
 

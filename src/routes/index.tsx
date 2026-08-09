@@ -100,10 +100,40 @@ export const Route = createFileRoute("/")({
 const _navType = (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined)?.type;
 let _introShown = _navType !== "reload";
 
+function CarouselArrows({ trackRef }: { trackRef: React.RefObject<HTMLDivElement | null> }) {
+  function slide(dir: 1 | -1) {
+    trackRef.current?.scrollBy({ left: dir * 340, behavior: "smooth" });
+  }
+  return (
+    <div className="hidden md:flex items-center gap-2">
+      <button
+        onClick={() => slide(-1)}
+        className="flex h-9 w-9 items-center justify-center border border-border text-ink/60 transition-colors hover:border-ink hover:text-ink"
+        aria-label="Previous"
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2">
+          <path d="M9 2 4 7l5 5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      <button
+        onClick={() => slide(1)}
+        className="flex h-9 w-9 items-center justify-center border border-border text-ink/60 transition-colors hover:border-ink hover:text-ink"
+        aria-label="Next"
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2">
+          <path d="M5 2l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 function Index() {
   const { wardrobe, wardrobeTotal, sale } = Route.useLoaderData();
   const router = useRouter();
   const [introDone, setIntroDone] = useState(() => _introShown);
+  const wardrobeRef = useRef<HTMLDivElement>(null);
+  const saleRef = useRef<HTMLDivElement>(null);
 
   // Refetch when the tab becomes visible (e.g. switching back from admin)
   useEffect(() => {
@@ -208,13 +238,16 @@ function Index() {
             <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">New Arrivals</p>
             <h2 className="serif mt-2 text-3xl leading-tight text-ink md:text-5xl">The permanent wardrobe.</h2>
           </div>
-          <Link to="/shop" search={{ sale: undefined }} className="relative hidden font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-clay hover:after:scale-x-100 md:inline-block">
-            View all — {wardrobeTotal}
-          </Link>
+          <div className="flex items-center gap-6">
+            <Link to="/shop" search={{ sale: undefined }} className="relative hidden font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-clay hover:after:scale-x-100 md:inline-block">
+              View all — {wardrobeTotal}
+            </Link>
+            <CarouselArrows trackRef={wardrobeRef} />
+          </div>
         </div>
 
-        {/* Mobile: horizontal scroll · Desktop: grid */}
         <div
+          ref={wardrobeRef}
           className="-mx-5 flex gap-4 overflow-x-auto overflow-y-hidden scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide overscroll-x-contain md:-mx-12 md:scroll-pl-12 md:px-12 md:pb-8"
         >
           {wardrobe.length === 0 ? (
@@ -397,13 +430,16 @@ function Index() {
               Up to <em className="italic text-clay">40%</em> off.
             </h2>
           </div>
-          <a href="#" className="relative hidden font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-clay hover:after:scale-x-100 md:inline-block">
-            View all sale →
-          </a>
+          <div className="flex items-center gap-6">
+            <a href="#" className="relative hidden font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-clay hover:after:scale-x-100 md:inline-block">
+              View all sale →
+            </a>
+            <CarouselArrows trackRef={saleRef} />
+          </div>
         </div>
 
-        {/* Mobile: horizontal scroll · Desktop: grid */}
         <div
+          ref={saleRef}
           className="-mx-5 flex gap-4 overflow-x-auto overflow-y-hidden scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide overscroll-x-contain md:-mx-12 md:scroll-pl-12 md:px-12 md:pb-8"
         >
           {sale.length === 0 ? (

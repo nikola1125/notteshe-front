@@ -253,7 +253,7 @@ function Index() {
 
         <div
           ref={wardrobeRef}
-          className="-mx-5 flex gap-4 overflow-x-auto overflow-y-hidden scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide overscroll-x-contain md:-mx-12 md:scroll-pl-12 md:px-12 md:pb-8"
+          className="-mx-5 flex gap-4 overflow-x-auto overflow-y-hidden scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide overscroll-x-contain md:-mx-12 md:scroll-pl-12 md:px-12 md:pb-8 md:overflow-x-hidden"
         >
           {wardrobe.length === 0 ? (
             <p className="col-span-4 py-16 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
@@ -445,7 +445,7 @@ function Index() {
 
         <div
           ref={saleRef}
-          className="-mx-5 flex gap-4 overflow-x-auto overflow-y-hidden scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide overscroll-x-contain md:-mx-12 md:scroll-pl-12 md:px-12 md:pb-8"
+          className="-mx-5 flex gap-4 overflow-x-auto overflow-y-hidden scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide overscroll-x-contain md:-mx-12 md:scroll-pl-12 md:px-12 md:pb-8 md:overflow-x-hidden"
         >
           {sale.length === 0 ? (
             <p className="col-span-4 py-16 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">

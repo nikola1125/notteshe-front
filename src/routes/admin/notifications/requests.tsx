@@ -142,7 +142,7 @@ function RequestsPage() {
               if (req.kind === "cancellation") {
                 return (
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  <Link key={req.id} to={`/admin/orders/${req.orderId}` as any} className={`block rounded-lg border bg-[var(--color-paper)] px-5 py-4 transition-colors hover:border-[var(--color-clay)] ${req.isRead ? "border-[var(--color-clay)]/25" : "border-[var(--color-clay)]"}`}>
+                  <Link key={req.id} to={`/admin/orders/${req.orderId}` as any} className={`block rounded-lg border px-5 py-4 transition-colors hover:border-[var(--color-clay)] ${req.isRead ? "border-[var(--color-clay)]/25 bg-[var(--color-paper)]" : "border-[var(--color-clay)] bg-[var(--color-clay)]/[0.04]"}`}>
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-center gap-3">
                         <span className="rounded bg-[var(--color-clay)]/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-[var(--color-clay)]">
@@ -151,6 +151,7 @@ function RequestsPage() {
                         <p className="font-mono text-[11px] text-[var(--color-foreground)]">{req.userName}</p>
                         <span className="font-mono text-[10px] text-[var(--color-muted-foreground)]/60">·</span>
                         <p className="font-mono text-[10px] text-[var(--color-muted-foreground)]">Order #{req.orderRef}</p>
+                        {!req.isRead && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-clay)]" />}
                       </div>
                       <p className="shrink-0 font-mono text-[10px] text-[var(--color-muted-foreground)]/60">{timeAgo(req.createdAt)}</p>
                     </div>
@@ -160,7 +161,7 @@ function RequestsPage() {
               }
 
               return (
-                <div key={req.id} className={`rounded-lg border bg-[var(--color-paper)] px-5 py-4 ${req.isRead ? "border-[var(--color-border)]" : "border-[var(--color-foreground)]/30"}`}>
+                <div key={req.id} className={`rounded-lg border px-5 py-4 ${req.isRead ? "border-[var(--color-border)] bg-[var(--color-paper)]" : "border-[var(--color-foreground)]/25 bg-[var(--color-foreground)]/[0.03]"}`}>
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">

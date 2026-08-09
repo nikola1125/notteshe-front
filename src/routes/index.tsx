@@ -102,7 +102,12 @@ let _introShown = _navType !== "reload";
 
 function CarouselArrows({ trackRef }: { trackRef: React.RefObject<HTMLDivElement | null> }) {
   function slide(dir: 1 | -1) {
-    trackRef.current?.scrollBy({ left: dir * 340, behavior: "smooth" });
+    const track = trackRef.current;
+    if (!track) return;
+    const card = track.querySelector("a, div") as HTMLElement | null;
+    const cardWidth = card ? card.offsetWidth : 320;
+    const gap = parseInt(getComputedStyle(track).gap) || 16;
+    track.scrollBy({ left: dir * (cardWidth + gap), behavior: "smooth" });
   }
   return (
     <div className="hidden md:flex items-center gap-2">

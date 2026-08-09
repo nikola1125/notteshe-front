@@ -215,7 +215,7 @@ function Index() {
 
         {/* Mobile: horizontal scroll · Desktop: grid */}
         <div
-          className="-mx-5 flex gap-4 overflow-x-auto overflow-y-hidden scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide overscroll-x-contain md:mx-0 md:grid md:grid-cols-4 md:gap-x-6 md:gap-y-10 md:overflow-visible md:px-0 md:pb-0 md:snap-none md:scroll-pl-0"
+          className="-mx-5 flex gap-4 overflow-x-auto overflow-y-hidden scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide overscroll-x-contain md:-mx-12 md:scroll-pl-12 md:px-12 md:pb-8"
         >
           {wardrobe.length === 0 ? (
             <p className="col-span-4 py-16 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
@@ -226,7 +226,7 @@ function Index() {
               key={p.id}
               to="/shop/$slug"
               params={{ slug: p.slug }}
-              className="reveal group w-[68vw] shrink-0 snap-start md:w-auto md:shrink"
+              className="reveal group w-[68vw] shrink-0 snap-start md:w-[22vw] md:max-w-[320px]"
               style={{ transitionDelay: `${i * 80}ms` }}
             >
               <div className="relative aspect-[3/4] overflow-hidden bg-muted">
@@ -404,7 +404,7 @@ function Index() {
 
         {/* Mobile: horizontal scroll · Desktop: grid */}
         <div
-          className="-mx-5 flex gap-4 overflow-x-auto overflow-y-hidden scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide overscroll-x-contain md:mx-0 md:grid md:grid-cols-4 md:gap-x-6 md:overflow-visible md:px-0 md:pb-0 md:snap-none md:scroll-pl-0"
+          className="-mx-5 flex gap-4 overflow-x-auto overflow-y-hidden scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide overscroll-x-contain md:-mx-12 md:scroll-pl-12 md:px-12 md:pb-8"
         >
           {sale.length === 0 ? (
             <p className="col-span-4 py-16 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
@@ -415,7 +415,7 @@ function Index() {
               key={p.id}
               to="/shop/$slug"
               params={{ slug: p.slug }}
-              className="reveal group w-[68vw] shrink-0 snap-start md:w-auto md:shrink"
+              className="reveal group w-[68vw] shrink-0 snap-start md:w-[22vw] md:max-w-[320px]"
               style={{ transitionDelay: `${i * 80}ms` }}
             >
               <div className="relative aspect-[3/4] overflow-hidden bg-muted">

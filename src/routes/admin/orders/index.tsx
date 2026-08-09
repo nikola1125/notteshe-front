@@ -113,7 +113,7 @@ const getOrders = createServerFn({ method: "GET" })
           .from(cancellationRequest)
           .where(and(
             inArray(cancellationRequest.orderId, orderIds),
-            eq(cancellationRequest.isRead, false),
+            eq(cancellationRequest.status, "pending"),
           ))
       : [];
     const unreadSet = new Set(unreadCancellations.map((c) => c.orderId));

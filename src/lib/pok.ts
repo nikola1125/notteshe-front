@@ -220,6 +220,11 @@ export const createPokOrder = createServerFn({ method: "POST" })
 
     const total = Math.max(0, subtotal + shippingFee - discountAmount + paymentFee);
 
+    // POK minimum is 50 ALL — reject before calling the API
+    if (Math.round(total) < 50) {
+      throw new Error("Order total is below the minimum amount required for card payment (50 L). Please add more items or use Cash on Delivery.");
+    }
+
     // ── Build authoritative order payload stored in pendingOrder ───────────────
     const orderPayload: OrderDataPayload = {
       email: data.shippingForm.email,

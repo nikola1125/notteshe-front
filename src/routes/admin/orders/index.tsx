@@ -1,9 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { BackButton } from "@/components/admin/BackButton";
 import { createServerFn } from "@tanstack/react-start";
-import { eq, desc, count, and, ilike, or } from "drizzle-orm";
+import { eq, desc, count, and, ilike, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { orders, orderItem, user } from "@/db/schema";
+import { orders, orderItem, user, cancellationRequest } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
 import { useState } from "react";
 
@@ -23,6 +23,7 @@ interface OrderRow {
   total: number;
   status: string;
   createdAt: string;
+  hasUnreadCancellation: boolean;
 }
 
 interface OrdersData {
@@ -105,6 +106,18 @@ const getOrders = createServerFn({ method: "GET" })
         .where(whereClause),
     ]);
 
+    const orderIds = rows.map((r) => r.id);
+    const unreadCancellations = orderIds.length > 0
+      ? await database
+          .select({ orderId: cancellationRequest.orderId })
+          .from(cancellationRequest)
+          .where(and(
+            inArray(cancellationRequest.orderId, orderIds),
+            eq(cancellationRequest.isRead, false),
+          ))
+      : [];
+    const unreadSet = new Set(unreadCancellations.map((c) => c.orderId));
+
     return {
       rows: rows.map((r) => ({
         id: r.id,
@@ -113,6 +126,7 @@ const getOrders = createServerFn({ method: "GET" })
         total: Number(r.total),
         status: r.status,
         createdAt: r.createdAt.toISOString(),
+        hasUnreadCancellation: unreadSet.has(r.id),
       })),
       total: Number(totalResult[0]?.count ?? 0),
       page: data.page,
@@ -246,14 +260,19 @@ function OrderList() {
                 }
               >
                 <td className="px-4 py-3">
-                  <Link
-                    to="/admin/orders/$id"
-                    params={{ id: o.id }}
-                    className="font-mono text-xs text-[var(--color-clay)] hover:underline"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    #{o.id.slice(0, 8)}
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      to="/admin/orders/$id"
+                      params={{ id: o.id }}
+                      className="font-mono text-xs text-[var(--color-clay)] hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      #{o.id.slice(0, 8)}
+                    </Link>
+                    {o.hasUnreadCancellation && (
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-clay)]" />
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-xs text-[var(--color-muted-foreground)]">
                   {o.email}

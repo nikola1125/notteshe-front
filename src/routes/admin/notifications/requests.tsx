@@ -25,6 +25,7 @@ interface CancellationItem {
   userName: string;
   userEmail: string;
   status: string;
+  isRead: boolean;
   createdAt: string;
 }
 
@@ -69,6 +70,7 @@ const getRequests = createServerFn({ method: "GET" }).handler(async (): Promise<
       userName: c.userName,
       userEmail: c.userEmail,
       status: c.status,
+      isRead: c.isRead,
       createdAt: String(c.createdAt),
     })),
   ];
@@ -79,8 +81,9 @@ const getRequests = createServerFn({ method: "GET" }).handler(async (): Promise<
 
 export const Route = createFileRoute("/admin/notifications/requests")({
   loader: async () => {
-    await markRequestsRead();
-    return getRequests();
+    const data = await getRequests();
+    markRequestsRead();
+    return data;
   },
   component: RequestsPage,
 });
@@ -100,6 +103,8 @@ function RequestsPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const unread = (requests as any[]).filter((r) => r.kind === "contact" && !r.isRead).length;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const unreadCancellations = (requests as any[]).filter((r) => r.kind === "cancellation" && !r.isRead).length;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pendingCancellations = (requests as any[]).filter((r) => r.kind === "cancellation" && r.status === "pending").length;
 
   return (
@@ -117,9 +122,10 @@ function RequestsPage() {
                 {unread} message{unread > 1 ? "s" : ""}
               </span>
             )}
-            {pendingCancellations > 0 && (
+            {(pendingCancellations > 0 || unreadCancellations > 0) && (
               <span className="flex h-6 items-center rounded-full bg-[var(--color-clay)]/15 px-3 font-mono text-[10px] text-[var(--color-clay)]">
                 {pendingCancellations} cancellation{pendingCancellations > 1 ? "s" : ""}
+                {unreadCancellations > 0 && ` · ${unreadCancellations} new`}
               </span>
             )}
           </div>
@@ -136,7 +142,7 @@ function RequestsPage() {
               if (req.kind === "cancellation") {
                 return (
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  <Link key={req.id} to={`/admin/orders/${req.orderId}` as any} className="block rounded-lg border border-[var(--color-clay)]/40 bg-[var(--color-paper)] px-5 py-4 transition-colors hover:border-[var(--color-clay)]">
+                  <Link key={req.id} to={`/admin/orders/${req.orderId}` as any} className={`block rounded-lg border bg-[var(--color-paper)] px-5 py-4 transition-colors hover:border-[var(--color-clay)] ${req.isRead ? "border-[var(--color-clay)]/25" : "border-[var(--color-clay)]"}`}>
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-center gap-3">
                         <span className="rounded bg-[var(--color-clay)]/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-[var(--color-clay)]">
@@ -154,7 +160,7 @@ function RequestsPage() {
               }
 
               return (
-                <div key={req.id} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] px-5 py-4">
+                <div key={req.id} className={`rounded-lg border bg-[var(--color-paper)] px-5 py-4 ${req.isRead ? "border-[var(--color-border)]" : "border-[var(--color-foreground)]/30"}`}>
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">

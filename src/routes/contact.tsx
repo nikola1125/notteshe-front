@@ -22,7 +22,7 @@ const submitContact = createServerFn({ method: "POST" })
       message: data.message,
     });
     const { notifyAdmins } = await import("@/lib/admin/sse");
-    notifyAdmins("new_message", { name: data.name });
+    await notifyAdmins("new_message", { name: data.name });
     return { ok: true };
   });
 

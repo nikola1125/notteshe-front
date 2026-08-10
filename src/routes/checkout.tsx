@@ -232,7 +232,7 @@ const placeCodOrder = createServerFn({ method: "POST" })
     });
 
     const { notifyAdmins } = await import("@/lib/admin/sse");
-    notifyAdmins("new_order", { ref: orderId.slice(0, 8).toUpperCase(), total });
+    await notifyAdmins("new_order", { ref: orderId.slice(0, 8).toUpperCase(), total });
 
     const { sendOrderConfirmation } = await import("@/lib/resend");
     sendOrderConfirmation({

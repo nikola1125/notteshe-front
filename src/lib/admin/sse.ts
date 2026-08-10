@@ -1,4 +1,6 @@
 import { nanoid } from "nanoid";
+import { db } from "@/db";
+import { adminEvent } from "@/db/schema";
 
 export type AdminEventType = "new_order" | "new_message" | "new_cancellation";
 
@@ -9,14 +11,13 @@ export interface AdminEventPayload {
 }
 
 // Write event to DB so ALL serverless instances can see it.
-// The SSE endpoint polls the DB and delivers it to the connected admin.
+// On CF Workers unawaited Promises are killed when the response is sent —
+// callers MUST await this function.
 export async function notifyAdmins<T extends AdminEventType>(
   event: T,
   payload: AdminEventPayload[T]
 ) {
   try {
-    const { db } = await import("@/db");
-    const { adminEvent } = await import("@/db/schema");
     await db().insert(adminEvent).values({
       id: nanoid(),
       type: event,

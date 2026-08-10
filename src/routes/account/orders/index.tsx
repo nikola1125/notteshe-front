@@ -68,7 +68,7 @@ const requestCancellation = createServerFn({ method: "POST" })
       userEmail: session.user.email,
     });
     const { notifyAdmins } = await import("@/lib/admin/sse");
-    notifyAdmins("new_cancellation", { name: userName, orderRef: data.orderId.slice(0, 8).toUpperCase() });
+    await notifyAdmins("new_cancellation", { name: userName, orderRef: data.orderId.slice(0, 8).toUpperCase() });
     return { ok: true };
   });
 

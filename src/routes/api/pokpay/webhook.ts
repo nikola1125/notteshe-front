@@ -223,7 +223,7 @@ async function handleWebhook(body: unknown) {
 
   // Notify connected admins in real time
   const { notifyAdmins } = await import("@/lib/admin/sse");
-  notifyAdmins("new_order", { ref: orderId.slice(0, 8).toUpperCase(), total: orderData.total });
+  await notifyAdmins("new_order", { ref: orderId.slice(0, 8).toUpperCase(), total: orderData.total });
 
   // Fire-and-forget confirmation email
   const { sendOrderConfirmation } = await import("@/lib/resend");

@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { createServerFn } from "@tanstack/react-start";
+import { getCookie } from "@tanstack/start-server-core/request-response";
 import { getAdminUserFn, logoutAdminFn } from "@/lib/admin/auth";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import type { AdminUser } from "@/db/schema";
@@ -29,8 +30,6 @@ const getAdminCounts = createServerFn({ method: "GET" }).handler(async () => {
 const pollAdminEvents = createServerFn({ method: "GET" })
   .validator((input: unknown) => ({ since: (input as { since: string }).since }))
   .handler(async ({ data }) => {
-    // Lightweight token check — avoids requireAdmin() cookie context issues in CF Workers
-    const { getCookie } = await import("@tanstack/start-server-core/request-response");
     const token = getCookie("admin_token");
     if (!token) return [];
     const [session] = await db()

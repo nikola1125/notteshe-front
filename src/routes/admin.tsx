@@ -88,6 +88,25 @@ function AdminLayout() {
         // Refresh sidebar counts + current page data
         router.invalidate();
 
+        // Play a short chime using Web Audio API (no audio file required)
+        try {
+          const ctx = new AudioContext();
+          const frequencies = [880, 1108, 1320];
+          frequencies.forEach((freq, i) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = "sine";
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.12);
+            gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + i * 0.12 + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.35);
+            osc.start(ctx.currentTime + i * 0.12);
+            osc.stop(ctx.currentTime + i * 0.12 + 0.4);
+          });
+        } catch (_) { /* audio not available */ }
+
         for (const ev of events) {
           const p = ev.payload;
           if (ev.type === "new_order") {

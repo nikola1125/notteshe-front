@@ -1016,6 +1016,26 @@ function CheckoutPage() {
               <p className="mb-4 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Payment method</p>
               <div className="space-y-2">
 
+                {/* Cash on delivery — first */}
+                <button
+                  type="button"
+                  disabled={formDisabled}
+                  onClick={() => { setPaymentMethod("cod"); setPlaceError(null); }}
+                  className={`w-full flex items-center gap-4 border px-5 py-4 text-left transition-colors duration-150 disabled:cursor-default ${
+                    paymentMethod === "cod"
+                      ? "border-foreground/40 bg-muted"
+                      : "border-border bg-transparent hover:border-border/70"
+                  }`}
+                >
+                  <span className={`h-4 w-4 rounded-full border flex items-center justify-center shrink-0 ${paymentMethod === "cod" ? "border-foreground" : "border-muted-foreground/40"}`}>
+                    {paymentMethod === "cod" && <span className="h-2 w-2 rounded-full bg-foreground" />}
+                  </span>
+                  <div>
+                    <p className="font-mono text-[11px] uppercase tracking-widest text-ink">Cash on delivery</p>
+                    <p className="mt-0.5 font-mono text-[9px] text-muted-foreground/50">Pay when your order arrives</p>
+                  </div>
+                </button>
+
                 {/* Saved cards */}
                 {localSavedCards.map((card) => {
                   const active = paymentMethod === "saved-card" && selectedSavedCardId === card.id;
@@ -1089,25 +1109,6 @@ function CheckoutPage() {
                   </div>
                 </button>
 
-                {/* Cash on delivery */}
-                <button
-                  type="button"
-                  disabled={formDisabled}
-                  onClick={() => { setPaymentMethod("cod"); setPlaceError(null); }}
-                  className={`w-full flex items-center gap-4 border px-5 py-4 text-left transition-colors duration-150 disabled:cursor-default ${
-                    paymentMethod === "cod"
-                      ? "border-foreground/40 bg-muted"
-                      : "border-border bg-transparent hover:border-border/70"
-                  }`}
-                >
-                  <span className={`h-4 w-4 rounded-full border flex items-center justify-center shrink-0 ${paymentMethod === "cod" ? "border-foreground" : "border-muted-foreground/40"}`}>
-                    {paymentMethod === "cod" && <span className="h-2 w-2 rounded-full bg-foreground" />}
-                  </span>
-                  <div>
-                    <p className="font-mono text-[11px] uppercase tracking-widest text-ink">Cash on delivery</p>
-                    <p className="mt-0.5 font-mono text-[9px] text-muted-foreground/50">Pay when your order arrives</p>
-                  </div>
-                </button>
               </div>
             </div>
 
@@ -1137,7 +1138,7 @@ function CheckoutPage() {
                           onError={handlePokError}
                           options={{
                             env: POK_ENV,
-                            locale: "al",
+                            locale: "en",
                             countrySelect: "modal",
                             initialState: {
                               email: form.email,

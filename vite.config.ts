@@ -4,7 +4,10 @@
 //     nitro (build-only using cloudflare as a default target), VITE_* env injection, @ path alias,
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
+import path from "path";
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+
+const POK_STUB = path.resolve("./src/stubs/pok-payments-stub.js");
 
 export default defineConfig({
   tanstackStart: {
@@ -15,18 +18,14 @@ export default defineConfig({
   vite: {
     plugins: [
       {
-        // POK payments SDK pulls in node:http which CF Workers doesn't support.
-        // Stub it out at build time — the SDK only runs in the browser anyway.
-        name: "stub-node-http",
+        // POK payments SDK uses node:http which CF Workers doesn't support.
+        // During SSR/Nitro builds, redirect all POK SDK imports to an empty stub.
+        // The real SDK is dynamically imported client-side only and works fine in the browser.
+        name: "pok-ssr-stub",
         enforce: "pre" as const,
-        resolveId(id: string) {
-          if (id === "node:http" || id === "node:https" || id === "node:net" || id === "node:tls") {
-            return "\0stub-node-compat";
-          }
-        },
-        load(id: string) {
-          if (id === "\0stub-node-compat") {
-            return "export default {}; export const request = () => {}; export const get = () => {}; export const createServer = () => ({});";
+        resolveId(id: string, _importer: string | undefined, options: { ssr?: boolean } | undefined) {
+          if (options?.ssr && id.startsWith("@nebula-ltd/pok-payments-js")) {
+            return POK_STUB;
           }
         },
       },

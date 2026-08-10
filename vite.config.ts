@@ -13,7 +13,17 @@ export default defineConfig({
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
-    server: { entry: "server" },
+    server: {
+      entry: "server",
+      // Inline all dynamic imports into a single Worker bundle.
+      // Prevents packages from landing in _libs/*.mjs where esbuild's __exportAll
+      // helper is out of scope and causes runtime crashes on Cloudflare Workers.
+      rollupConfig: {
+        output: {
+          inlineDynamicImports: true,
+        },
+      },
+    },
   },
   vite: {
     plugins: [

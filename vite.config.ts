@@ -12,4 +12,10 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  vite: {
+    ssr: {
+      // POK payments SDK is browser-only — exclude from server bundle to avoid node:http errors on CF Workers
+      external: ["@nebula-ltd/pok-payments-js"],
+    },
+  },
 });

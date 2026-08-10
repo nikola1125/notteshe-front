@@ -1,14 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import {
-  eq,
-  desc,
-  count,
-  sum,
-  sql,
-  and,
-  gte,
-} from "drizzle-orm";
+import { useState } from "react";
+import { Package, ShoppingBag, Mail, Tag } from "lucide-react";
+import { eq, desc, count, sum, sql, and, gte } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, orderItem, user } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
@@ -20,6 +14,9 @@ interface DashboardData {
   todayRevenue: number;
   pendingOrders: number;
   totalCustomers: number;
+  thisWeekRevenue: number;
+  avgOrderValue: number;
+  cancelledOrders: number;
   recentOrders: Array<{
     id: string;
     email: string;
@@ -39,8 +36,11 @@ const getDashboardData = createServerFn({ method: "GET" }).handler(
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     const [
       totalOrdersResult,
@@ -50,6 +50,8 @@ const getDashboardData = createServerFn({ method: "GET" }).handler(
       recentOrdersResult,
       topProductsResult,
       chartResult,
+      thisWeekResult,
+      cancelledResult,
     ] = await Promise.all([
       // Total orders + revenue
       database
@@ -77,7 +79,7 @@ const getDashboardData = createServerFn({ method: "GET" }).handler(
       // Customer count
       database.select({ count: count() }).from(user),
 
-      // Recent 5 orders with customer email
+      // Recent 8 orders with customer email
       database
         .select({
           id: orders.id,
@@ -89,7 +91,7 @@ const getDashboardData = createServerFn({ method: "GET" }).handler(
         .from(orders)
         .innerJoin(user, eq(orders.userId, user.id))
         .orderBy(desc(orders.createdAt))
-        .limit(5),
+        .limit(8),
 
       // Top 5 products by revenue
       database
@@ -106,7 +108,7 @@ const getDashboardData = createServerFn({ method: "GET" }).handler(
         )
         .limit(5),
 
-      // Chart: orders + revenue per day last 30 days
+      // Chart: orders + revenue per day last 90 days
       database
         .select({
           date: sql<string>`DATE(${orders.createdAt})::text`,
@@ -114,18 +116,36 @@ const getDashboardData = createServerFn({ method: "GET" }).handler(
           revenue: sum(orders.total),
         })
         .from(orders)
-        .where(gte(orders.createdAt, thirtyDaysAgo))
+        .where(gte(orders.createdAt, ninetyDaysAgo))
         .groupBy(sql`DATE(${orders.createdAt})`)
         .orderBy(sql`DATE(${orders.createdAt})`),
+
+      // This week revenue
+      database
+        .select({ revenue: sum(orders.total) })
+        .from(orders)
+        .where(gte(orders.createdAt, sevenDaysAgo)),
+
+      // Cancelled orders
+      database
+        .select({ count: count() })
+        .from(orders)
+        .where(eq(orders.status, "CANCELLED")),
     ]);
 
+    const totalOrders = Number(totalOrdersResult[0]?.count ?? 0);
+    const totalRevenue = Number(totalOrdersResult[0]?.revenue ?? 0);
+
     return {
-      totalOrders: Number(totalOrdersResult[0]?.count ?? 0),
-      totalRevenue: Number(totalOrdersResult[0]?.revenue ?? 0),
+      totalOrders,
+      totalRevenue,
       todayOrders: Number(todayOrdersResult[0]?.count ?? 0),
       todayRevenue: Number(todayOrdersResult[0]?.revenue ?? 0),
       pendingOrders: Number(pendingResult[0]?.count ?? 0),
       totalCustomers: Number(customerCountResult[0]?.count ?? 0),
+      thisWeekRevenue: Number(thisWeekResult[0]?.revenue ?? 0),
+      avgOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
+      cancelledOrders: Number(cancelledResult[0]?.count ?? 0),
       recentOrders: recentOrdersResult.map((r) => ({
         id: r.id,
         email: r.email,
@@ -160,14 +180,77 @@ const STATUS_COLORS: Record<string, string> = {
   REFUNDED: "bg-orange-500/20 text-orange-400",
 };
 
+type Period = "7d" | "30d" | "90d";
+type ChartMode = "revenue" | "orders";
+
+function fmt(n: number) {
+  return `${n.toLocaleString("en", { minimumFractionDigits: 0, maximumFractionDigits: 0 })} L`;
+}
+
+function fmtDate(dateStr: string) {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
 function AdminDashboard() {
   const data = Route.useLoaderData();
 
-  function fmt(n: number) {
-    return `${n.toLocaleString("en", { minimumFractionDigits: 0, maximumFractionDigits: 0 })} L`;
-  }
+  const [period, setPeriod] = useState<Period>("30d");
+  const [mode, setMode] = useState<ChartMode>("revenue");
+  const [activeBar, setActiveBar] = useState<number | null>(null);
 
-  const maxRevenue = Math.max(...data.chartData.map((d) => d.revenue), 1);
+  // Filter chart data client-side based on selected period
+  const periodDays: Record<Period, number> = { "7d": 7, "30d": 30, "90d": 90 };
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - periodDays[period]);
+  const filteredChart = data.chartData.filter((d: { date: string; orders: number; revenue: number }) => new Date(d.date) >= cutoff);
+
+  const maxValue = Math.max(
+    ...filteredChart.map((d: { date: string; orders: number; revenue: number }) => (mode === "revenue" ? d.revenue : d.orders)),
+    1
+  );
+
+  const periodTotal =
+    mode === "revenue"
+      ? filteredChart.reduce((s: number, d: { date: string; orders: number; revenue: number }) => s + d.revenue, 0)
+      : filteredChart.reduce((s: number, d: { date: string; orders: number; revenue: number }) => s + d.orders, 0);
+
+  // Show ~6 date labels evenly spaced
+  const labelEvery = Math.max(1, Math.floor(filteredChart.length / 6));
+
+  const statCards = [
+    {
+      label: "Total Revenue",
+      value: fmt(data.totalRevenue),
+      sub: `${data.totalOrders} orders`,
+      href: "/admin/orders",
+    },
+    {
+      label: "Pending Orders",
+      value: String(data.pendingOrders),
+      sub: "awaiting action",
+      href: "/admin/orders?status=PENDING",
+    },
+    {
+      label: "Today's Revenue",
+      value: fmt(data.todayRevenue),
+      sub: `${data.todayOrders} orders today`,
+      href: "/admin/orders?status=PENDING",
+    },
+    {
+      label: "Customers",
+      value: String(data.totalCustomers),
+      sub: "registered accounts",
+      href: "/admin/customers",
+    },
+  ];
+
+  const quickActions = [
+    { label: "New Product", href: "/admin/products/new", Icon: Package },
+    { label: "View Orders", href: "/admin/orders", Icon: ShoppingBag },
+    { label: "Newsletter", href: "/admin/newsletter", Icon: Mail },
+    { label: "Discounts", href: "/admin/discounts", Icon: Tag },
+  ];
 
   return (
     <div className="min-h-full p-6 lg:p-10">
@@ -183,14 +266,13 @@ function AdminDashboard() {
       </div>
 
       {/* Stat cards */}
-      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {[
-          { label: "Total Revenue", value: fmt(data.totalRevenue), sub: `${data.totalOrders} orders` },
-          { label: "Today", value: fmt(data.todayRevenue), sub: `${data.todayOrders} orders today` },
-          { label: "Pending", value: String(data.pendingOrders), sub: "awaiting action" },
-          { label: "Customers", value: String(data.totalCustomers), sub: "registered" },
-        ].map((s) => (
-          <div key={s.label} className="border border-[var(--color-border)] bg-[var(--color-paper)] p-5">
+      <div className="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {statCards.map((s) => (
+          <Link
+            key={s.label}
+            to={s.href}
+            className="group relative border border-[var(--color-border)] bg-[var(--color-paper)] p-5 transition-colors hover:border-[var(--color-clay)]/50"
+          >
             <p className="font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
               {s.label}
             </p>
@@ -200,133 +282,317 @@ function AdminDashboard() {
             <p className="mt-1 font-mono text-[9px] text-[var(--color-muted-foreground)]/60">
               {s.sub}
             </p>
-          </div>
+            <span
+              aria-hidden="true"
+              className="absolute right-4 top-1/2 -translate-y-1/2 font-mono text-[var(--color-clay)] opacity-0 transition-opacity group-hover:opacity-100"
+            >
+              →
+            </span>
+          </Link>
         ))}
       </div>
 
-      {/* Revenue chart — bar style, static height */}
+      {/* Secondary stats strip */}
+      <div className="mb-8 flex flex-wrap gap-6 border border-[var(--color-border)] bg-[var(--color-muted)]/20 px-5 py-3">
+        <p className="font-mono text-[10px] text-[var(--color-muted-foreground)]">
+          <span className="mr-1 opacity-50">Avg order</span>
+          {fmt(data.avgOrderValue)}
+        </p>
+        <p className="font-mono text-[10px] text-[var(--color-muted-foreground)]">
+          <span className="mr-1 opacity-50">This week</span>
+          {fmt(data.thisWeekRevenue)}
+        </p>
+        <p className="font-mono text-[10px] text-[var(--color-muted-foreground)]">
+          <span className="mr-1 opacity-50">Cancelled</span>
+          {data.cancelledOrders}
+        </p>
+      </div>
+
+      {/* Revenue / Orders chart */}
       <div className="mb-8 border border-[var(--color-border)] bg-[var(--color-paper)] p-5">
-        <div className="mb-5 flex items-baseline justify-between">
-          <p className="font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
-            Revenue — Last 30 Days
-          </p>
-          {data.chartData.length > 0 && (
-            <p className="font-mono text-[10px] text-[var(--color-muted-foreground)]">
-              {fmt(data.chartData.reduce((s, d) => s + d.revenue, 0))} total
-            </p>
-          )}
-        </div>
-        {data.chartData.length === 0 ? (
-          <p className="py-10 text-center font-mono text-[10px] text-[var(--color-muted-foreground)]/50">
-            No data yet
-          </p>
-        ) : (
-          <div className="flex h-28 items-end gap-[3px]">
-            {data.chartData.map((d) => (
-              <div
-                key={d.date}
-                title={`${d.date}: ${fmt(d.revenue)}`}
-                className="flex-1 min-w-0 bg-[var(--color-clay)]/60 hover:bg-[var(--color-clay)] transition-colors"
-                style={{ height: `${Math.max(4, (d.revenue / maxRevenue) * 100)}%` }}
-              />
+        {/* Chart header */}
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+          {/* Period toggle */}
+          <div className="flex gap-px overflow-hidden border border-[var(--color-border)]">
+            {(["7d", "30d", "90d"] as Period[]).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`px-3 py-1.5 font-mono text-[9px] uppercase tracking-widest transition-colors ${
+                  period === p
+                    ? "bg-[var(--color-foreground)] text-[var(--color-background)]"
+                    : "text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
+                }`}
+              >
+                {p}
+              </button>
             ))}
           </div>
+
+          <div className="flex items-center gap-4">
+            {/* Mode toggle */}
+            <div className="flex gap-px overflow-hidden border border-[var(--color-border)]">
+              {(["revenue", "orders"] as ChartMode[]).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setMode(m)}
+                  className={`px-3 py-1.5 font-mono text-[9px] uppercase tracking-widest transition-colors ${
+                    mode === m
+                      ? "bg-[var(--color-foreground)] text-[var(--color-background)]"
+                      : "text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+
+            {/* Period total */}
+            {filteredChart.length > 0 && (
+              <p className="font-mono text-[10px] text-[var(--color-muted-foreground)]">
+                {mode === "revenue" ? fmt(periodTotal) : `${periodTotal} orders`}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {filteredChart.length === 0 ? (
+          <p className="py-10 text-center font-mono text-[10px] text-[var(--color-muted-foreground)]/50">
+            No data for this period
+          </p>
+        ) : (
+          <>
+            {/* Bars */}
+            <div className="relative flex h-36 items-end gap-[3px]">
+              {filteredChart.map((d: { date: string; orders: number; revenue: number }, i: number) => {
+                const value = mode === "revenue" ? d.revenue : d.orders;
+                const heightPct = Math.max(4, (value / maxValue) * 100);
+                const isActive = activeBar === i;
+
+                return (
+                  <div
+                    key={d.date}
+                    className="relative flex-1 min-w-0"
+                    style={{ height: "100%", display: "flex", alignItems: "flex-end" }}
+                    onMouseEnter={() => setActiveBar(i)}
+                    onMouseLeave={() => setActiveBar(null)}
+                  >
+                    <div
+                      className={`w-full transition-colors ${
+                        isActive
+                          ? "bg-[var(--color-clay)]"
+                          : "bg-[var(--color-clay)]/50"
+                      }`}
+                      style={{ height: `${heightPct}%` }}
+                    />
+
+                    {/* Tooltip */}
+                    {isActive && (
+                      <div
+                        className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap border border-[var(--color-border)] bg-[var(--color-paper)] px-2.5 py-1.5 shadow-sm"
+                        role="tooltip"
+                      >
+                        <p className="font-mono text-[9px] text-[var(--color-muted-foreground)]">
+                          {fmtDate(d.date)}
+                        </p>
+                        <p className="font-mono text-[11px] text-[var(--color-foreground)]">
+                          {mode === "revenue" ? fmt(d.revenue) : `${d.orders} orders`}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Date labels */}
+            <div className="mt-2 flex gap-[3px]">
+              {filteredChart.map((d: { date: string; orders: number; revenue: number }, i: number) => (
+                <div key={d.date} className="flex-1 min-w-0">
+                  {i % labelEvery === 0 && (
+                    <p className="truncate font-mono text-[8px] text-[var(--color-muted-foreground)]/60">
+                      {fmtDate(d.date)}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
-      {/* Bottom two panels */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      {/* Bottom row: recent orders (2/3) + right column (1/3) */}
+      <div className="grid gap-6 lg:grid-cols-3">
 
-        {/* Recent orders */}
-        <div className="border border-[var(--color-border)] bg-[var(--color-paper)]">
-          <div className="border-b border-[var(--color-border)] px-5 py-4">
+        {/* Recent orders — 2 cols */}
+        <div className="border border-[var(--color-border)] bg-[var(--color-paper)] lg:col-span-2">
+          <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4">
             <p className="font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
               Recent Orders
             </p>
+            <Link
+              to="/admin/orders"
+              className="font-mono text-[9px] text-[var(--color-clay)] hover:underline"
+            >
+              View all →
+            </Link>
           </div>
+
           {data.recentOrders.length === 0 ? (
             <p className="px-5 py-8 font-mono text-[10px] text-[var(--color-muted-foreground)]/50">
               No orders yet
             </p>
           ) : (
-            <table className="w-full">
-              <tbody className="divide-y divide-[var(--color-border)]">
-                {data.recentOrders.map((o) => (
-                  <tr key={o.id} className="group transition-colors hover:bg-[var(--color-muted)]/20">
-                    <td className="px-5 py-3">
-                      <a
-                        href={`/admin/orders/${o.id}`}
-                        className="font-mono text-[11px] text-[var(--color-clay)] hover:underline"
-                      >
-                        #{o.id.slice(0, 8).toUpperCase()}
-                      </a>
-                    </td>
-                    <td className="px-5 py-3">
-                      <span className="font-mono text-[11px] text-[var(--color-muted-foreground)] truncate block max-w-[120px]">
-                        {o.email}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-right">
-                      <span className="font-mono text-[11px] text-[var(--color-foreground)]">
-                        {fmt(o.total)}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-right">
-                      <span className={`rounded px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wide ${STATUS_COLORS[o.status] ?? ""}`}>
-                        {o.status}
-                      </span>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-[var(--color-border)]">
+                    <th className="px-5 py-2 text-left font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]/60">
+                      Order
+                    </th>
+                    <th className="px-5 py-2 text-left font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]/60">
+                      Customer
+                    </th>
+                    <th className="px-5 py-2 text-right font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]/60">
+                      Total
+                    </th>
+                    <th className="px-5 py-2 text-right font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]/60">
+                      Status
+                    </th>
+                    <th className="hidden px-5 py-2 text-right font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]/60 sm:table-cell">
+                      Date
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[var(--color-border)]">
+                  {data.recentOrders.map((o: { id: string; email: string; total: number; status: string; createdAt: string }) => (
+                    <tr
+                      key={o.id}
+                      className="cursor-pointer transition-colors hover:bg-[var(--color-muted)]/20"
+                      onClick={() => {
+                        window.location.href = `/admin/orders/${o.id}`;
+                      }}
+                    >
+                      <td className="px-5 py-3">
+                        <Link
+                          to={`/admin/orders/${o.id}`}
+                          className="font-mono text-[11px] text-[var(--color-clay)] hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          #{o.id.slice(0, 8).toUpperCase()}
+                        </Link>
+                      </td>
+                      <td className="px-5 py-3">
+                        <span className="block max-w-[140px] truncate font-mono text-[11px] text-[var(--color-muted-foreground)]">
+                          {o.email}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        <span className="font-mono text-[11px] text-[var(--color-foreground)]">
+                          {fmt(o.total)}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        <span
+                          className={`rounded px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wide ${STATUS_COLORS[o.status] ?? ""}`}
+                        >
+                          {o.status}
+                        </span>
+                      </td>
+                      <td className="hidden px-5 py-3 text-right sm:table-cell">
+                        <span className="font-mono text-[10px] text-[var(--color-muted-foreground)]/60">
+                          {fmtDate(o.createdAt)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
-        {/* Top products */}
-        <div className="border border-[var(--color-border)] bg-[var(--color-paper)]">
-          <div className="border-b border-[var(--color-border)] px-5 py-4">
-            <p className="font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
-              Top Products
-            </p>
-          </div>
-          {data.topProducts.length === 0 ? (
-            <p className="px-5 py-8 font-mono text-[10px] text-[var(--color-muted-foreground)]/50">
-              No sales yet
-            </p>
-          ) : (
-            <ul className="divide-y divide-[var(--color-border)]">
-              {data.topProducts.map((p, i) => {
-                const maxRev = data.topProducts[0]?.revenue ?? 1;
-                return (
-                  <li key={i} className="px-5 py-3">
-                    <div className="flex items-center justify-between gap-4 mb-1.5">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="font-mono text-[9px] text-[var(--color-muted-foreground)] shrink-0">
-                          {String(i + 1).padStart(2, "0")}
-                        </span>
-                        <span className="font-mono text-[11px] text-[var(--color-foreground)] truncate">
-                          {p.name}
+        {/* Right column: top products + quick actions */}
+        <div className="flex flex-col gap-6">
+
+          {/* Top products */}
+          <div className="border border-[var(--color-border)] bg-[var(--color-paper)]">
+            <div className="border-b border-[var(--color-border)] px-5 py-4">
+              <p className="font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
+                Top Products
+              </p>
+            </div>
+            {data.topProducts.length === 0 ? (
+              <p className="px-5 py-8 font-mono text-[10px] text-[var(--color-muted-foreground)]/50">
+                No sales yet
+              </p>
+            ) : (
+              <ul className="divide-y divide-[var(--color-border)]">
+                {data.topProducts.map((p: { name: string; revenue: number }, i: number) => {
+                  const maxRev = data.topProducts[0]?.revenue ?? 1;
+                  return (
+                    <li key={i} className="px-5 py-3">
+                      <div className="mb-1.5 flex items-center justify-between gap-4">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="shrink-0 font-mono text-[9px] text-[var(--color-muted-foreground)]">
+                            {String(i + 1).padStart(2, "0")}
+                          </span>
+                          <span className="truncate font-mono text-[11px] text-[var(--color-foreground)]">
+                            {p.name}
+                          </span>
+                        </div>
+                        <span className="shrink-0 font-mono text-[11px] text-[var(--color-clay)]">
+                          {fmt(p.revenue)}
                         </span>
                       </div>
-                      <span className="font-mono text-[11px] text-[var(--color-clay)] shrink-0">
-                        {fmt(p.revenue)}
-                      </span>
-                    </div>
-                    {/* Revenue bar */}
-                    <div className="h-px w-full bg-[var(--color-border)]">
-                      <div
-                        className="h-px bg-[var(--color-clay)]/50"
-                        style={{ width: `${(p.revenue / maxRev) * 100}%` }}
-                      />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
+                      <div className="h-px w-full bg-[var(--color-border)]">
+                        <div
+                          className="h-px bg-[var(--color-clay)]/50"
+                          style={{ width: `${(p.revenue / maxRev) * 100}%` }}
+                        />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
 
+          {/* Quick actions */}
+          <div className="border border-[var(--color-border)] bg-[var(--color-paper)]">
+            <div className="border-b border-[var(--color-border)] px-5 py-4">
+              <p className="font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
+                Quick Actions
+              </p>
+            </div>
+            <ul className="divide-y divide-[var(--color-border)]">
+              {quickActions.map(({ label, href, Icon }) => (
+                <li key={href}>
+                  <Link
+                    to={href}
+                    className="group flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-muted)]/20"
+                  >
+                    <Icon
+                      size={14}
+                      className="shrink-0 text-[var(--color-muted-foreground)] transition-colors group-hover:text-[var(--color-clay)]"
+                      aria-hidden="true"
+                    />
+                    <span className="font-mono text-[11px] text-[var(--color-foreground)]">
+                      {label}
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className="ml-auto font-mono text-[var(--color-clay)] opacity-0 transition-opacity group-hover:opacity-100"
+                    >
+                      →
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+        </div>
       </div>
     </div>
   );

@@ -13,9 +13,23 @@ export default defineConfig({
     server: { entry: "server" },
   },
   vite: {
-    ssr: {
-      // POK payments SDK is browser-only — exclude from server bundle to avoid node:http errors on CF Workers
-      external: ["@nebula-ltd/pok-payments-js"],
-    },
+    plugins: [
+      {
+        // POK payments SDK pulls in node:http which CF Workers doesn't support.
+        // Stub it out at build time — the SDK only runs in the browser anyway.
+        name: "stub-node-http",
+        enforce: "pre" as const,
+        resolveId(id: string) {
+          if (id === "node:http" || id === "node:https" || id === "node:net" || id === "node:tls") {
+            return "\0stub-node-compat";
+          }
+        },
+        load(id: string) {
+          if (id === "\0stub-node-compat") {
+            return "export default {}; export const request = () => {}; export const get = () => {}; export const createServer = () => ({});";
+          }
+        },
+      },
+    ],
   },
 });

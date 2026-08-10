@@ -13,7 +13,8 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? Object.create
 var __toCommonJS = (mod) => (Object.defineProperty(mod, "__esModule", { value: true }), mod);
 `.trimStart();
 
-const libsDir = join(process.cwd(), ".output", "_libs");
+// Nitro outputs to .output/server/_libs/ for the cloudflare-module preset
+const libsDir = join(process.cwd(), ".output", "server", "_libs");
 
 if (!existsSync(libsDir)) {
   console.log("[patch-libs] No _libs/ directory found — nothing to patch.");

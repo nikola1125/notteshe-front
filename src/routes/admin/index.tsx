@@ -2,6 +2,15 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { Package, ShoppingBag, Mail, Tag } from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import { eq, desc, count, sum, sql, and, gte } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, orderItem, user } from "@/db/schema";
@@ -197,26 +206,16 @@ function AdminDashboard() {
 
   const [period, setPeriod] = useState<Period>("30d");
   const [mode, setMode] = useState<ChartMode>("revenue");
-  const [activeBar, setActiveBar] = useState<number | null>(null);
-
   // Filter chart data client-side based on selected period
   const periodDays: Record<Period, number> = { "7d": 7, "30d": 30, "90d": 90 };
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - periodDays[period]);
   const filteredChart = data.chartData.filter((d: { date: string; orders: number; revenue: number }) => new Date(d.date) >= cutoff);
 
-  const maxValue = Math.max(
-    ...filteredChart.map((d: { date: string; orders: number; revenue: number }) => (mode === "revenue" ? d.revenue : d.orders)),
-    1
-  );
-
   const periodTotal =
     mode === "revenue"
       ? filteredChart.reduce((s: number, d: { date: string; orders: number; revenue: number }) => s + d.revenue, 0)
       : filteredChart.reduce((s: number, d: { date: string; orders: number; revenue: number }) => s + d.orders, 0);
-
-  // Show ~6 date labels evenly spaced
-  const labelEvery = Math.max(1, Math.floor(filteredChart.length / 6));
 
   const statCards = [
     {
@@ -361,63 +360,57 @@ function AdminDashboard() {
             No data for this period
           </p>
         ) : (
-          <>
-            {/* Bars */}
-            <div className="relative flex h-36 items-end gap-[3px]">
-              {filteredChart.map((d: { date: string; orders: number; revenue: number }, i: number) => {
-                const value = mode === "revenue" ? d.revenue : d.orders;
-                const heightPct = Math.max(4, (value / maxValue) * 100);
-                const isActive = activeBar === i;
-
-                return (
-                  <div
-                    key={d.date}
-                    className="relative flex-1 min-w-0"
-                    style={{ height: "100%", display: "flex", alignItems: "flex-end" }}
-                    onMouseEnter={() => setActiveBar(i)}
-                    onMouseLeave={() => setActiveBar(null)}
-                  >
-                    <div
-                      className={`w-full transition-colors ${
-                        isActive
-                          ? "bg-[var(--color-clay)]"
-                          : "bg-[var(--color-clay)]/50"
-                      }`}
-                      style={{ height: `${heightPct}%` }}
-                    />
-
-                    {/* Tooltip */}
-                    {isActive && (
-                      <div
-                        className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap border border-[var(--color-border)] bg-[var(--color-paper)] px-2.5 py-1.5 shadow-sm"
-                        role="tooltip"
-                      >
-                        <p className="font-mono text-[9px] text-[var(--color-muted-foreground)]">
-                          {fmtDate(d.date)}
-                        </p>
-                        <p className="font-mono text-[11px] text-[var(--color-foreground)]">
-                          {mode === "revenue" ? fmt(d.revenue) : `${d.orders} orders`}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Date labels */}
-            <div className="mt-2 flex gap-[3px]">
-              {filteredChart.map((d: { date: string; orders: number; revenue: number }, i: number) => (
-                <div key={d.date} className="flex-1 min-w-0">
-                  {i % labelEvery === 0 && (
-                    <p className="truncate font-mono text-[8px] text-[var(--color-muted-foreground)]/60">
-                      {fmtDate(d.date)}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={filteredChart} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#b56e72" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#b56e72" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+              <XAxis
+                dataKey="date"
+                tickFormatter={(v: string) => fmtDate(v)}
+                tick={{ fontFamily: "monospace", fontSize: 9, fill: "rgba(255,255,255,0.35)" }}
+                axisLine={false}
+                tickLine={false}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                tickFormatter={(v: number) => mode === "revenue" ? `${(v / 1000).toFixed(0)}k` : String(v)}
+                tick={{ fontFamily: "monospace", fontSize: 9, fill: "rgba(255,255,255,0.35)" }}
+                axisLine={false}
+                tickLine={false}
+                width={36}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: "var(--color-paper)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: 0,
+                  fontFamily: "monospace",
+                  fontSize: 11,
+                  color: "var(--color-foreground)",
+                }}
+                labelFormatter={(v: string) => fmtDate(v)}
+                formatter={(v: number) => [
+                  mode === "revenue" ? fmt(v) : `${v} orders`,
+                  mode === "revenue" ? "Revenue" : "Orders",
+                ]}
+                cursor={{ stroke: "rgba(255,255,255,0.15)", strokeWidth: 1 }}
+              />
+              <Area
+                type="monotone"
+                dataKey={mode === "revenue" ? "revenue" : "orders"}
+                stroke="#b56e72"
+                strokeWidth={2}
+                fill="url(#chartGradient)"
+                dot={false}
+                activeDot={{ r: 4, fill: "#b56e72", stroke: "var(--color-paper)", strokeWidth: 2 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         )}
       </div>
 

@@ -216,14 +216,23 @@ const updateOrderStatus = createServerFn({ method: "POST" })
     if (pokOrderId) {
       const { pokCapture, pokCancel, pokRefund } = await import("@/lib/pok");
 
+      const isAlreadyProcessed = (err: unknown) =>
+        String((err as Error)?.message ?? "").toLowerCase().includes("not eligible");
+
       if (data.status === "CONFIRMED" && prevStatus === "PENDING") {
         await pokCapture(pokOrderId, total);
       } else if (data.status === "CANCELLED" && prevStatus === "PENDING") {
-        await pokCancel(pokOrderId, "Order rejected by merchant");
+        await pokCancel(pokOrderId, "Order rejected by merchant").catch((err) => {
+          if (!isAlreadyProcessed(err)) throw err;
+        });
       } else if (data.status === "CANCELLED" && (prevStatus === "CONFIRMED" || prevStatus === "SHIPPED")) {
-        await pokRefund(pokOrderId, "Order cancelled by merchant");
+        await pokRefund(pokOrderId, "Order cancelled by merchant").catch((err) => {
+          if (!isAlreadyProcessed(err)) throw err;
+        });
       } else if (data.status === "REFUNDED" && prevStatus === "DELIVERED") {
-        await pokRefund(pokOrderId, "Customer refund request");
+        await pokRefund(pokOrderId, "Customer refund request").catch((err) => {
+          if (!isAlreadyProcessed(err)) throw err;
+        });
       }
     }
 

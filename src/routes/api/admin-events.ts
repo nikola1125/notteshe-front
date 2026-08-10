@@ -1,5 +1,7 @@
 import { createAPIFileRoute } from "@tanstack/react-start/api";
-import { addClient, removeClient } from "@/lib/admin/sse";
+
+const POLL_INTERVAL_MS = 3000;
+const EVENT_TTL_MS = 60 * 60 * 1000; // clean up events older than 1h
 
 function parseCookie(header: string | null, name: string): string | null {
   if (!header) return null;
@@ -32,33 +34,62 @@ export const APIRoute = createAPIFileRoute("/api/admin-events")({
     }
 
     const encoder = new TextEncoder();
+    // Track the last event time we've delivered to avoid re-sending
+    let lastSeen = new Date();
+
     let ctrl!: ReadableStreamDefaultController<Uint8Array>;
-    let pingInterval: ReturnType<typeof setInterval>;
+    let pollTimer: ReturnType<typeof setInterval>;
 
     const stream = new ReadableStream<Uint8Array>({
-      start(controller) {
+      async start(controller) {
         ctrl = controller;
-        addClient(controller);
+
+        // Confirm connection
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ event: "connected" })}\n\n`));
 
-        // Keep-alive ping every 25 seconds to prevent proxy timeouts
-        pingInterval = setInterval(() => {
+        // Poll DB for new events every 3s
+        pollTimer = setInterval(async () => {
           try {
-            controller.enqueue(encoder.encode(": ping\n\n"));
+            const { db } = await import("@/db");
+            const { adminEvent } = await import("@/db/schema");
+            const { gt, lt } = await import("drizzle-orm");
+
+            const since = lastSeen;
+            lastSeen = new Date();
+
+            const events = await db()
+              .select()
+              .from(adminEvent)
+              .where(gt(adminEvent.createdAt, since))
+              .orderBy(adminEvent.createdAt);
+
+            for (const ev of events) {
+              const msg = JSON.stringify({ event: ev.type, ...ev.payload });
+              controller.enqueue(encoder.encode(`data: ${msg}\n\n`));
+            }
+
+            // Cleanup old events (fire-and-forget)
+            db().delete(adminEvent)
+              .where(lt(adminEvent.createdAt, new Date(Date.now() - EVENT_TTL_MS)))
+              .catch(() => {});
           } catch {
-            clearInterval(pingInterval);
+            // DB error — keep connection alive, retry next interval
           }
+        }, POLL_INTERVAL_MS);
+
+        // Keep-alive ping every 25s to prevent proxy timeouts
+        const pingTimer = setInterval(() => {
+          try { controller.enqueue(encoder.encode(": ping\n\n")); }
+          catch { clearInterval(pingTimer); }
         }, 25_000);
       },
       cancel() {
-        clearInterval(pingInterval);
-        removeClient(ctrl);
+        clearInterval(pollTimer);
       },
     });
 
     request.signal.addEventListener("abort", () => {
-      clearInterval(pingInterval);
-      removeClient(ctrl);
+      clearInterval(pollTimer);
     });
 
     return new Response(stream, {

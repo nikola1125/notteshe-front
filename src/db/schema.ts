@@ -354,6 +354,17 @@ export const cancellationRequest = pgTable("cancellation_request", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// ─── Admin Events (real-time SSE queue, TTL ~1h) ─────────────────────────────
+
+export const adminEvent = pgTable("admin_event", {
+  id: text("id").primaryKey(),
+  type: text("type").notNull(),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  index("admin_event_created_idx").on(t.createdAt),
+]);
+
 // ─── Contact Messages ─────────────────────────────────────────────────────────
 
 export const contactMessage = pgTable("contact_message", {

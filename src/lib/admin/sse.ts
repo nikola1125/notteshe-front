@@ -1,31 +1,28 @@
-// Shared module-level store of connected admin SSE clients.
-// All requests within the same Worker isolate share this instance.
+import { nanoid } from "nanoid";
 
-const clients = new Set<ReadableStreamDefaultController<Uint8Array>>();
-const encoder = new TextEncoder();
+export type AdminEventType = "new_order" | "new_message" | "new_cancellation";
 
-export type AdminEvent =
-  | { event: "new_order"; ref: string; total: number }
-  | { event: "new_message"; name: string }
-  | { event: "new_cancellation"; name: string; orderRef: string }
-  | { event: "ping" };
+export interface AdminEventPayload {
+  new_order: { ref: string; total: number };
+  new_message: { name: string };
+  new_cancellation: { name: string; orderRef: string };
+}
 
-export function notifyAdmins(payload: AdminEvent) {
-  if (clients.size === 0) return;
-  const bytes = encoder.encode(`data: ${JSON.stringify(payload)}\n\n`);
-  for (const ctrl of [...clients]) {
-    try {
-      ctrl.enqueue(bytes);
-    } catch {
-      clients.delete(ctrl);
-    }
+// Write event to DB so ALL serverless instances can see it.
+// The SSE endpoint polls the DB and delivers it to the connected admin.
+export async function notifyAdmins<T extends AdminEventType>(
+  event: T,
+  payload: AdminEventPayload[T]
+) {
+  try {
+    const { db } = await import("@/db");
+    const { adminEvent } = await import("@/db/schema");
+    await db().insert(adminEvent).values({
+      id: nanoid(),
+      type: event,
+      payload: payload as Record<string, unknown>,
+    });
+  } catch (err) {
+    console.error("[sse] notifyAdmins failed:", err);
   }
-}
-
-export function addClient(ctrl: ReadableStreamDefaultController<Uint8Array>) {
-  clients.add(ctrl);
-}
-
-export function removeClient(ctrl: ReadableStreamDefaultController<Uint8Array>) {
-  clients.delete(ctrl);
 }

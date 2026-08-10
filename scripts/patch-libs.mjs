@@ -27,9 +27,14 @@ for (const file of files) {
   const filePath = join(libsDir, file);
   const content = readFileSync(filePath, "utf8");
 
+  // Always prepend helpers if the file references any of them.
+  // The file may define them late (after first use), causing "not a function" errors.
+  // Prepending forces them to be available from line 1. Duplicate var declarations are harmless.
   const needsPatch =
-    (content.includes("__exportAll") || content.includes("__toESM") || content.includes("__toCommonJS")) &&
-    !content.includes("var __exportAll =");
+    content.includes("__exportAll") ||
+    content.includes("__toESM") ||
+    content.includes("__toCommonJS") ||
+    content.includes("__export(");
 
   if (needsPatch) {
     writeFileSync(filePath, HELPERS + content);

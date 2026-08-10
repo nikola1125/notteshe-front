@@ -975,6 +975,80 @@ function CheckoutPage() {
               </div>
             </div>
 
+            {/* Inline new-card payment form — right column */}
+            {step === "card-payment" && pokOrderId && (
+              <div className="mt-6 border border-border">
+                <div className="border-b border-border px-5 py-3">
+                  <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/50">Secured payment — POK Pay</p>
+                </div>
+                <div className="p-5">
+                  {placing ? (
+                    <div className="flex items-center justify-center gap-3 py-6">
+                      <Spinner />
+                      <p className="font-mono text-[11px] text-muted-foreground">Confirming your order…</p>
+                    </div>
+                  ) : (
+                    mounted && (
+                      <Suspense fallback={
+                        <div className="flex items-center justify-center gap-3 py-10">
+                          <Spinner />
+                          <p className="font-mono text-[11px] text-muted-foreground">Loading payment form…</p>
+                        </div>
+                      }>
+                        <GuestCheckoutForm
+                          orderId={pokOrderId}
+                          onSuccess={handlePokSuccess}
+                          onError={handlePokError}
+                          options={{
+                            env: POK_ENV,
+                            locale: "en",
+                            countrySelect: "modal",
+                            initialState: {
+                              email: form.email,
+                              holdersName: `${form.firstName} ${form.lastName}`.trim(),
+                              address1: form.address,
+                              locality: form.city,
+                              postalCode: form.postalCode,
+                              phoneNumber: form.phone,
+                              countryCode: form.country,
+                              cardNumber: "",
+                              expiration: "",
+                              securityCode: "",
+                              administrativeArea: "",
+                            },
+                          }}
+                        />
+                      </Suspense>
+                    )
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Saved-card 3DS container — right column */}
+            {step === "saved-card-payment" && (
+              <div className="mt-6 border border-border">
+                <div className="border-b border-border px-5 py-3">
+                  <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/50">Secured payment — POK Pay</p>
+                </div>
+                <div className="p-5">
+                  {placing ? (
+                    <div className="flex items-center justify-center gap-3 py-6">
+                      <Spinner />
+                      <p className="font-mono text-[11px] text-muted-foreground">Confirming your order…</p>
+                    </div>
+                  ) : (
+                    <div id="pok-saved-card-container">
+                      <div className="flex items-center justify-center gap-3 py-10">
+                        <Spinner />
+                        <p className="font-mono text-[11px] text-muted-foreground">Preparing payment…</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <Link to="/shop" search={{ sale: undefined }} className="mt-4 hidden items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60 transition hover:text-ink lg:flex">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1"><path d="M8 1 3 6l5 5" /></svg>
               Continue shopping
@@ -1111,80 +1185,6 @@ function CheckoutPage() {
 
               </div>
             </div>
-
-            {/* Inline new-card payment form */}
-            {step === "card-payment" && pokOrderId && (
-              <div className="border border-border">
-                <div className="border-b border-border px-5 py-3">
-                  <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/50">Secured payment — POK Pay</p>
-                </div>
-                <div className="p-5">
-                  {placing ? (
-                    <div className="flex items-center justify-center gap-3 py-6">
-                      <Spinner />
-                      <p className="font-mono text-[11px] text-muted-foreground">Confirming your order…</p>
-                    </div>
-                  ) : (
-                    mounted && (
-                      <Suspense fallback={
-                        <div className="flex items-center justify-center gap-3 py-10">
-                          <Spinner />
-                          <p className="font-mono text-[11px] text-muted-foreground">Loading payment form…</p>
-                        </div>
-                      }>
-                        <GuestCheckoutForm
-                          orderId={pokOrderId}
-                          onSuccess={handlePokSuccess}
-                          onError={handlePokError}
-                          options={{
-                            env: POK_ENV,
-                            locale: "en",
-                            countrySelect: "modal",
-                            initialState: {
-                              email: form.email,
-                              holdersName: `${form.firstName} ${form.lastName}`.trim(),
-                              address1: form.address,
-                              locality: form.city,
-                              postalCode: form.postalCode,
-                              phoneNumber: form.phone,
-                              countryCode: form.country,
-                              cardNumber: "",
-                              expiration: "",
-                              securityCode: "",
-                              administrativeArea: "",
-                            },
-                          }}
-                        />
-                      </Suspense>
-                    )
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Saved-card 3DS container */}
-            {step === "saved-card-payment" && (
-              <div className="border border-border">
-                <div className="border-b border-border px-5 py-3">
-                  <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/50">Secured payment — POK Pay</p>
-                </div>
-                <div className="p-5">
-                  {placing ? (
-                    <div className="flex items-center justify-center gap-3 py-6">
-                      <Spinner />
-                      <p className="font-mono text-[11px] text-muted-foreground">Confirming your order…</p>
-                    </div>
-                  ) : (
-                    <div id="pok-saved-card-container">
-                      <div className="flex items-center justify-center gap-3 py-10">
-                        <Spinner />
-                        <p className="font-mono text-[11px] text-muted-foreground">Preparing payment…</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
 
             {/* Error */}
             {placeError && (

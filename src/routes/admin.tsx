@@ -6,8 +6,8 @@ import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import type { AdminUser } from "@/db/schema";
 import { Toaster, toast } from "sonner";
 import { db } from "@/db";
-import { orders, cancellationRequest } from "@/db/schema";
-import { eq, count } from "drizzle-orm";
+import { orders, cancellationRequest, adminEvent } from "@/db/schema";
+import { eq, count, gt } from "drizzle-orm";
 import { requireAdmin } from "@/lib/admin/auth";
 
 const getAdminCounts = createServerFn({ method: "GET" }).handler(async () => {
@@ -25,8 +25,19 @@ const getAdminCounts = createServerFn({ method: "GET" }).handler(async () => {
   };
 });
 
-// Client-side cache — avoids a server round-trip on every sidebar navigation.
-// Cleared on logout; refreshed at most once per 5 minutes.
+// Fetch events from DB newer than a given ISO timestamp
+const pollAdminEvents = createServerFn({ method: "GET" })
+  .validator((input: unknown) => ({ since: (input as { since: string }).since }))
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    const events = await db()
+      .select()
+      .from(adminEvent)
+      .where(gt(adminEvent.createdAt, new Date(data.since)))
+      .orderBy(adminEvent.createdAt);
+    return events.map((e) => ({ type: e.type, payload: e.payload as Record<string, unknown> }));
+  });
+
 let _adminCache: { admin: AdminUser; exp: number } | null = null;
 
 async function getCachedAdmin(): Promise<AdminUser | null> {
@@ -44,9 +55,7 @@ export function clearAdminCache() {
 export const Route = createFileRoute("/admin")({
   beforeLoad: async () => {
     const admin = await getCachedAdmin();
-    if (!admin) {
-      throw redirect({ to: "/admin-login" });
-    }
+    if (!admin) throw redirect({ to: "/admin-login" });
     return { admin };
   },
   loader: () => getAdminCounts(),
@@ -57,39 +66,35 @@ function AdminLayout() {
   const { admin } = Route.useRouteContext() as { admin: AdminUser };
   const { newOrders, pendingCancellations } = Route.useLoaderData();
   const router = useRouter();
-  const esRef = useRef<EventSource | null>(null);
+  const lastSeenRef = useRef(new Date().toISOString());
 
   useEffect(() => {
-    function connect() {
-      const es = new EventSource("/api/admin-events");
-      esRef.current = es;
+    const interval = setInterval(async () => {
+      try {
+        const events = await pollAdminEvents({ data: { since: lastSeenRef.current } });
+        lastSeenRef.current = new Date().toISOString();
 
-      es.onmessage = (e: MessageEvent) => {
-        const data = JSON.parse(e.data) as { event: string; ref?: string; total?: number; name?: string; orderRef?: string };
-        if (data.event === "connected" || data.event === "ping") return;
+        if (events.length === 0) return;
 
+        // Refresh sidebar counts + current page data
         router.invalidate();
 
-        if (data.event === "new_order") {
-          toast.success(`New order #${data.ref} · ${data.total?.toFixed(0)} L`, { duration: 6000 });
-        } else if (data.event === "new_cancellation") {
-          toast.warning(`Cancellation request from ${data.name} · Order #${data.orderRef}`, { duration: 8000 });
-        } else if (data.event === "new_message") {
-          toast.info(`New message from ${data.name}`, { duration: 6000 });
+        for (const ev of events) {
+          const p = ev.payload;
+          if (ev.type === "new_order") {
+            toast.success(`New order #${p.ref} · ${Number(p.total).toFixed(0)} L`, { duration: 6000 });
+          } else if (ev.type === "new_cancellation") {
+            toast.warning(`Cancellation request from ${p.name} · Order #${p.orderRef}`, { duration: 8000 });
+          } else if (ev.type === "new_message") {
+            toast.info(`New message from ${p.name}`, { duration: 6000 });
+          }
         }
-      };
+      } catch {
+        // silently retry next interval
+      }
+    }, 5000);
 
-      es.onerror = () => {
-        es.close();
-        // Reconnect after 5 seconds
-        setTimeout(connect, 5000);
-      };
-    }
-
-    connect();
-    return () => {
-      esRef.current?.close();
-    };
+    return () => clearInterval(interval);
   }, [router]);
 
   return (

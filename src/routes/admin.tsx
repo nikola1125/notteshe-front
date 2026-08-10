@@ -7,12 +7,12 @@ import type { AdminUser } from "@/db/schema";
 import { Toaster, toast } from "sonner";
 import { db } from "@/db";
 import { orders, cancellationRequest, adminEvent } from "@/db/schema";
-import { eq, count, gt } from "drizzle-orm";
+import { eq, count, gt, and } from "drizzle-orm";
+import { adminSession } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
 
 const getAdminCounts = createServerFn({ method: "GET" }).handler(async () => {
   await requireAdmin();
-  const { and } = await import("drizzle-orm");
   const [[newOrders], [pendingCancellations]] = await Promise.all([
     db().select({ count: count() }).from(orders).where(eq(orders.status, "PENDING")),
     db().select({ count: count() }).from(cancellationRequest).where(
@@ -29,17 +29,14 @@ const getAdminCounts = createServerFn({ method: "GET" }).handler(async () => {
 const pollAdminEvents = createServerFn({ method: "GET" })
   .validator((input: unknown) => ({ since: (input as { since: string }).since }))
   .handler(async ({ data }) => {
-    // Use a lightweight token check rather than requireAdmin() to avoid
-    // cookie context issues in Cloudflare Workers server function calls
+    // Lightweight token check — avoids requireAdmin() cookie context issues in CF Workers
     const { getCookie } = await import("@tanstack/start-server-core/request-response");
     const token = getCookie("admin_token");
     if (!token) return [];
-    const { adminSession } = await import("@/db/schema");
-    const { eq, and, gt: gtOp } = await import("drizzle-orm");
     const [session] = await db()
       .select({ id: adminSession.id })
       .from(adminSession)
-      .where(and(eq(adminSession.token, token), gtOp(adminSession.expiresAt, new Date())))
+      .where(and(eq(adminSession.token, token), gt(adminSession.expiresAt, new Date())))
       .limit(1);
     if (!session) return [];
     const events = await db()

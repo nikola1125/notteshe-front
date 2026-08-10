@@ -13,7 +13,19 @@ export default defineConfig({
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
-    server: { entry: "server" },
+    server: {
+      entry: "server",
+      // Force these packages to be bundled inline by Rollup instead of copied to _libs/
+      // as raw ESM files — they use CJS interop helpers (__exportAll etc.) that aren't
+      // available in the native ESM Cloudflare Workers context.
+      externals: {
+        inline: [
+          "drizzle-orm",
+          "@neondatabase/serverless",
+          "drizzle-orm/neon-http",
+        ],
+      },
+    },
   },
   vite: {
     plugins: [

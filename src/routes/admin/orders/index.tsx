@@ -23,6 +23,7 @@ interface OrderRow {
   total: number;
   status: string;
   createdAt: string;
+  isRead: boolean;
   hasUnreadCancellation: boolean;
 }
 
@@ -89,6 +90,7 @@ const getOrders = createServerFn({ method: "GET" })
           email: user.email,
           total: orders.total,
           status: orders.status,
+          isRead: orders.isRead,
           createdAt: orders.createdAt,
           itemCount: count(orderItem.id),
         })
@@ -96,7 +98,7 @@ const getOrders = createServerFn({ method: "GET" })
         .innerJoin(user, eq(orders.userId, user.id))
         .leftJoin(orderItem, eq(orderItem.orderId, orders.id))
         .where(whereClause)
-        .groupBy(orders.id, user.email)
+        .groupBy(orders.id, user.email, orders.isRead)
         .orderBy(desc(orders.createdAt))
         .limit(PAGE_SIZE)
         .offset(offset),
@@ -125,6 +127,7 @@ const getOrders = createServerFn({ method: "GET" })
         itemCount: Number(r.itemCount),
         total: Number(r.total),
         status: r.status,
+        isRead: r.isRead,
         createdAt: r.createdAt.toISOString(),
         hasUnreadCancellation: unreadSet.has(r.id),
       })),
@@ -251,10 +254,10 @@ function OrderList() {
                 </td>
               </tr>
             )}
-            {data.rows.map((o) => (
+            {data.rows.map((o: OrderRow) => (
               <tr
                 key={o.id}
-                className="cursor-pointer hover:bg-[var(--color-muted)]/30"
+                className={`cursor-pointer transition-colors hover:bg-[var(--color-muted)]/30 ${!o.isRead ? "bg-[var(--color-clay)]/[0.04]" : ""}`}
                 onClick={() =>
                   navigate({ to: "/admin/orders/$id", params: { id: o.id } })
                 }
@@ -269,6 +272,9 @@ function OrderList() {
                     >
                       #{o.id.slice(0, 8)}
                     </Link>
+                    {!o.isRead && (
+                      <span className="rounded bg-[var(--color-clay)] px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-widest text-white">New</span>
+                    )}
                     {o.hasUnreadCancellation && (
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-clay)]" />
                     )}

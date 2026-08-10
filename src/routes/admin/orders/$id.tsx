@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useState } from "react";
 import { db } from "@/db";
 import { orders, orderItem, productSize, user, auditLog, adminUser, cancellationRequest } from "@/db/schema";
+
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAudit } from "@/lib/admin/audit";
 import type { PokOrderData } from "@/lib/pok";
@@ -294,10 +295,19 @@ const markOrderCancellationRead = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+const markOrderRead = createServerFn({ method: "POST" })
+  .validator((input: unknown) => ({ id: (input as { id: string }).id }))
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    await db().update(orders).set({ isRead: true }).where(and(eq(orders.id, data.id), eq(orders.isRead, false)));
+    return { ok: true };
+  });
+
 export const Route = createFileRoute("/admin/orders/$id")({
   loader: async ({ params }) => {
     const data = await getOrderDetail({ data: { id: params.id } });
     markOrderCancellationRead({ data: { orderId: params.id } });
+    markOrderRead({ data: { id: params.id } });
     return data;
   },
   component: OrderDetail,

@@ -208,6 +208,7 @@ export const orders = pgTable("orders", {
   pokOrderId: text("pok_order_id").unique(),
   adminNote: text("admin_note"),
   trackingNumber: text("tracking_number"),
+  isRead: boolean("is_read").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (t) => [

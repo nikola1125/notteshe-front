@@ -29,12 +29,25 @@ const getAdminCounts = createServerFn({ method: "GET" }).handler(async () => {
 const pollAdminEvents = createServerFn({ method: "GET" })
   .validator((input: unknown) => ({ since: (input as { since: string }).since }))
   .handler(async ({ data }) => {
-    await requireAdmin();
+    // Use a lightweight token check rather than requireAdmin() to avoid
+    // cookie context issues in Cloudflare Workers server function calls
+    const { getCookie } = await import("@tanstack/start-server-core/request-response");
+    const token = getCookie("admin_token");
+    if (!token) return [];
+    const { adminSession } = await import("@/db/schema");
+    const { eq, and, gt: gtOp } = await import("drizzle-orm");
+    const [session] = await db()
+      .select({ id: adminSession.id })
+      .from(adminSession)
+      .where(and(eq(adminSession.token, token), gtOp(adminSession.expiresAt, new Date())))
+      .limit(1);
+    if (!session) return [];
     const events = await db()
       .select()
       .from(adminEvent)
       .where(gt(adminEvent.createdAt, new Date(data.since)))
       .orderBy(adminEvent.createdAt);
+    console.log(`[poll] found ${events.length} events since ${data.since}`);
     return events.map((e) => ({ type: e.type, payload: e.payload as Record<string, unknown> }));
   });
 
@@ -89,8 +102,8 @@ function AdminLayout() {
             toast.info(`New message from ${p.name}`, { duration: 6000 });
           }
         }
-      } catch {
-        // silently retry next interval
+      } catch (err) {
+        console.error("[poll] error:", err);
       }
     }, 5000);
 

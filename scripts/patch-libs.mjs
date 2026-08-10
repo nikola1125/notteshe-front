@@ -1,17 +1,19 @@
-// Post-build patch: inject missing esbuild CJS helpers into _libs/*.mjs files.
-// Nitro's Cloudflare Workers preset copies some packages to _libs/ as raw ESM,
-// but those files reference helpers like __exportAll that esbuild normally provides
-// in the bundled context. Without them the Worker crashes at startup.
+// Post-build patch: fix esbuild CJS helpers in _libs/*.mjs files.
+// Nitro places packages in _libs/ as raw ESM. esbuild emits helpers like __exportAll
+// as const/let, but they may be used before their declaration (TDZ crash on CF Workers).
+// Fix: replace const/let with var so they hoist properly — no duplicate declarations.
 import { readFileSync, writeFileSync, readdirSync, existsSync } from "fs";
 import { join } from "path";
 
-const HELPERS = `
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __export = (target, all) => { for (var name in all) Object.defineProperty(target, name, { get: all[name], enumerable: true }); };
-var __exportAll = (target, all) => { for (var name in all) Object.defineProperty(target, name, { get: all[name], enumerable: true }); };
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? Object.create(Object.getPrototypeOf(mod)) : {}, Object.defineProperties(target, { ...(!isNodeMode && mod && mod.__esModule ? {} : { default: { value: mod, enumerable: true, configurable: true, writable: true } }), ...Object.getOwnPropertyDescriptors(mod) }));
-var __toCommonJS = (mod) => (Object.defineProperty(mod, "__esModule", { value: true }), mod);
-`.trimStart();
+const HOIST_HELPERS = [
+  "__exportAll",
+  "__export",
+  "__toESM",
+  "__toCommonJS",
+  "__getOwnPropNames",
+  "__commonJS",
+  "__esm",
+];
 
 // Nitro outputs to .output/server/_libs/ for the cloudflare-module preset
 const libsDir = join(process.cwd(), ".output", "server", "_libs");
@@ -26,19 +28,18 @@ let patched = 0;
 
 for (const file of files) {
   const filePath = join(libsDir, file);
-  const content = readFileSync(filePath, "utf8");
+  const original = readFileSync(filePath, "utf8");
+  let content = original;
 
-  // Always prepend helpers if the file references any of them.
-  // The file may define them late (after first use), causing "not a function" errors.
-  // Prepending forces them to be available from line 1. Duplicate var declarations are harmless.
-  const needsPatch =
-    content.includes("__exportAll") ||
-    content.includes("__toESM") ||
-    content.includes("__toCommonJS") ||
-    content.includes("__export(");
+  for (const helper of HOIST_HELPERS) {
+    // Replace `const helper =` and `let helper =` with `var helper =`
+    content = content
+      .replace(new RegExp(`\\bconst (${helper})\\s*=`, "g"), "var $1 =")
+      .replace(new RegExp(`\\blet (${helper})\\s*=`, "g"), "var $1 =");
+  }
 
-  if (needsPatch) {
-    writeFileSync(filePath, HELPERS + content);
+  if (content !== original) {
+    writeFileSync(filePath, content);
     console.log(`[patch-libs] Patched ${file}`);
     patched++;
   }

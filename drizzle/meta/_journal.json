@@ -15,6 +15,13 @@
       "when": 1785937716718,
       "tag": "0001_pok_pending_order",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786357318229,
+      "tag": "0002_serious_pete_wisdom",
+      "breakpoints": true
     }
   ]
 }

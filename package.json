@@ -107,6 +107,10 @@
     "vite": "^8.0.16"
   },
   "allowScripts": {
-    "html-to-image@1.11.13": true
+    "html-to-image@1.11.13": true,
+    "esbuild@0.18.20": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.1": true,
+    "fsevents@2.3.3": true
   }
 }

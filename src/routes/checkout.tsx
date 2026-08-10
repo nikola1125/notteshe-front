@@ -231,6 +231,9 @@ const placeCodOrder = createServerFn({ method: "POST" })
       diff: { after: { orderId, userId, email: data.shippingForm.email, total, itemCount: data.items.length, method: "cod" } },
     });
 
+    const { notifyAdmins } = await import("@/lib/admin/sse");
+    notifyAdmins({ event: "new_order", ref: orderId.slice(0, 8).toUpperCase(), total });
+
     const { sendOrderConfirmation } = await import("@/lib/resend");
     sendOrderConfirmation({
       to: data.shippingForm.email,

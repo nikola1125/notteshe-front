@@ -59,13 +59,16 @@ const requestCancellation = createServerFn({ method: "POST" })
   .validator(z.object({ orderId: z.string() }))
   .handler(async ({ data }) => {
     const session = await requireAuth();
+    const userName = session.user.name ?? session.user.email;
     await db().insert(cancellationRequest).values({
       id: nanoid(),
       orderId: data.orderId,
       userId: session.user.id,
-      userName: session.user.name ?? session.user.email,
+      userName,
       userEmail: session.user.email,
     });
+    const { notifyAdmins } = await import("@/lib/admin/sse");
+    notifyAdmins({ event: "new_cancellation", name: userName, orderRef: data.orderId.slice(0, 8).toUpperCase() });
     return { ok: true };
   });
 

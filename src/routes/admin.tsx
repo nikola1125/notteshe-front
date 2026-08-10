@@ -1,9 +1,10 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect, useRouter } from "@tanstack/react-router";
+import { useEffect, useRef } from "react";
 import { createServerFn } from "@tanstack/react-start";
 import { getAdminUserFn, logoutAdminFn } from "@/lib/admin/auth";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import type { AdminUser } from "@/db/schema";
-import { Toaster } from "sonner";
+import { Toaster, toast } from "sonner";
 import { db } from "@/db";
 import { orders, cancellationRequest } from "@/db/schema";
 import { eq, count } from "drizzle-orm";
@@ -55,6 +56,41 @@ export const Route = createFileRoute("/admin")({
 function AdminLayout() {
   const { admin } = Route.useRouteContext() as { admin: AdminUser };
   const { newOrders, pendingCancellations } = Route.useLoaderData();
+  const router = useRouter();
+  const esRef = useRef<EventSource | null>(null);
+
+  useEffect(() => {
+    function connect() {
+      const es = new EventSource("/api/admin-events");
+      esRef.current = es;
+
+      es.onmessage = (e: MessageEvent) => {
+        const data = JSON.parse(e.data) as { event: string; ref?: string; total?: number; name?: string; orderRef?: string };
+        if (data.event === "connected" || data.event === "ping") return;
+
+        router.invalidate();
+
+        if (data.event === "new_order") {
+          toast.success(`New order #${data.ref} · ${data.total?.toFixed(0)} L`, { duration: 6000 });
+        } else if (data.event === "new_cancellation") {
+          toast.warning(`Cancellation request from ${data.name} · Order #${data.orderRef}`, { duration: 8000 });
+        } else if (data.event === "new_message") {
+          toast.info(`New message from ${data.name}`, { duration: 6000 });
+        }
+      };
+
+      es.onerror = () => {
+        es.close();
+        // Reconnect after 5 seconds
+        setTimeout(connect, 5000);
+      };
+    }
+
+    connect();
+    return () => {
+      esRef.current?.close();
+    };
+  }, [router]);
 
   return (
     <div className="flex min-h-[100dvh] bg-[var(--color-background)] text-[var(--color-foreground)]">

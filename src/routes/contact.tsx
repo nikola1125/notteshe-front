@@ -21,6 +21,8 @@ const submitContact = createServerFn({ method: "POST" })
       email: data.email,
       message: data.message,
     });
+    const { notifyAdmins } = await import("@/lib/admin/sse");
+    notifyAdmins({ event: "new_message", name: data.name });
     return { ok: true };
   });
 

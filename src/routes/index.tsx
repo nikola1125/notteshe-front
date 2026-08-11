@@ -6,7 +6,7 @@ import { subscribeNewsletter } from "@/lib/newsletter";
 import { Intro } from "@/components/Intro";
 import { WishlistButton } from "@/components/WishlistButton";
 import { db } from "@/db";
-import { product, productImage, productColour } from "@/db/schema";
+import { product, productImage, productColour, collection, homeCollections } from "@/db/schema";
 import hero from "@/assets/hero1.jpg";
 import look1 from "@/assets/look1.jpg";
 import look2 from "@/assets/look2.jpg";
@@ -27,10 +27,20 @@ interface HomeProduct {
   colourCount: number;
 }
 
+interface FeaturedCollection {
+  id: string;
+  name: string;
+  slug: string;
+  coverImage: string;
+  caption: string;
+  captionMeta: string;
+}
+
 interface HomeData {
   wardrobe: HomeProduct[];
   wardrobeTotal: number;
   sale: HomeProduct[];
+  featuredCollections: FeaturedCollection[];
 }
 
 // ─── Server function ──────────────────────────────────────────────────────────
@@ -80,10 +90,46 @@ const getHomeData = createServerFn({ method: "GET" }).handler(async (): Promise<
     .filter((p) => p.isPermanentWardrobe)
     .sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0));
 
+  // Featured collections for the homepage composition (slot order 1→2→3).
+  // Wrapped defensively so the homepage still renders if the migration hasn't run.
+  let featuredCollections: FeaturedCollection[] = [];
+  try {
+    const homeRows = await database
+      .select()
+      .from(homeCollections)
+      .where(eq(homeCollections.id, "default"))
+      .limit(1);
+    const home = homeRows[0];
+    const slotIds = [home?.slot1CollectionId, home?.slot2CollectionId, home?.slot3CollectionId].filter(
+      (id): id is string => Boolean(id)
+    );
+    if (slotIds.length > 0) {
+      const cols = await database
+        .select()
+        .from(collection)
+        .where(eq(collection.isVisible, true));
+      const byId = new Map(cols.map((c) => [c.id, c]));
+      featuredCollections = slotIds
+        .map((id) => byId.get(id))
+        .filter((c): c is NonNullable<typeof c> => Boolean(c) && Boolean(c!.coverImageUrl))
+        .map((c) => ({
+          id: c.id,
+          name: c.name,
+          slug: c.slug,
+          coverImage: c.coverImageUrl!,
+          caption: c.homeCaption?.trim() || c.name,
+          captionMeta: c.homeCaptionMeta?.trim() || "",
+        }));
+    }
+  } catch {
+    featuredCollections = [];
+  }
+
   return {
     wardrobe: wardrobeAll.map(toHomeProduct),
     wardrobeTotal: wardrobeAll.length,
     sale: prods.filter((p) => p.isSale).slice(0, 4).map(toHomeProduct),
+    featuredCollections,
   };
 });
 
@@ -133,8 +179,44 @@ function CarouselArrows({ trackRef }: { trackRef: React.RefObject<HTMLDivElement
   );
 }
 
+interface LookTile {
+  key: string;
+  slug: string | null;
+  src: string;
+  alt: string;
+  cap: string;      // desktop caption, e.g. "Ch. 01 — Name"
+  meta: string;     // optional decorative meta, e.g. "04:12 pm"
+  name: string;     // display name (mobile overlay)
+  chapter: string;  // e.g. "Ch. 01"
+}
+
+function LookTileWrap({
+  tile,
+  className,
+  style,
+  children,
+}: {
+  tile: LookTile;
+  className: string;
+  style?: React.CSSProperties;
+  children: React.ReactNode;
+}) {
+  if (tile.slug) {
+    return (
+      <Link to="/collections/$slug" params={{ slug: tile.slug }} className={className} style={style}>
+        {children}
+      </Link>
+    );
+  }
+  return (
+    <figure className={className} style={style}>
+      {children}
+    </figure>
+  );
+}
+
 function Index() {
-  const { wardrobe, wardrobeTotal, sale } = Route.useLoaderData();
+  const { wardrobe, wardrobeTotal, sale, featuredCollections } = Route.useLoaderData();
   const router = useRouter();
   const [introDone, setIntroDone] = useState(() => _introShown);
   const wardrobeRef = useRef<HTMLDivElement>(null);
@@ -237,7 +319,7 @@ function Index() {
       </div>
 
       {/* ─── Products ─── */}
-      <section id="shop" className="mx-auto mt-14 max-w-[1600px] px-5 md:mt-20 md:px-12">
+      <section id="shop" className="mx-auto mt-16 max-w-[1600px] px-5 md:mt-20 md:px-12">
         <div className="reveal mb-10 flex items-end justify-between md:mb-14">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">New Arrivals</p>
@@ -327,107 +409,90 @@ function Index() {
         </div>
       </section>
 
-      {/* ─── Lookbook ─── */}
-      <section className="mt-20 md:mt-32">
-        <div className="reveal mx-auto flex max-w-[1600px] items-end justify-between px-5 md:px-12">
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">The Lookbook</p>
-            <h2 className="serif mt-2 text-3xl leading-tight text-ink md:text-5xl">
-              Stillness, <em className="italic text-clay">in motion.</em>
-            </h2>
-          </div>
-          <a href="#" className="relative hidden font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-clay hover:after:scale-x-100 md:inline-block">
-            AW26 · 03 chapters →
-          </a>
-        </div>
+      {/* ─── Collections ─── */}
+      {(() => {
+        const usingCollections = featuredCollections.length > 0;
+        const tiles: LookTile[] = usingCollections
+          ? featuredCollections.map((c, i) => ({
+              key: c.id,
+              slug: c.slug,
+              src: c.coverImage,
+              alt: c.name,
+              cap: `Ch. 0${i + 1} — ${c.caption}`,
+              meta: c.captionMeta,
+              name: c.caption,
+              chapter: `Ch. 0${i + 1}`,
+            }))
+          : [
+              { key: "l1", slug: null, src: look1, alt: "Lookbook chapter one",   cap: "Ch. 01 — Threshold", meta: "04:12 pm", name: "Threshold", chapter: "Ch. 01" },
+              { key: "l2", slug: null, src: look2, alt: "Lookbook chapter two",   cap: "Ch. 02 — Corridor",  meta: "05:38 pm", name: "Corridor",  chapter: "Ch. 02" },
+              { key: "l3", slug: null, src: look3, alt: "Lookbook chapter three", cap: "Ch. 03 — Cuff",      meta: "06:04 pm", name: "Cuff",      chapter: "Ch. 03" },
+            ];
+        const desktopClasses = ["col-span-5", "col-span-4 mt-20", "col-span-3 mt-8"];
 
-        {/* Mobile: editorial masonry grid — all 3 images visible at once */}
-        <div className="mt-8 grid grid-cols-[3fr_2fr] gap-2 px-5 md:hidden">
-          {/* Left — large portrait spanning both rows */}
-          <figure className="group row-span-2 flex cursor-pointer flex-col">
-            <div className="min-h-0 flex-1 overflow-hidden bg-muted">
-              <img
-                src={look1}
-                alt="Lookbook chapter one"
-                width={1000}
-                height={1400}
-                loading="lazy"
-                className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
-              />
-            </div>
-            <p className="mt-2 font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
-              Ch. 01 — Threshold
-            </p>
-          </figure>
-
-          {/* Top right */}
-          <figure className="group cursor-pointer">
-            <div className="aspect-[3/4] overflow-hidden bg-muted">
-              <img
-                src={look2}
-                alt="Lookbook chapter two"
-                width={1000}
-                height={1400}
-                loading="lazy"
-                className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
-              />
-            </div>
-            <p className="mt-2 font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
-              Ch. 02 — Corridor
-            </p>
-          </figure>
-
-          {/* Bottom right */}
-          <figure className="group cursor-pointer">
-            <div className="aspect-[3/4] overflow-hidden bg-muted">
-              <img
-                src={look3}
-                alt="Lookbook chapter three"
-                width={1000}
-                height={1400}
-                loading="lazy"
-                className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
-              />
-            </div>
-            <p className="mt-2 font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">
-              Ch. 03 — Cuff
-            </p>
-          </figure>
-        </div>
-
-        {/* Desktop: staggered grid */}
-        <div className="mx-auto mt-10 hidden max-w-[1600px] grid-cols-12 gap-5 px-12 md:grid">
-          {[
-            { src: look1, alt: "Lookbook chapter one",   cap: "Ch. 01 — Threshold", time: "04:12 pm", cls: "col-span-5",         delay: 0   },
-            { src: look2, alt: "Lookbook chapter two",   cap: "Ch. 02 — Corridor",  time: "05:38 pm", cls: "col-span-4 mt-20",   delay: 80  },
-            { src: look3, alt: "Lookbook chapter three", cap: "Ch. 03 — Cuff",      time: "06:04 pm", cls: "col-span-3 mt-8",    delay: 160 },
-          ].map((img) => (
-            <figure
-              key={img.cap}
-              className={`reveal group cursor-pointer ${img.cls}`}
-              style={{ transitionDelay: `${img.delay}ms` }}
-            >
-              <div className="aspect-[3/4] overflow-hidden bg-muted">
-                <img
-                  src={img.src}
-                  alt={img.alt}
-                  width={1000}
-                  height={1400}
-                  loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
-                />
+        return (
+          <section className="mt-16 md:mt-32">
+            <div className="reveal mx-auto flex max-w-[1600px] items-end justify-between px-5 md:px-12">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">The Lookbook</p>
+                <h2 className="serif mt-2 text-3xl leading-tight text-ink md:text-5xl">
+                  Stillness, <em className="italic text-clay">in motion.</em>
+                </h2>
               </div>
-              <figcaption className="mt-3 flex justify-between font-mono text-[10px] uppercase tracking-widest text-muted-foreground/70">
-                <span>{img.cap}</span>
-                <span>{img.time}</span>
-              </figcaption>
-            </figure>
-          ))}
-        </div>
-      </section>
+              <Link to="/collections" className="relative hidden font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-clay hover:after:scale-x-100 md:inline-block">
+                AW26 · 03 chapters →
+              </Link>
+            </div>
+
+            {/* Mobile: full-width editorial cards — clean at any count */}
+            <div className="mt-8 flex flex-col gap-4 px-5 md:hidden">
+              {tiles.map((t) => (
+                <LookTileWrap key={t.key} tile={t} className="group relative block overflow-hidden">
+                  <div className="aspect-[4/5] overflow-hidden bg-muted">
+                    <img
+                      src={t.src}
+                      alt={t.alt}
+                      width={1000}
+                      height={1250}
+                      loading="lazy"
+                      className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+                    />
+                  </div>
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/90 via-background/25 to-transparent p-5 pt-16">
+                    <p className="font-mono text-[9px] uppercase tracking-[0.25em] text-ink/55">
+                      {t.chapter}{t.meta ? ` · ${t.meta}` : ""}
+                    </p>
+                    <p className="serif mt-1 text-3xl leading-none text-ink">{t.name}</p>
+                  </div>
+                </LookTileWrap>
+              ))}
+            </div>
+
+            {/* Desktop: staggered grid */}
+            <div className="mx-auto mt-10 hidden max-w-[1600px] grid-cols-12 gap-5 px-12 md:grid">
+              {tiles.map((t, i) => (
+                <LookTileWrap
+                  key={t.key}
+                  tile={t}
+                  className={`reveal group cursor-pointer ${desktopClasses[i] ?? "col-span-4"}`}
+                  style={{ transitionDelay: `${i * 80}ms` }}
+                >
+                  <div className="aspect-[3/4] overflow-hidden bg-muted">
+                    <img src={t.src} alt={t.alt} width={1000} height={1400} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]" />
+                  </div>
+                  <figcaption className="mt-3 flex justify-between font-mono text-[10px] uppercase tracking-widest text-muted-foreground/70">
+                    <span>{t.cap}</span>
+                    {t.meta && <span>{t.meta}</span>}
+                  </figcaption>
+                </LookTileWrap>
+              ))}
+            </div>
+          </section>
+        );
+      })()}
 
       {/* ─── Sale ─── */}
-      <section className="mx-auto mt-20 max-w-[1600px] px-5 md:mt-32 md:px-12">
+      <section className="mx-auto mt-16 max-w-[1600px] px-5 md:mt-32 md:px-12">
         <div className="reveal mb-10 flex items-end justify-between md:mb-14">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-widest text-clay">End of Season Sale</p>
@@ -504,7 +569,7 @@ function Index() {
       </section>
 
       {/* ─── Philosophy ─── */}
-      <section className="mx-auto mt-20 max-w-[1600px] px-5 md:mt-32 md:px-12">
+      <section className="mx-auto mt-16 max-w-[1600px] px-5 md:mt-32 md:px-12">
         {/* Mobile: heading shown above the image */}
         <div className="mb-6 md:hidden">
           <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Philosophy</p>
@@ -544,7 +609,7 @@ function Index() {
       </section>
 
       {/* ─── Newsletter ─── */}
-      <section className="reveal mx-auto mt-20 max-w-[1600px] px-5 md:mt-40 md:px-12">
+      <section className="reveal mx-auto mt-16 max-w-[1600px] px-5 md:mt-40 md:px-12">
         <div className="border-t border-border pt-16 flex flex-col gap-10 md:grid md:grid-cols-2 md:items-end md:gap-12">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Correspondence</p>
@@ -560,7 +625,7 @@ function Index() {
       </section>
 
       {/* ─── Footer ─── */}
-      <footer className="mt-20 border-t border-border md:mt-24">
+      <footer className="mt-16 border-t border-border md:mt-24">
         <div className="mx-auto max-w-[1600px] px-5 py-12 md:px-12 md:py-16">
           <div className="grid grid-cols-12 gap-8 md:gap-10">
             <div className="col-span-12 md:col-span-4">

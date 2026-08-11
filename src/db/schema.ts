@@ -112,7 +112,21 @@ export const collection = pgTable("collection", {
   coverImageUrl: text("cover_image_url"),
   coverCloudflareId: text("cover_cloudflare_id"),
   isVisible: boolean("is_visible").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  homeCaption: text("home_caption"),           // optional label override on homepage tile
+  homeCaptionMeta: text("home_caption_meta"),   // optional decorative meta, e.g. "04:12 pm"
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ─── Home Collections (singleton row, id = 'default') ─────────────────────────
+// The three curated collections shown in the homepage composition, in slot order.
+
+export const homeCollections = pgTable("home_collections", {
+  id: text("id").primaryKey().default("default"),
+  slot1CollectionId: text("slot1_collection_id").references(() => collection.id, { onDelete: "set null" }),
+  slot2CollectionId: text("slot2_collection_id").references(() => collection.id, { onDelete: "set null" }),
+  slot3CollectionId: text("slot3_collection_id").references(() => collection.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // ─── Product ─────────────────────────────────────────────────────────────────
@@ -386,6 +400,7 @@ export type Account = typeof account.$inferSelect;
 export type Address = typeof address.$inferSelect;
 export type Category = typeof category.$inferSelect;
 export type Collection = typeof collection.$inferSelect;
+export type HomeCollections = typeof homeCollections.$inferSelect;
 export type Product = typeof product.$inferSelect;
 export type NewProduct = typeof product.$inferInsert;
 export type ProductImage = typeof productImage.$inferSelect;

@@ -11,6 +11,7 @@ import { orders, cancellationRequest, adminEvent } from "@/db/schema";
 import { eq, count, gt, and } from "drizzle-orm";
 import { adminSession } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
+import { z } from "zod";
 
 const getAdminCounts = createServerFn({ method: "GET" }).handler(async () => {
   await requireAdmin();
@@ -26,9 +27,10 @@ const getAdminCounts = createServerFn({ method: "GET" }).handler(async () => {
   };
 });
 
-// Fetch events from DB newer than a given ISO timestamp
-const pollAdminEvents = createServerFn({ method: "GET" })
-  .validator((input: unknown) => ({ since: (input as { since: string }).since }))
+// Fetch events from DB newer than a given ISO timestamp.
+// Must be POST — CF edge caches GET responses, making polls return stale data.
+const pollAdminEvents = createServerFn({ method: "POST" })
+  .validator(z.object({ since: z.string() }))
   .handler(async ({ data }) => {
     const token = getCookie("admin_token");
     if (!token) return [];
@@ -38,13 +40,14 @@ const pollAdminEvents = createServerFn({ method: "GET" })
       .where(and(eq(adminSession.token, token), gt(adminSession.expiresAt, new Date())))
       .limit(1);
     if (!session) return [];
+    const since = new Date(data.since);
+    if (isNaN(since.getTime())) return [];
     const events = await db()
       .select()
       .from(adminEvent)
-      .where(gt(adminEvent.createdAt, new Date(data.since)))
+      .where(gt(adminEvent.createdAt, since))
       .orderBy(adminEvent.createdAt);
-    console.log(`[poll] found ${events.length} events since ${data.since}`);
-    return events.map((e) => ({ type: e.type, payload: e.payload as Record<string, unknown> }));
+    return events.map((e) => ({ id: e.id, type: e.type, payload: e.payload as Record<string, unknown> }));
   });
 
 let _adminCache: { admin: AdminUser; exp: number } | null = null;
@@ -75,15 +78,24 @@ function AdminLayout() {
   const { admin } = Route.useRouteContext() as { admin: AdminUser };
   const { newOrders, pendingCancellations } = Route.useLoaderData();
   const router = useRouter();
-  const lastSeenRef = useRef(new Date().toISOString());
+  // Start 60 s in the past — absorbs browser/DB clock skew and catches events
+  // that arrived while the page was loading.
+  const lastSeenRef = useRef(new Date(Date.now() - 60_000).toISOString());
+  // Track delivered event IDs so the 2-second overlap doesn't show duplicate toasts.
+  const seenIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
         const events = await pollAdminEvents({ data: { since: lastSeenRef.current } });
-        lastSeenRef.current = new Date().toISOString();
+        // Subtract 2 s from "now" so the next poll overlaps slightly and never
+        // misses an event inserted between the query and the timestamp update.
+        lastSeenRef.current = new Date(Date.now() - 2000).toISOString();
 
-        if (events.length === 0) return;
+        const freshEvents = events.filter((ev) => !seenIdsRef.current.has(ev.id));
+        freshEvents.forEach((ev) => seenIdsRef.current.add(ev.id));
+
+        if (freshEvents.length === 0) return;
 
         // Refresh sidebar counts + current page data
         router.invalidate();
@@ -107,7 +119,7 @@ function AdminLayout() {
           });
         } catch (_) { /* audio not available */ }
 
-        for (const ev of events) {
+        for (const ev of freshEvents) {
           const p = ev.payload;
           if (ev.type === "new_order") {
             toast.success(`New order #${p.ref} · ${Number(p.total).toFixed(0)} L`, { duration: 6000 });

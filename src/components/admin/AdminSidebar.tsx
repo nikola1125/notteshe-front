@@ -13,6 +13,7 @@ import {
   ScrollText,
   Warehouse,
   Shirt,
+  Layers,
   LogOut,
   Menu,
   X,
@@ -34,6 +35,7 @@ interface AdminSidebarProps {
 const NAV_ITEMS: Array<{ label: string; href: string; icon: React.ElementType; exact?: boolean }> = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard, exact: true },
   { label: "Products", href: "/admin/products", icon: Package },
+  { label: "Collections", href: "/admin/collections", icon: Layers },
   { label: "Inventory", href: "/admin/inventory", icon: Warehouse },
   { label: "Permanent Wardrobe", href: "/admin/permanent-wardrobe", icon: Shirt },
   { label: "Orders", href: "/admin/orders", icon: ShoppingBag },

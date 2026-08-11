@@ -23,7 +23,10 @@ export async function notifyAdmins<T extends AdminEventType>(
       type: event,
       payload: payload as Record<string, unknown>,
     });
+    console.log(`[sse] event written: ${event}`);
   } catch (err) {
-    console.error("[sse] notifyAdmins failed:", err);
+    // This usually means the admin_event table isn't migrated yet.
+    // Run: bun db:migrate (or drizzle-kit migrate) against production.
+    console.error("[sse] notifyAdmins FAILED — event lost:", event, err);
   }
 }

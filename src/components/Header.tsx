@@ -202,7 +202,7 @@ export function Header() {
       {/* Mobile dropdown */}
       <div
         className="relative z-50 overflow-hidden transition-[max-height] duration-500 ease-in-out md:hidden"
-        style={{ maxHeight: menuOpen ? "360px" : "0px" }}
+        style={{ maxHeight: menuOpen ? "420px" : "0px" }}
       >
         <nav className="flex flex-col gap-0 bg-background/95 px-5 pb-5 pt-3">
           <Link
@@ -215,6 +215,7 @@ export function Header() {
           </Link>
           <Link to="/shop" // eslint-disable-next-line @typescript-eslint/no-explicit-any
             search={(() => ({ sale: "1" })) as any} onClick={() => setMenuOpen(false)} className="border-b border-border/30 py-4 font-mono text-[11px] uppercase tracking-[0.25em] text-clay transition-colors">Sale</Link>
+          <Link to="/collections" onClick={() => setMenuOpen(false)} className="border-b border-border/30 py-4 font-mono text-[11px] uppercase tracking-[0.25em] text-ink/70 transition-colors hover:text-ink">Collections</Link>
           <Link to="/about" onClick={() => setMenuOpen(false)} className="border-b border-border/30 py-4 font-mono text-[11px] uppercase tracking-[0.25em] text-ink/70 transition-colors hover:text-ink">Story</Link>
           <Link to="/contact" onClick={() => setMenuOpen(false)} className="border-b border-border/30 py-4 font-mono text-[11px] uppercase tracking-[0.25em] text-ink/70 transition-colors hover:text-ink">Contact</Link>
           <a

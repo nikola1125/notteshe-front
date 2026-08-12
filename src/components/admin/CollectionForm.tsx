@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Trash2, Upload, Loader2, ImagePlus } from "lucide-react";
 import { uploadImageFn } from "@/lib/cloudinary";
+import { cldImg } from "@/lib/cldImage";
 import { toast } from "sonner";
 
 export interface CollectionFormData {
@@ -238,7 +239,7 @@ export function CollectionForm({ initialData, onSave }: CollectionFormProps) {
         {coverImageUrl ? (
           <div className="relative inline-block">
             <img
-              src={coverImageUrl}
+              src={cldImg(coverImageUrl, 320)}
               alt="Cover"
               className="h-48 w-36 rounded-lg border border-[var(--color-border)] object-cover"
             />

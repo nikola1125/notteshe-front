@@ -10,6 +10,7 @@ import { db } from "@/db";
 import { product, productImage } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAudit } from "@/lib/admin/audit";
+import { cldImg } from "@/lib/cldImage";
 
 // ─── Server functions ─────────────────────────────────────────────────────────
 
@@ -178,7 +179,7 @@ function PermanentWardrobePage() {
                 className="flex items-center gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] px-3 py-2.5"
               >
                 {p.coverImageUrl ? (
-                  <img src={p.coverImageUrl} alt={p.name} className="h-10 w-8 rounded object-cover shrink-0" />
+                  <img src={cldImg(p.coverImageUrl, 80)} alt={p.name} className="h-10 w-8 rounded object-cover shrink-0" />
                 ) : (
                   <div className="h-10 w-8 shrink-0 rounded bg-[var(--color-border)]" />
                 )}
@@ -241,7 +242,7 @@ function PermanentWardrobePage() {
                 className="flex items-center gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] px-3 py-2.5"
               >
                 {p.coverImageUrl ? (
-                  <img src={p.coverImageUrl} alt={p.name} className="h-10 w-8 rounded object-cover shrink-0" />
+                  <img src={cldImg(p.coverImageUrl, 80)} alt={p.name} className="h-10 w-8 rounded object-cover shrink-0" />
                 ) : (
                   <div className="h-10 w-8 shrink-0 rounded bg-[var(--color-border)]" />
                 )}

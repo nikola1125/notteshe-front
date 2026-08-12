@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { product, productImage, productColour, category } from "@/db/schema";
 import { useWishlist } from "@/store/wishlistStore";
 import { WishlistButton } from "@/components/WishlistButton";
+import { cldImg, cldSrcSet } from "@/lib/cldImage";
 
 interface WishlistProduct {
   id: string;
@@ -139,7 +140,8 @@ function WishlistPage() {
                   <div className="relative aspect-[3/4] overflow-hidden bg-muted">
                     {p.coverImage ? (
                       <img
-                        src={p.coverImage}
+                        src={cldImg(p.coverImage, 440)}
+                        srcSet={cldSrcSet(p.coverImage, 440)}
                         alt={p.name}
                         loading="lazy"
                         className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"

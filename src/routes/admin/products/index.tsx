@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { product, productImage, category } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAudit } from "@/lib/admin/audit";
+import { cldImg } from "@/lib/cldImage";
 import { Plus, Eye, EyeOff, Pencil, Trash2, ChevronDown } from "lucide-react";
 import { useState } from "react";
 
@@ -141,7 +142,7 @@ function ProductCard({
       {/* Image */}
       <div className="relative aspect-[3/4] bg-[var(--color-muted)] overflow-hidden">
         {p.coverUrl ? (
-          <img src={p.coverUrl} alt={p.name} className="h-full w-full object-cover" />
+          <img src={cldImg(p.coverUrl, 400)} alt={p.name} className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
             <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]/40">No image</span>

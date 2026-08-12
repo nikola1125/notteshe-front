@@ -5,6 +5,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { collection, product, productImage, productColour } from "@/db/schema";
 import { WishlistButton } from "@/components/WishlistButton";
+import { cldImg, cldSrcSet } from "@/lib/cldImage";
 
 interface CollectionProduct {
   id: string;
@@ -109,7 +110,7 @@ function CollectionDetailPage() {
       {/* Cover hero */}
       <section className="relative h-[60svh] min-h-[380px] w-full md:h-[70svh]">
         {coverImage ? (
-          <img src={coverImage} alt={name} className="h-full w-full object-cover" />
+          <img src={cldImg(coverImage, 1600)} srcSet={`${cldImg(coverImage, 1024)} 1024w, ${cldImg(coverImage, 1600)} 1600w, ${cldImg(coverImage, 2000)} 2000w`} sizes="100vw" alt={name} className="h-full w-full object-cover" />
         ) : (
           <div className="h-full w-full bg-muted" />
         )}
@@ -156,7 +157,8 @@ function CollectionDetailPage() {
                 <div className="relative aspect-[3/4] overflow-hidden bg-muted">
                   {p.coverImage ? (
                     <img
-                      src={p.coverImage}
+                      src={cldImg(p.coverImage, 440)}
+                      srcSet={cldSrcSet(p.coverImage, 440)}
                       alt={p.name}
                       loading={i < 4 ? "eager" : "lazy"}
                       draggable={false}

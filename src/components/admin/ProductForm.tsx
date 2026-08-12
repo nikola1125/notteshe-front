@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Plus, Trash2, ArrowUp, ArrowDown, Upload, Loader2, ImagePlus } from "lucide-react";
 import { uploadImageFn } from "@/lib/cloudinary";
+import { cldImg } from "@/lib/cldImage";
 import { toast } from "sonner";
 
 export interface SizeEntry {
@@ -533,7 +534,7 @@ export function ProductForm({
           {coverImage ? (
             <div className="relative inline-block">
               <img
-                src={coverImage.url}
+                src={cldImg(coverImage.url, 320)}
                 alt="Cover"
                 className="h-48 w-36 rounded-lg border border-[var(--color-border)] object-cover"
               />
@@ -588,7 +589,7 @@ export function ProductForm({
             {galleryImages.map((img, i) => (
               <div key={img.url} className="relative">
                 <img
-                  src={img.url}
+                  src={cldImg(img.url, 200)}
                   alt=""
                   className="h-28 w-20 rounded-lg border border-[var(--color-border)] object-cover"
                 />

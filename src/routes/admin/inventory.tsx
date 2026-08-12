@@ -9,6 +9,7 @@ import { db } from "@/db";
 import { product, productSize, productImage } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAudit } from "@/lib/admin/audit";
+import { cldImg } from "@/lib/cldImage";
 import { ChevronDown } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -234,7 +235,7 @@ function InventoryPage() {
                 className="flex w-full items-center gap-3 px-4 py-3 text-left"
               >
                 {p.coverImageUrl ? (
-                  <img src={p.coverImageUrl} alt={p.name} className="h-10 w-8 shrink-0 rounded object-cover" />
+                  <img src={cldImg(p.coverImageUrl, 80)} alt={p.name} className="h-10 w-8 shrink-0 rounded object-cover" />
                 ) : (
                   <div className="h-10 w-8 shrink-0 rounded bg-[var(--color-border)]" />
                 )}

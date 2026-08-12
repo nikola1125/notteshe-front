@@ -12,6 +12,7 @@ import {
   collection,
 } from "@/db/schema";
 import { WishlistButton } from "@/components/WishlistButton";
+import { cldImg, cldSrcSet } from "@/lib/cldImage";
 import { useCart } from "@/store/cartStore";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -290,7 +291,7 @@ function ProductPage() {
                   onClick={() => scrollTo(i)}
                   className={`h-20 w-16 overflow-hidden border transition-all duration-200 ${activeImage === i ? "border-ink/50" : "border-transparent opacity-50 hover:opacity-80"}`}
                 >
-                  <img src={img} alt="" className="h-full w-full object-cover" />
+                  <img src={cldImg(img, 130)} srcSet={cldSrcSet(img, 130)} alt="" className="h-full w-full object-cover" />
                 </button>
               ))}
             </div>
@@ -319,7 +320,7 @@ function ProductPage() {
             >
               {product.images.length > 0 ? product.images.map((img, i) => (
                 <div key={i} className="relative w-full shrink-0 snap-start bg-muted" style={{ scrollSnapAlign: "start" }}>
-                  <img src={img} alt={`${product.name} — view ${i + 1}`} className="h-full w-full object-cover" loading={i === 0 ? "eager" : "lazy"} />
+                  <img src={cldImg(img, 720)} srcSet={cldSrcSet(img, 720)} alt={`${product.name} — view ${i + 1}`} className="h-full w-full object-cover" loading={i === 0 ? "eager" : "lazy"} />
                 </div>
               )) : (
                 <div className="flex w-full shrink-0 items-center justify-center bg-muted aspect-[3/4]">

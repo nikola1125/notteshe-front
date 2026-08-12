@@ -57,11 +57,7 @@ Ghost     : text only with arrow  →
 · White/cream background everywhere
 · Generous spacing — let the content breathe
 · Max 3 elements per row on desktop
-· Photography is always the hero — images large, never awkward
-· GSAP only for meaningful animations (scroll reveals, transitions)
-· No animations for decoration — every motion has a purpose
-· Thumbnail hover → second image (model wearing product)
-· No page reloads for filtering, cart, or FAQ accordions
+· Photograp  ├───────────────────────┼─────────────────────────────────────────────────────────────────┤
 ```
 
 ---

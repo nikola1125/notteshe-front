@@ -5,6 +5,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { subscribeNewsletter } from "@/lib/newsletter";
 import { Intro } from "@/components/Intro";
 import { WishlistButton } from "@/components/WishlistButton";
+import { cldImg, cldSrcSet } from "@/lib/cldImage";
 import { db } from "@/db";
 import { product, productImage, productColour, collection, homeCollections } from "@/db/schema";
 import hero from "@/assets/hero1.jpg";
@@ -352,7 +353,8 @@ function Index() {
               <div className="relative aspect-[3/4] overflow-hidden bg-muted">
                 {p.coverImage ? (
                   <img
-                    src={p.coverImage}
+                    src={cldImg(p.coverImage, 420)}
+                    srcSet={cldSrcSet(p.coverImage, 420)}
                     alt={p.name}
                     width={900}
                     height={1200}
@@ -450,7 +452,8 @@ function Index() {
                 <LookTileWrap key={t.key} tile={t} className="group relative block overflow-hidden">
                   <div className="aspect-[4/5] overflow-hidden bg-muted">
                     <img
-                      src={t.src}
+                      src={cldImg(t.src, 640)}
+                      srcSet={cldSrcSet(t.src, 640)}
                       alt={t.alt}
                       width={1000}
                       height={1250}
@@ -478,7 +481,7 @@ function Index() {
                   style={{ transitionDelay: `${i * 80}ms` }}
                 >
                   <div className="aspect-[3/4] overflow-hidden bg-muted">
-                    <img src={t.src} alt={t.alt} width={1000} height={1400} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]" />
+                    <img src={cldImg(t.src, 640)} srcSet={cldSrcSet(t.src, 640)} alt={t.alt} width={1000} height={1400} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]" />
                   </div>
                   <figcaption className="mt-3 flex justify-between font-mono text-[10px] uppercase tracking-widest text-muted-foreground/70">
                     <span>{t.cap}</span>
@@ -527,7 +530,8 @@ function Index() {
               <div className="relative aspect-[3/4] overflow-hidden bg-muted">
                 {p.coverImage ? (
                   <img
-                    src={p.coverImage}
+                    src={cldImg(p.coverImage, 420)}
+                    srcSet={cldSrcSet(p.coverImage, 420)}
                     alt={p.name}
                     width={900}
                     height={1200}

@@ -179,6 +179,11 @@ export const placeOrder = createServerFn({ method: "POST" })
       },
     });
 
+    // Notify connected admins in real time (must be awaited on CF Workers,
+    // else the unawaited promise is killed when the response is sent).
+    const { notifyAdmins } = await import("@/lib/admin/sse");
+    await notifyAdmins("new_order", { ref: orderId.slice(0, 8).toUpperCase(), total: orderData.total });
+
     // Fire-and-forget confirmation email
     const { sendOrderConfirmation } = await import("@/lib/resend");
     sendOrderConfirmation({

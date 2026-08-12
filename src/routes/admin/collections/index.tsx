@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { collection, product, homeCollections } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAudit } from "@/lib/admin/audit";
+import { cldImg } from "@/lib/cldImage";
 import { Plus, Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 
@@ -248,7 +249,7 @@ function CollectionsList() {
                 </label>
                 <div className="mb-2 aspect-[3/4] w-full max-w-[140px] overflow-hidden rounded border border-[var(--color-border)] bg-[var(--color-muted)]">
                   {chosen?.coverImageUrl ? (
-                    <img src={chosen.coverImageUrl} alt={chosen.name} className="h-full w-full object-cover" />
+                    <img src={cldImg(chosen.coverImageUrl, 320)} alt={chosen.name} className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center">
                       <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]/40">
@@ -300,7 +301,7 @@ function CollectionsList() {
                 className="block relative aspect-[3/4] overflow-hidden bg-[var(--color-muted)]"
               >
                 {c.coverImageUrl ? (
-                  <img src={c.coverImageUrl} alt={c.name} className="h-full w-full object-cover" />
+                  <img src={cldImg(c.coverImageUrl, 400)} alt={c.name} className="h-full w-full object-cover" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center">
                     <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]/40">No cover</span>

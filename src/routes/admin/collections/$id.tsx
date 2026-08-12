@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { collection, product, productImage } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAudit } from "@/lib/admin/audit";
+import { cldImg } from "@/lib/cldImage";
 import { CollectionForm, type CollectionFormData } from "@/components/admin/CollectionForm";
 
 interface CollectionEditData {
@@ -151,7 +152,7 @@ function EditCollection() {
                 >
                   <div className="relative aspect-[3/4] overflow-hidden bg-[var(--color-muted)]">
                     {p.coverUrl ? (
-                      <img src={p.coverUrl} alt={p.name} className="h-full w-full object-cover" />
+                      <img src={cldImg(p.coverUrl, 320)} alt={p.name} className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center">
                         <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]/40">No image</span>

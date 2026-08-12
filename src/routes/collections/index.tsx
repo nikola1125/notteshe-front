@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { eq, asc } from "drizzle-orm";
 import { db } from "@/db";
 import { collection, product } from "@/db/schema";
+import { cldImg, cldSrcSet } from "@/lib/cldImage";
 
 interface CollectionCard {
   id: string;
@@ -100,7 +101,8 @@ function CollectionsIndex() {
                 <div className="relative aspect-[4/5] overflow-hidden bg-muted">
                   {c.coverImage ? (
                     <img
-                      src={c.coverImage}
+                      src={cldImg(c.coverImage, 560)}
+                      srcSet={cldSrcSet(c.coverImage, 560)}
                       alt={c.name}
                       loading={i < 3 ? "eager" : "lazy"}
                       draggable={false}

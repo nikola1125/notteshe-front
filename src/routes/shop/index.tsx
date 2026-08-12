@@ -5,6 +5,7 @@ import { eq, desc, and } from "drizzle-orm";
 import { db } from "@/db";
 import { product, productImage, productColour, category } from "@/db/schema";
 import { WishlistButton } from "@/components/WishlistButton";
+import { cldImg, cldSrcSet } from "@/lib/cldImage";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -297,7 +298,8 @@ function ShopPage() {
                 <div className="relative aspect-[3/4] overflow-hidden bg-muted">
                   {p.coverImage ? (
                     <img
-                      src={p.coverImage}
+                      src={cldImg(p.coverImage, 440)}
+                      srcSet={cldSrcSet(p.coverImage, 440)}
                       alt={p.name}
                       loading={i < 4 ? "eager" : "lazy"}
                       draggable={false}

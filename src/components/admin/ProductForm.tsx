@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "@tanstack/react-router";
 import { Plus, Trash2, ArrowUp, ArrowDown, Upload, Loader2, ImagePlus } from "lucide-react";
 import { uploadImageFn } from "@/lib/cloudinary";
 import { cldImg } from "@/lib/cldImage";
@@ -66,6 +67,7 @@ export function ProductForm({
   onSave,
 }: ProductFormProps) {
   const isEdit = !!initialData?.id;
+  const router = useRouter();
   const coverInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -89,7 +91,13 @@ export function ProductForm({
   const [isPermanentWardrobe, setIsPermanentWardrobe] = useState(initialData?.isPermanentWardrobe ?? false);
 
   const [sizes, setSizes] = useState<SizeEntry[]>(() => {
-    if (initialData?.sizes?.length) return initialData.sizes;
+    if (initialData?.sizes?.length) {
+      const rank = (label: string) => {
+        const i = SIZE_LABELS.indexOf(label);
+        return i === -1 ? SIZE_LABELS.length : i;
+      };
+      return [...initialData.sizes].sort((a, b) => rank(a.label) - rank(b.label));
+    }
     return SIZE_LABELS.map((label) => ({ label, available: false, stock: 0 }));
   });
 
@@ -100,6 +108,7 @@ export function ProductForm({
   const [uploadingGallery, setUploadingGallery] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const coverImage = images.find((img) => img.isCover) ?? null;
   const galleryImages = images.filter((img) => !img.isCover);
@@ -203,6 +212,12 @@ export function ProductForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // A product must belong to at least a Category or a Collection.
+    if (!categoryId && !collectionId) {
+      setFormError("Select at least a Category or a Collection.");
+      return;
+    }
+    setFormError(null);
     setSaving(true);
     setSaved(false);
     try {
@@ -227,6 +242,10 @@ export function ProductForm({
       toast.success("Changes saved");
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to save product";
+      setFormError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -302,7 +321,7 @@ export function ProductForm({
             <select
               id="pf-cat"
               value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
+              onChange={(e) => { setCategoryId(e.target.value); setFormError(null); }}
               className={inputClass}
             >
               <option value="">— None —</option>
@@ -316,7 +335,7 @@ export function ProductForm({
             <select
               id="pf-col"
               value={collectionId}
-              onChange={(e) => setCollectionId(e.target.value)}
+              onChange={(e) => { setCollectionId(e.target.value); setFormError(null); }}
               className={inputClass}
             >
               <option value="">— None —</option>
@@ -326,6 +345,12 @@ export function ProductForm({
             </select>
           </div>
         </div>
+        <p className="mt-2 font-mono text-[10px] text-[var(--color-muted-foreground)]">
+          Select at least one — a Category or a Collection.
+        </p>
+        {formError && (
+          <p className="mt-1 font-mono text-[10px] text-red-400">{formError}</p>
+        )}
       </div>
 
       {/* Pricing */}
@@ -336,7 +361,7 @@ export function ProductForm({
         {isSale ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="pf-price" className={labelClass}>Sale Price (L) *</label>
+              <label htmlFor="pf-price" className={labelClass}>Sale Price (€) *</label>
               <input
                 id="pf-price"
                 type="number"
@@ -350,7 +375,7 @@ export function ProductForm({
               />
             </div>
             <div>
-              <label htmlFor="pf-orig" className={labelClass}>Original Price (L) — shown crossed out</label>
+              <label htmlFor="pf-orig" className={labelClass}>Original Price (€) — shown crossed out</label>
               <input
                 id="pf-orig"
                 type="number"
@@ -366,7 +391,7 @@ export function ProductForm({
           </div>
         ) : (
           <div>
-            <label htmlFor="pf-price" className={labelClass}>Price (L) *</label>
+            <label htmlFor="pf-price" className={labelClass}>Price (€) *</label>
             <input
               id="pf-price"
               type="number"
@@ -642,7 +667,14 @@ export function ProductForm({
       </div>
 
       {/* Submit */}
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-3">
+        <button
+          type="button"
+          onClick={() => router.history.back()}
+          className="rounded border border-[var(--color-border)] px-6 py-2.5 font-mono text-xs uppercase tracking-widest text-[var(--color-muted-foreground)] transition-colors hover:text-[var(--color-foreground)] active:opacity-60"
+        >
+          Back
+        </button>
         <button
           type="submit"
           disabled={saving || uploadingCover || uploadingGallery}

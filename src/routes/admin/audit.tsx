@@ -114,7 +114,7 @@ function getAmount(action: string, d: Record<string, unknown>): string {
   const after = (d.after ?? d) as Record<string, unknown>;
   const n = after.amount ?? after.total;
   if (n == null) return "—";
-  return `${n} L`;
+  return `${n} €`;
 }
 
 function getEmail(action: string, d: Record<string, unknown>): string {

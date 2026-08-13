@@ -199,9 +199,9 @@ function CollectionDetailPage() {
                   </div>
                   <div className="text-right">
                     {p.originalPrice && (
-                      <p className="font-mono text-[10px] text-muted-foreground line-through">{p.originalPrice} L</p>
+                      <p className="font-mono text-[10px] text-muted-foreground line-through">{p.originalPrice} €</p>
                     )}
-                    <p className={`font-mono text-[12px] ${p.isSale ? "text-clay" : "text-ink/70"}`}>{p.price} L</p>
+                    <p className={`font-mono text-[12px] ${p.isSale ? "text-clay" : "text-ink/70"}`}>{p.price} €</p>
                   </div>
                 </div>
               </Link>

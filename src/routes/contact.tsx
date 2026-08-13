@@ -64,11 +64,11 @@ function ContactPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-[1600px] px-5 pb-32 pt-24 md:px-12 md:pt-32">
+      <div className="mx-auto max-w-[1600px] px-5 pb-32 pt-20 md:px-12 md:pt-28">
 
         <button
           onClick={() => window.history.back()}
-          className="mb-10 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-ink"
+          className="mb-5 inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-clay"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2">
             <path d="M9 2 4 7l5 5" />

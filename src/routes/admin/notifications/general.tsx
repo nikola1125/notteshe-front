@@ -42,7 +42,7 @@ const getGeneral = createServerFn({ method: "GET" }).handler(async (): Promise<N
       id: `order-${o.id}`,
       type: "order" as const,
       title: "New order placed",
-      detail: `#${o.id.slice(0, 8).toUpperCase()} · ${Number(o.total).toFixed(0)} L · ${o.status}`,
+      detail: `#${o.id.slice(0, 8).toUpperCase()} · ${Number(o.total).toFixed(0)} € · ${o.status}`,
       href: `/admin/orders/${o.id}`,
       createdAt: String(o.createdAt),
     })),

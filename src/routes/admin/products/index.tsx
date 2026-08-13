@@ -166,7 +166,7 @@ function ProductCard({
       <div className="p-3">
         <p className="truncate text-sm font-medium text-[var(--color-foreground)]">{p.name}</p>
         <p className="mt-0.5 font-mono text-xs text-[var(--color-muted-foreground)]">
-          {p.price.toFixed(2)} L
+          {p.price.toFixed(2)} €
           {p.originalPrice != null && (
             <span className="ml-1 line-through opacity-50">{p.originalPrice.toFixed(2)}</span>
           )}

@@ -39,6 +39,9 @@ const createProduct = createServerFn({ method: "POST" })
   .validator((input: unknown) => input as ProductFormData)
   .handler(async ({ data }) => {
     const admin = await requireAdmin();
+    if (!data.categoryId && !data.collectionId) {
+      throw new Error("Select at least a Category or a Collection.");
+    }
     const database = db();
     const id = crypto.randomUUID();
 

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import aboutHero from "@/assets/about-hero.jpg";
 import aboutMid from "@/assets/about-mid.png";
 
@@ -21,7 +21,15 @@ function AboutPage() {
 
         <div className="absolute inset-0 flex flex-col justify-between px-8 py-10 pt-20 md:px-14 md:py-14 md:pt-20">
           <div className="flex items-center justify-between">
-            <span className="font-mono text-[9px] uppercase tracking-[0.4em] text-white/40">Our Story</span>
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.4em] text-white/50 transition-colors hover:text-white"
+            >
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
+                <path d="M8 2L4 6l4 4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Back
+            </Link>
             <span className="font-mono text-[9px] uppercase tracking-[0.4em] text-white/40">Est. 2024</span>
           </div>
           <div>

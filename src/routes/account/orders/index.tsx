@@ -129,11 +129,11 @@ function OrdersPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="border-b border-border pt-24 pb-10 md:pt-32 md:pb-14">
+      <div className="border-b border-border pt-20 pb-10 md:pt-28 md:pb-14">
         <div className="mx-auto max-w-[1600px] px-5 md:px-12">
           <button
             onClick={() => window.history.back()}
-            className="mb-6 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-ink"
+            className="mb-5 inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-clay"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2">
               <path d="M9 2 4 7l5 5" />
@@ -189,7 +189,7 @@ function OrdersPage() {
                       <p className={`font-mono text-[10px] uppercase tracking-widest ${STATUS_COLOR[order.status] ?? "text-ink"}`}>
                         {STATUS_LABEL[order.status] ?? order.status}
                       </p>
-                      <p className="serif mt-1 text-xl text-ink">{order.total.toFixed(0)} L</p>
+                      <p className="serif mt-1 text-xl text-ink">{order.total.toFixed(0)} €</p>
                     </div>
                   </div>
 
@@ -210,7 +210,7 @@ function OrdersPage() {
                       <div>
                         <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">Discount</p>
                         <p className="mt-0.5 font-mono text-[11px] text-green-400">
-                          {order.discountCode} — −{Number(order.discountAmount ?? 0).toFixed(0)} L
+                          {order.discountCode} — −{Number(order.discountAmount ?? 0).toFixed(0)} €
                         </p>
                       </div>
                     )}

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 export const Route = createFileRoute("/size-guide")({
@@ -31,7 +31,16 @@ function SizeGuidePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-[900px] px-5 pb-32 pt-32 md:px-12 md:pt-40">
+      <div className="mx-auto max-w-[900px] px-5 pb-32 pt-20 md:px-12 md:pt-28">
+        <Link
+          to="/"
+          className="mb-5 inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-clay"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
+            <path d="M8 2L4 6l4 4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Back
+        </Link>
         <div className="flex items-end justify-between">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Fit</p>

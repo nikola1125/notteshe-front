@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Notteshe — Project Costs</title>
+<style>
+  :root {
+    --ink: #1c1a1d;
+    --muted: #6b6570;
+    --line: #e6e1dc;
+    --clay: #b0553a;
+    --cream: #f7f4f0;
+    --paper: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--cream);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    padding: 40px 16px;
+  }
+  .sheet {
+    max-width: 760px;
+    margin: 0 auto;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 48px;
+  }
+  header { border-bottom: 2px solid var(--ink); padding-bottom: 20px; margin-bottom: 28px; }
+  .brand { font-size: 30px; font-weight: 600; letter-spacing: 0.5px; }
+  .brand span { color: var(--clay); }
+  .sub { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 2px; margin-top: 4px; }
+  .meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 18px; font-size: 13px; color: var(--muted); }
+  .meta b { color: var(--ink); font-weight: 600; }
+  h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 2px;
+    color: var(--muted); margin: 34px 0 10px; font-weight: 600;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 11px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-weight: 600; }
+  td.amt, th.amt { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .note { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .option { border: 1px solid var(--line); border-radius: 8px; padding: 20px 22px; margin-top: 14px; }
+  .option.recommended { border-color: var(--clay); }
+  .tag { display: inline-block; background: var(--clay); color: #fff; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; padding: 2px 8px; border-radius: 4px; margin-left: 8px; vertical-align: middle; }
+  .opt-title { font-size: 17px; font-weight: 600; }
+  .totline { display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--line); }
+  .totline.grand { border-top: 2px solid var(--ink); font-weight: 700; font-size: 16px; margin-top: 4px; }
+  .small { font-size: 12px; color: var(--muted); }
+  .legend { background: var(--cream); border: 1px dashed var(--line); border-radius: 8px; padding: 14px 16px; font-size: 12px; color: var(--muted); margin-top: 26px; }
+  .legend b { color: var(--ink); }
+  footer { margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .sheet { border: none; border-radius: 0; padding: 24px; max-width: none; }
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <header>
+    <div class="brand">Notteshe<span>.</span></div>
+    <div class="sub">Website — Project Costs &amp; Options</div>
+    <div class="meta">
+      <div>Prepared for: <b>Notteshe</b></div>
+      <div>Prepared by: <b>Nikola</b></div>
+      <div>Date: <b>12 August 2026</b></div>
+    </div>
+  </header>
+
+  <!-- OPTIONS -->
+  <h2>Domain &amp; hosting — choose one option</h2>
+
+  <!-- Option A -->
+  <div class="option recommended">
+    <div class="opt-title">Option A — notteshe.al</div>
+    <div class="small" style="margin:4px 0 12px">Domain registered at Host.al · hosting on Cloudflare (see note)</div>
+    <table>
+      <thead>
+        <tr><th>Item</th><th>Billing</th><th class="amt">First year</th><th class="amt">Renewal / yr</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Domain — notteshe.al (Host.al)</td><td>Yearly</td><td class="amt">€12.99</td><td class="amt">€12.99</td></tr>
+        <tr><td>Hosting — Cloudflare<div class="note">App runs on Cloudflare; no shared-host fee needed at this scale</div></td><td>Yearly</td><td class="amt">€0.00</td><td class="amt">€0.00</td></tr>
+      </tbody>
+    </table>
+    <div class="totline grand"><span>Total — first year</span><span>€12.99</span></div>
+    <div class="totline"><span>Ongoing (per year after)</span><span>€12.99</span></div>
+  </div>
+
+  <!-- Option B -->
+  <div class="option">
+    <div class="opt-title">Option B — notteshe.com (OVH)</div>
+    <div class="small" style="margin:4px 0 12px">Domain + hosting purchased from OVH · amounts quoted in USD ($)</div>
+    <table>
+      <thead>
+        <tr><th>Item</th><th>Billing</th><th class="amt">First year</th><th class="amt">Renewal / yr</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Domain — notteshe.com (OVH)</td><td>Yearly</td><td class="amt">$9.20</td><td class="amt">$14.69</td></tr>
+        <tr><td>Hosting — OVH<div class="note">Optional — the app itself deploys to Cloudflare. Useful mainly for the .com domain / mailboxes.</div></td><td>Yearly</td><td class="amt">$109.20</td><td class="amt">$109.20</td></tr>
+      </tbody>
+    </table>
+    <div class="totline grand"><span>Total — first year</span><span>$118.40</span></div>
+    <div class="small" style="margin-top:6px">≈ <b>€108.93</b> at 1&nbsp;USD&nbsp;=&nbsp;€0.92 (approx. — adjust to current rate)</div>
+    <div class="totline"><span>Ongoing (per year after)</span><span>$123.89&nbsp;≈&nbsp;€113.98</span></div>
+  </div>
+
+  <!-- LEGEND / NOTES -->
+  <div class="legend">
+    <b>Notes</b><br>
+    • All amounts are yearly renewals.<br>
+    • <b>Host.al hosting is not recommended</b> for this site — only the <b>.al domain</b> would be used, and it can be pointed/transferred to the app's Cloudflare host.<br>
+    • The website is built to run on <b>Cloudflare</b> (free at this traffic level), plus <b>Neon</b> (database), <b>Cloudinary</b> (images) and <b>Resend</b> (order emails) — all currently on free tiers.<br>
+    • USD→EUR figures are approximate; the exchange rate shown can be updated to the day's rate.
+  </div>
+
+  <footer>
+    This document lists project and running costs for the Notteshe website. Prices exclude any local taxes/VAT unless stated. Provider prices as quoted on the date above and may change at renewal.
+  </footer>
+</div>
+</body>
+</html>

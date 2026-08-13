@@ -316,7 +316,7 @@ function CustomerDetail() {
                     <span className={`inline-flex w-fit rounded px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider ${STATUS_COLORS[o.status] ?? ""}`}>
                       {o.status}
                     </span>
-                    <span className="font-mono text-xs text-[var(--color-clay)]">{o.total.toFixed(2)} L</span>
+                    <span className="font-mono text-xs text-[var(--color-clay)]">{o.total.toFixed(2)} €</span>
                     <span className="font-mono text-[10px] text-[var(--color-muted-foreground)]">{fmtDate(o.createdAt)}</span>
                   </div>
                   <ChevronDown
@@ -354,7 +354,7 @@ function CustomerDetail() {
                               </p>
                             </div>
                             <span className="font-mono text-xs text-[var(--color-clay)]">
-                              {(it.unitPrice * it.quantity).toFixed(2)} L
+                              {(it.unitPrice * it.quantity).toFixed(2)} €
                             </span>
                           </div>
                         ))}
@@ -370,27 +370,27 @@ function CustomerDetail() {
                         <div className="space-y-1">
                           <div className="flex justify-between font-mono text-[10px]">
                             <span className="text-[var(--color-muted-foreground)]">Subtotal</span>
-                            <span>{o.subtotal.toFixed(2)} L</span>
+                            <span>{o.subtotal.toFixed(2)} €</span>
                           </div>
                           <div className="flex justify-between font-mono text-[10px]">
                             <span className="text-[var(--color-muted-foreground)]">Shipping</span>
-                            <span>{o.shippingFee === 0 ? "Free" : `${o.shippingFee.toFixed(2)} L`}</span>
+                            <span>{o.shippingFee === 0 ? "Free" : `${o.shippingFee.toFixed(2)} €`}</span>
                           </div>
                           {o.paymentFee > 0 && (
                             <div className="flex justify-between font-mono text-[10px]">
                               <span className="text-[var(--color-muted-foreground)]">Payment fee</span>
-                              <span>{o.paymentFee.toFixed(2)} L</span>
+                              <span>{o.paymentFee.toFixed(2)} €</span>
                             </div>
                           )}
                           {o.discountCode && (
                             <div className="flex justify-between font-mono text-[10px] text-green-400">
                               <span>Discount ({o.discountCode})</span>
-                              <span>−{o.discountAmount.toFixed(2)} L</span>
+                              <span>−{o.discountAmount.toFixed(2)} €</span>
                             </div>
                           )}
                           <div className="flex justify-between border-t border-[var(--color-border)] pt-1 font-mono text-xs font-medium">
                             <span>Total</span>
-                            <span className="text-[var(--color-clay)]">{o.total.toFixed(2)} L</span>
+                            <span className="text-[var(--color-clay)]">{o.total.toFixed(2)} €</span>
                           </div>
                         </div>
                       </div>

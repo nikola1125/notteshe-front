@@ -16,9 +16,9 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AdminLoginRouteImport } from './routes/admin-login'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as ExchangesRouteImport } from './routes/exchanges'
 import { Route as FaqRouteImport } from './routes/faq'
 import { Route as OrderConfirmedRouteImport } from './routes/order-confirmed'
-import { Route as ReturnsRouteImport } from './routes/returns'
 import { Route as ShippingRouteImport } from './routes/shipping'
 import { Route as ShopRouteImport } from './routes/shop'
 import { Route as SizeGuideRouteImport } from './routes/size-guide'
@@ -85,6 +85,11 @@ const ContactRoute = ContactRouteImport.update({
   path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExchangesRoute = ExchangesRouteImport.update({
+  id: '/exchanges',
+  path: '/exchanges',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FaqRoute = FaqRouteImport.update({
   id: '/faq',
   path: '/faq',
@@ -93,11 +98,6 @@ const FaqRoute = FaqRouteImport.update({
 const OrderConfirmedRoute = OrderConfirmedRouteImport.update({
   id: '/order-confirmed',
   path: '/order-confirmed',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReturnsRoute = ReturnsRouteImport.update({
-  id: '/returns',
-  path: '/returns',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ShippingRoute = ShippingRouteImport.update({
@@ -261,9 +261,9 @@ export interface FileRoutesByFullPath {
   '/admin-login': typeof AdminLoginRoute
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
+  '/exchanges': typeof ExchangesRoute
   '/faq': typeof FaqRoute
   '/order-confirmed': typeof OrderConfirmedRoute
-  '/returns': typeof ReturnsRoute
   '/shipping': typeof ShippingRoute
   '/shop': typeof ShopRouteWithChildren
   '/size-guide': typeof SizeGuideRoute
@@ -302,9 +302,9 @@ export interface FileRoutesByTo {
   '/admin-login': typeof AdminLoginRoute
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
+  '/exchanges': typeof ExchangesRoute
   '/faq': typeof FaqRoute
   '/order-confirmed': typeof OrderConfirmedRoute
-  '/returns': typeof ReturnsRoute
   '/shipping': typeof ShippingRoute
   '/size-guide': typeof SizeGuideRoute
   '/wishlist': typeof WishlistRoute
@@ -344,9 +344,9 @@ export interface FileRoutesById {
   '/admin-login': typeof AdminLoginRoute
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
+  '/exchanges': typeof ExchangesRoute
   '/faq': typeof FaqRoute
   '/order-confirmed': typeof OrderConfirmedRoute
-  '/returns': typeof ReturnsRoute
   '/shipping': typeof ShippingRoute
   '/shop': typeof ShopRouteWithChildren
   '/size-guide': typeof SizeGuideRoute
@@ -388,9 +388,9 @@ export interface FileRouteTypes {
     | '/admin-login'
     | '/checkout'
     | '/contact'
+    | '/exchanges'
     | '/faq'
     | '/order-confirmed'
-    | '/returns'
     | '/shipping'
     | '/shop'
     | '/size-guide'
@@ -429,9 +429,9 @@ export interface FileRouteTypes {
     | '/admin-login'
     | '/checkout'
     | '/contact'
+    | '/exchanges'
     | '/faq'
     | '/order-confirmed'
-    | '/returns'
     | '/shipping'
     | '/size-guide'
     | '/wishlist'
@@ -470,9 +470,9 @@ export interface FileRouteTypes {
     | '/admin-login'
     | '/checkout'
     | '/contact'
+    | '/exchanges'
     | '/faq'
     | '/order-confirmed'
-    | '/returns'
     | '/shipping'
     | '/shop'
     | '/size-guide'
@@ -513,9 +513,9 @@ export interface RootRouteChildren {
   AdminLoginRoute: typeof AdminLoginRoute
   CheckoutRoute: typeof CheckoutRoute
   ContactRoute: typeof ContactRoute
+  ExchangesRoute: typeof ExchangesRoute
   FaqRoute: typeof FaqRoute
   OrderConfirmedRoute: typeof OrderConfirmedRoute
-  ReturnsRoute: typeof ReturnsRoute
   ShippingRoute: typeof ShippingRoute
   ShopRoute: typeof ShopRouteWithChildren
   SizeGuideRoute: typeof SizeGuideRoute
@@ -575,6 +575,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/exchanges': {
+      id: '/exchanges'
+      path: '/exchanges'
+      fullPath: '/exchanges'
+      preLoaderRoute: typeof ExchangesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/faq': {
       id: '/faq'
       path: '/faq'
@@ -587,13 +594,6 @@ declare module '@tanstack/react-router' {
       path: '/order-confirmed'
       fullPath: '/order-confirmed'
       preLoaderRoute: typeof OrderConfirmedRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/returns': {
-      id: '/returns'
-      path: '/returns'
-      fullPath: '/returns'
-      preLoaderRoute: typeof ReturnsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/shipping': {
@@ -890,9 +890,9 @@ const rootRouteChildren: RootRouteChildren = {
   AdminLoginRoute: AdminLoginRoute,
   CheckoutRoute: CheckoutRoute,
   ContactRoute: ContactRoute,
+  ExchangesRoute: ExchangesRoute,
   FaqRoute: FaqRoute,
   OrderConfirmedRoute: OrderConfirmedRoute,
-  ReturnsRoute: ReturnsRoute,
   ShippingRoute: ShippingRoute,
   ShopRoute: ShopRouteWithChildren,
   SizeGuideRoute: SizeGuideRoute,

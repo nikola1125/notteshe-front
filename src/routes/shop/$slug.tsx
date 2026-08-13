@@ -88,6 +88,14 @@ const getProduct = createServerFn({ method: "GET" })
       ...images.filter((img) => !img.isCover),
     ].map((img) => img.url);
 
+    // Always present sizes in a canonical order (XS → S → M → L → XL → One Size).
+    const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "One Size"];
+    const sortedSizes = [...sizes].sort((a, b) => {
+      const ai = SIZE_ORDER.indexOf(a.label);
+      const bi = SIZE_ORDER.indexOf(b.label);
+      return (ai === -1 ? SIZE_ORDER.length : ai) - (bi === -1 ? SIZE_ORDER.length : bi);
+    });
+
     return {
       id: p.id,
       name: p.name,
@@ -101,7 +109,7 @@ const getProduct = createServerFn({ method: "GET" })
       category: p.categoryName ?? null,
       collection: p.collectionName ?? null,
       images: sortedImages,
-      sizes,
+      sizes: sortedSizes,
       colours,
     };
   });
@@ -257,11 +265,11 @@ function ProductPage() {
       {sizeGuideOpen && <SizeGuideModal onClose={() => setSizeGuideOpen(false)} />}
 
       {/* Back + Breadcrumb */}
-      <div className="mx-auto max-w-[1600px] px-5 pt-24 md:px-12 md:pt-32">
+      <div className="mx-auto max-w-[1600px] px-5 pt-20 md:px-12 md:pt-28">
         <div className="flex items-center justify-between">
           <button
             onClick={() => window.history.back()}
-            className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-ink"
+            className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-clay"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2">
               <path d="M9 2 4 7l5 5" />
@@ -349,9 +357,9 @@ function ProductPage() {
           <h1 className="serif mt-3 text-4xl leading-tight text-ink md:text-5xl">{product.name}</h1>
 
           <div className="mt-4 flex items-baseline gap-3">
-            <span className={`font-mono text-[18px] ${product.isSale ? "text-clay" : "text-ink"}`}>{product.price} L</span>
+            <span className={`font-mono text-[18px] ${product.isSale ? "text-clay" : "text-ink"}`}>{product.price} €</span>
             {product.originalPrice && (
-              <span className="font-mono text-[13px] text-muted-foreground line-through">{product.originalPrice} L</span>
+              <span className="font-mono text-[13px] text-muted-foreground line-through">{product.originalPrice} €</span>
             )}
           </div>
 
@@ -456,16 +464,16 @@ function ProductPage() {
 
           <details className="group border-t border-border">
             <summary className="flex cursor-pointer items-center justify-between py-4 font-mono text-[10px] uppercase tracking-widest text-ink/70 hover:text-ink">
-              Shipping & returns
+              Shipping & exchanges
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="transition-transform duration-200 group-open:rotate-45">
                 <line x1="6" y1="0" x2="6" y2="12" stroke="currentColor" strokeWidth="1" />
                 <line x1="0" y1="6" x2="12" y2="6" stroke="currentColor" strokeWidth="1" />
               </svg>
             </summary>
             <div className="space-y-2 pb-6 text-[12px] leading-relaxed text-muted-foreground">
-              <p>Free shipping on orders over 20,000 L.</p>
+              <p>Free shipping on orders over 200 €.</p>
               <p>Standard delivery 3–5 working days. Express available at checkout.</p>
-              <p>Returns accepted within 14 days of delivery. Items must be unworn and in original packaging.</p>
+              <p>Exchanges accepted within 14 days of delivery — no refunds. Items must be unworn and in original packaging.</p>
             </div>
           </details>
         </div>

@@ -270,7 +270,7 @@ const applyDiscountCode = createServerFn({ method: "POST" })
     if (!code.isActive) return { valid: false as const, error: "This code is no longer active" };
     if (code.expiresAt && code.expiresAt < new Date()) return { valid: false as const, error: "This code has expired" };
     if (code.maxUses !== null && code.usedCount >= code.maxUses) return { valid: false as const, error: "This code has reached its usage limit" };
-    if (code.minOrderAmount !== null && data.subtotal < code.minOrderAmount) return { valid: false as const, error: `Minimum order of ${code.minOrderAmount} L required` };
+    if (code.minOrderAmount !== null && data.subtotal < code.minOrderAmount) return { valid: false as const, error: `Minimum order of ${code.minOrderAmount} € required` };
 
     const productIds = [...new Set(data.items.map((i) => i.productId))];
     const productRows = await db().select({ id: product.id, isSale: product.isSale })
@@ -890,10 +890,10 @@ function CheckoutPage() {
                       </div>
                       <div>
                         {item.originalPrice && (
-                          <p className="font-mono text-[10px] text-muted-foreground line-through">{item.originalPrice} L</p>
+                          <p className="font-mono text-[10px] text-muted-foreground line-through">{item.originalPrice} €</p>
                         )}
                         <p className={`font-mono text-[12px] ${item.originalPrice ? "text-clay" : "text-ink"}`}>
-                          {(item.price * item.quantity).toFixed(0)} L
+                          {(item.price * item.quantity).toFixed(0)} €
                         </p>
                       </div>
                     </div>
@@ -903,10 +903,10 @@ function CheckoutPage() {
 
               <div className="mt-6 space-y-3 border-t border-border pt-6">
                 <div className="flex justify-between font-mono text-[11px] text-ink/60">
-                  <span>Subtotal</span><span>{subtotal.toFixed(0)} L</span>
+                  <span>Subtotal</span><span>{subtotal.toFixed(0)} €</span>
                 </div>
                 <div className="flex justify-between font-mono text-[11px] text-ink/60">
-                  <span>Shipping</span><span>{shipping === 0 ? "Free" : `${shipping} L`}</span>
+                  <span>Shipping</span><span>{shipping === 0 ? "Free" : `${shipping} €`}</span>
                 </div>
                 {appliedDiscount && (
                   <div className="flex items-center justify-between font-mono text-[11px] text-green-400">
@@ -916,7 +916,7 @@ function CheckoutPage() {
                         <button onClick={() => setAppliedDiscount(null)} className="font-mono text-[9px] text-muted-foreground/50 hover:text-clay transition-colors" title="Remove">✕</button>
                       )}
                     </span>
-                    <span>−{discount.toFixed(0)} L</span>
+                    <span>−{discount.toFixed(0)} €</span>
                   </div>
                 )}
                 {paymentFee > 0 && (
@@ -924,14 +924,14 @@ function CheckoutPage() {
                     <span className="flex items-center gap-1">
                       Payment fee
                       <span className="font-mono text-[9px] text-muted-foreground/50">
-                        ({shippingCfg.paymentFeePercent > 0 && `${shippingCfg.paymentFeePercent}%`}{shippingCfg.paymentFeePercent > 0 && shippingCfg.paymentFeeFixed > 0 && " + "}{shippingCfg.paymentFeeFixed > 0 && `${shippingCfg.paymentFeeFixed} L`})
+                        ({shippingCfg.paymentFeePercent > 0 && `${shippingCfg.paymentFeePercent}%`}{shippingCfg.paymentFeePercent > 0 && shippingCfg.paymentFeeFixed > 0 && " + "}{shippingCfg.paymentFeeFixed > 0 && `${shippingCfg.paymentFeeFixed} €`})
                       </span>
                     </span>
-                    <span>{paymentFee.toFixed(2)} L</span>
+                    <span>{paymentFee.toFixed(2)} €</span>
                   </div>
                 )}
                 {shippingCfg.enabled && shipping > 0 && (
-                  <p className="font-mono text-[9px] text-muted-foreground/40">Free shipping on orders over {shippingCfg.freeThreshold} L</p>
+                  <p className="font-mono text-[9px] text-muted-foreground/40">Free shipping on orders over {shippingCfg.freeThreshold} €</p>
                 )}
               </div>
 
@@ -963,7 +963,7 @@ function CheckoutPage() {
                   <div className="mt-5 border-t border-border pt-5">
                     <p className="font-mono text-[9px] uppercase tracking-widest text-green-400">
                       Code <span className="font-bold">{appliedDiscount.code}</span> applied —{" "}
-                      {appliedDiscount.type === "PERCENT" ? `${appliedDiscount.value}% off` : `${appliedDiscount.value} L off`}
+                      {appliedDiscount.type === "PERCENT" ? `${appliedDiscount.value}% off` : `${appliedDiscount.value} € off`}
                     </p>
                   </div>
                 )
@@ -971,7 +971,7 @@ function CheckoutPage() {
 
               <div className="mt-5 flex items-baseline justify-between border-t border-border pt-5">
                 <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Total</p>
-                <p className="serif text-2xl text-ink">{total.toFixed(0)} L</p>
+                <p className="serif text-2xl text-ink">{total.toFixed(0)} €</p>
               </div>
             </div>
 
@@ -1202,7 +1202,7 @@ function CheckoutPage() {
                   >
                     {placing
                       ? <span className="flex items-center justify-center gap-3"><Spinner />Placing order…</span>
-                      : `Place order — ${total.toFixed(0)} L`}
+                      : `Place order — ${total.toFixed(0)} €`}
                   </button>
                 )}
 
@@ -1211,7 +1211,7 @@ function CheckoutPage() {
                     onClick={handleInitiateCardPayment}
                     className="w-full bg-foreground py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-opacity hover:opacity-80"
                   >
-                    {`Continue to card payment — ${total.toFixed(0)} L`}
+                    {`Continue to card payment — ${total.toFixed(0)} €`}
                   </button>
                 )}
 
@@ -1221,7 +1221,7 @@ function CheckoutPage() {
                     disabled={!selectedSavedCardId}
                     className="w-full bg-foreground py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-opacity hover:opacity-80 disabled:opacity-50"
                   >
-                    {`Pay with saved card — ${total.toFixed(0)} L`}
+                    {`Pay with saved card — ${total.toFixed(0)} €`}
                   </button>
                 )}
 

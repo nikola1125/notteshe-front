@@ -156,7 +156,7 @@ function Shipping() {
             </div>
 
             <div>
-              <label htmlFor="sh-fee" className={labelClass}>Flat fee (L)</label>
+              <label htmlFor="sh-fee" className={labelClass}>Flat fee (€)</label>
               <input
                 id="sh-fee"
                 type="number"
@@ -170,7 +170,7 @@ function Shipping() {
             </div>
 
             <div>
-              <label htmlFor="sh-threshold" className={labelClass}>Free shipping threshold (L)</label>
+              <label htmlFor="sh-threshold" className={labelClass}>Free shipping threshold (€)</label>
               <input
                 id="sh-threshold"
                 type="number"
@@ -218,7 +218,7 @@ function Shipping() {
                 <Toggle value={fixedEnabled} onChange={setFixedEnabled} />
               </div>
               <div>
-                <label htmlFor="pf-fixed" className={labelClass}>Fixed amount (L)</label>
+                <label htmlFor="pf-fixed" className={labelClass}>Fixed amount (€)</label>
                 <input
                   id="pf-fixed"
                   type="number"
@@ -237,7 +237,7 @@ function Shipping() {
                 Fee per order:{" "}
                 {[
                   percentEnabled && `${paymentFeePercent}% of total`,
-                  fixedEnabled && `${paymentFeeFixed} L fixed`,
+                  fixedEnabled && `${paymentFeeFixed} € fixed`,
                 ].filter(Boolean).join(" + ")}
               </p>
             )}

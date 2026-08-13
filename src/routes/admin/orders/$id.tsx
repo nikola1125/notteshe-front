@@ -407,7 +407,7 @@ function OrderDetail() {
   }
 
   function fmt(n: number) {
-    return `${n.toFixed(2)} L`;
+    return `${n.toFixed(2)} €`;
   }
 
   function fmtDate(iso: string) {

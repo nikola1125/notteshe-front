@@ -193,7 +193,7 @@ type Period = "7d" | "30d" | "90d";
 type ChartMode = "revenue" | "orders";
 
 function fmt(n: number) {
-  return `${n.toLocaleString("en", { minimumFractionDigits: 0, maximumFractionDigits: 0 })} L`;
+  return `${n.toLocaleString("en", { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €`;
 }
 
 function fmtDate(dateStr: string) {

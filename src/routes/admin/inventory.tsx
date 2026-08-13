@@ -77,10 +77,18 @@ const getInventory = createServerFn({ method: "GET" }).handler(async () => {
     console.error("inventory: failed to query product_size", err);
   }
 
+  const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "One Size"];
+  const sizeRank = (label: string) => {
+    const i = SIZE_ORDER.indexOf(label);
+    return i === -1 ? SIZE_ORDER.length : i;
+  };
   const sizesByProduct = new Map<string, SizeRow[]>();
   for (const s of sizes) {
     if (!sizesByProduct.has(s.productId)) sizesByProduct.set(s.productId, []);
     sizesByProduct.get(s.productId)!.push({ id: s.id, label: s.label, stock: s.stock, available: s.available });
+  }
+  for (const list of sizesByProduct.values()) {
+    list.sort((a, b) => sizeRank(a.label) - sizeRank(b.label));
   }
 
   return products.map((p) => {

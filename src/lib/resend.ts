@@ -29,7 +29,7 @@ export async function sendOrderConfirmation(data: OrderConfirmationData) {
       (i) =>
         `<tr>
           <td style="padding:8px 0;font-size:13px;color:#111">${i.name} · ${i.size} · ${i.colour}</td>
-          <td style="padding:8px 0;font-size:13px;color:#111;text-align:right">×${i.quantity} &nbsp; ${(i.unitPrice * i.quantity).toFixed(2)} L</td>
+          <td style="padding:8px 0;font-size:13px;color:#111;text-align:right">×${i.quantity} &nbsp; ${(i.unitPrice * i.quantity).toFixed(2)} €</td>
         </tr>`
     )
     .join("");
@@ -58,11 +58,11 @@ export async function sendOrderConfirmation(data: OrderConfirmationData) {
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <td style="font-size:12px;color:#6B6B6B;padding:4px 0;">Subtotal</td>
-              <td style="font-size:12px;color:#6B6B6B;text-align:right;padding:4px 0;">${data.subtotal.toFixed(2)} L</td>
+              <td style="font-size:12px;color:#6B6B6B;text-align:right;padding:4px 0;">${data.subtotal.toFixed(2)} €</td>
             </tr>
             <tr>
               <td style="font-size:12px;color:#6B6B6B;padding:4px 0;">Shipping</td>
-              <td style="font-size:12px;color:#6B6B6B;text-align:right;padding:4px 0;">${data.shippingFee === 0 ? "Free" : `${data.shippingFee.toFixed(2)} L`}</td>
+              <td style="font-size:12px;color:#6B6B6B;text-align:right;padding:4px 0;">${data.shippingFee === 0 ? "Free" : `${data.shippingFee.toFixed(2)} €`}</td>
             </tr>
             <tr>
               <td style="font-size:12px;color:#6B6B6B;padding:4px 0;">Payment method</td>
@@ -70,7 +70,7 @@ export async function sendOrderConfirmation(data: OrderConfirmationData) {
             </tr>
             <tr>
               <td style="font-size:14px;font-weight:500;color:#111;padding:12px 0 4px;border-top:1px solid #E0D9D0;">Total</td>
-              <td style="font-size:14px;font-weight:500;color:#111;text-align:right;padding:12px 0 4px;border-top:1px solid #E0D9D0;">${data.total.toFixed(2)} L</td>
+              <td style="font-size:14px;font-weight:500;color:#111;text-align:right;padding:12px 0 4px;border-top:1px solid #E0D9D0;">${data.total.toFixed(2)} €</td>
             </tr>
           </table>
         </td></tr>

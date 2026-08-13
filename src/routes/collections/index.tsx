@@ -76,8 +76,17 @@ function CollectionsIndex() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
-      <div className="border-b border-border pt-24 pb-10 md:pt-32 md:pb-14">
+      <div className="border-b border-border pt-20 pb-10 md:pt-28 md:pb-14">
         <div className="mx-auto max-w-[1600px] px-5 md:px-12">
+          <Link
+            to="/"
+            className="mb-5 inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-clay"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
+              <path d="M8 2L4 6l4 4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Back
+          </Link>
           <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">AW26</p>
           <h1 className="serif mt-3 text-5xl leading-tight text-ink md:text-7xl">Collections.</h1>
         </div>
@@ -89,7 +98,7 @@ function CollectionsIndex() {
             No collections yet.
           </p>
         ) : (
-          <div className="grid grid-cols-1 gap-x-6 gap-y-12 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-6 md:grid-cols-2 md:gap-x-6 md:gap-y-12 lg:grid-cols-3">
             {collections.map((c, i) => (
               <Link
                 key={c.id}
@@ -114,9 +123,9 @@ function CollectionsIndex() {
                     </div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-background/60 via-transparent to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-5">
-                    <h2 className="serif text-2xl text-ink md:text-3xl">{c.name}</h2>
-                    <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-ink/60">
+                  <div className="absolute bottom-0 left-0 right-0 p-3 md:p-5">
+                    <h2 className="serif text-lg text-ink md:text-3xl">{c.name}</h2>
+                    <p className="mt-1 font-mono text-[9px] uppercase tracking-widest text-ink/60 md:text-[10px]">
                       {c.productCount} {c.productCount === 1 ? "piece" : "pieces"}
                     </p>
                   </div>

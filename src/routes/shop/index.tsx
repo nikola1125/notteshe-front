@@ -178,8 +178,17 @@ function ShopPage() {
     <div className="min-h-screen bg-background text-foreground">
 
       {/* ─── Page header ─── */}
-      <div className="border-b border-border pt-24 pb-10 md:pt-32 md:pb-14">
+      <div className="border-b border-border pt-20 pb-10 md:pt-28 md:pb-14">
         <div className="mx-auto max-w-[1600px] px-5 md:px-12">
+          <Link
+            to="/"
+            className="mb-5 inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-clay"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
+              <path d="M8 2L4 6l4 4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Back
+          </Link>
           <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
             AW26 Collection
           </p>
@@ -347,11 +356,11 @@ function ShopPage() {
                   <div className="text-right">
                     {p.originalPrice && (
                       <p className="font-mono text-[10px] text-muted-foreground line-through">
-                        {p.originalPrice} L
+                        {p.originalPrice} €
                       </p>
                     )}
                     <p className={`font-mono text-[12px] ${p.isSale ? "text-clay" : "text-ink/70"}`}>
-                      {p.price} L
+                      {p.price} €
                     </p>
                   </div>
                 </div>
@@ -363,7 +372,7 @@ function ShopPage() {
 
       <div className="border-t border-border py-10 text-center">
         <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
-          All prices include VAT · Free shipping over 20,000 L · Returns within 14 days
+          All prices include VAT · Free shipping over 200 € · Exchanges within 14 days
         </p>
       </div>
     </div>

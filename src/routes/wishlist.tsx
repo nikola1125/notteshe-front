@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
+import { useEffect } from "react";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { product, productImage, productColour, category } from "@/db/schema";
@@ -80,17 +81,25 @@ export const Route = createFileRoute("/wishlist")({
 function WishlistPage() {
   const allProducts = Route.useLoaderData();
   const ids = useWishlist((s) => s.ids);
+  const setIds = useWishlist((s) => s.setIds);
   const saved = allProducts.filter((p) => ids.includes(p.id));
+
+  // Prune saved IDs that no longer resolve to an available product (deleted,
+  // hidden or out of stock) so the header heart badge matches what's shown.
+  useEffect(() => {
+    const validIds = ids.filter((id) => allProducts.some((p) => p.id === id));
+    if (validIds.length !== ids.length) setIds(validIds);
+  }, [ids, allProducts, setIds]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
 
       {/* Page header */}
-      <div className="border-b border-border pt-24 pb-10 md:pt-32 md:pb-14">
+      <div className="border-b border-border pt-20 pb-10 md:pt-28 md:pb-14">
         <div className="mx-auto max-w-[1600px] px-5 md:px-12">
           <button
             onClick={() => window.history.back()}
-            className="mb-6 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-ink"
+            className="mb-5 inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-clay"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2">
               <path d="M9 2 4 7l5 5" />
@@ -183,11 +192,11 @@ function WishlistPage() {
                     <div className="text-right">
                       {p.originalPrice && (
                         <p className="font-mono text-[10px] text-muted-foreground line-through">
-                          {p.originalPrice} L
+                          {p.originalPrice} €
                         </p>
                       )}
                       <p className={`font-mono text-[12px] ${p.isSale ? "text-clay" : "text-ink/70"}`}>
-                        {p.price} L
+                        {p.price} €
                       </p>
                     </div>
                   </div>

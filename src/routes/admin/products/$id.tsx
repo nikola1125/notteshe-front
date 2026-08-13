@@ -104,6 +104,9 @@ const updateProduct = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const admin = await requireAdmin();
+    if (!data.categoryId && !data.collectionId) {
+      throw new Error("Select at least a Category or a Collection.");
+    }
     const database = db();
     const { id, sizes, colours, images, ...fields } = data;
 
@@ -190,6 +193,9 @@ const updateProduct = createServerFn({ method: "POST" })
   });
 
 export const Route = createFileRoute("/admin/products/$id")({
+  // Router default staleTime is Infinity — force a fresh load so the form never
+  // shows stale data (e.g. an old category) after a save.
+  staleTime: 0,
   loader: ({ params }) => getProductEdit({ data: { id: params.id } }),
   component: EditProduct,
 });
@@ -200,6 +206,7 @@ function EditProduct() {
 
   async function handleSave(data: ProductFormData) {
     await updateProduct({ data: { ...data, id: prod.id } });
+    await router.invalidate(); // clear cached loader data so the edit form reflects the save
     toast.success("Product saved");
     await router.navigate({ to: "/admin/products" });
   }

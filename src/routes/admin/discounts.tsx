@@ -94,7 +94,7 @@ function CouponShareModal({ code, onClose }: { code: DiscountCode; onClose: () =
   const [downloading, setDownloading] = useState(false);
 
   const discountLabel =
-    code.type === "PERCENT" ? `${code.value}% OFF` : `${code.value.toFixed(0)} L OFF`;
+    code.type === "PERCENT" ? `${code.value}% OFF` : `${code.value.toFixed(0)} € OFF`;
 
   async function captureImage(): Promise<Blob | null> {
     if (!cardRef.current) return null;
@@ -242,7 +242,7 @@ function CouponShareModal({ code, onClose }: { code: DiscountCode; onClose: () =
                 lineHeight: 1,
                 margin: 0,
               }}>
-                {code.type === "PERCENT" ? `${code.value}%` : `${code.value.toFixed(0)} L`}
+                {code.type === "PERCENT" ? `${code.value}%` : `${code.value.toFixed(0)} €`}
               </p>
 
               <p style={{
@@ -316,7 +316,7 @@ function CouponShareModal({ code, onClose }: { code: DiscountCode; onClose: () =
               <div style={{ display: "flex", justifyContent: "center", gap: 16, flexWrap: "wrap" }}>
                 {code.minOrderAmount ? (
                   <span style={{ fontFamily: "monospace", fontSize: 7, color: "#383838", letterSpacing: "0.2em", textTransform: "uppercase" }}>
-                    Min. order {code.minOrderAmount} L
+                    Min. order {code.minOrderAmount} €
                   </span>
                 ) : (
                   <span style={{ fontFamily: "monospace", fontSize: 7, color: "#383838", letterSpacing: "0.2em", textTransform: "uppercase" }}>
@@ -515,7 +515,7 @@ function Discounts() {
               className={inputClass}
             >
               <option value="PERCENT">Percent (%)</option>
-              <option value="FIXED">Fixed (L)</option>
+              <option value="FIXED">Fixed (€)</option>
             </select>
           </div>
           <div>
@@ -533,7 +533,7 @@ function Discounts() {
             />
           </div>
           <div>
-            <label className={labelClass}>Min order (L)</label>
+            <label className={labelClass}>Min order (€)</label>
             <input
               type="number"
               step="0.01"
@@ -623,7 +623,7 @@ function Discounts() {
                 <td className="px-4 py-3 font-mono text-xs text-[var(--color-foreground)]">
                   {c.type === "PERCENT"
                     ? `${c.value}%`
-                    : `${c.value.toFixed(2)} L`}
+                    : `${c.value.toFixed(2)} €`}
                 </td>
                 <td className="px-4 py-3 font-mono text-xs text-[var(--color-muted-foreground)]">
                   {c.usedCount}

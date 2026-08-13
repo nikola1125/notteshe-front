@@ -110,6 +110,8 @@ const updateCollection = createServerFn({ method: "POST" })
   });
 
 export const Route = createFileRoute("/admin/collections/$id")({
+  // Router default staleTime is Infinity — force a fresh load after edits.
+  staleTime: 0,
   loader: ({ params }) => getCollectionEdit({ data: { id: params.id } }),
   component: EditCollection,
 });
@@ -120,6 +122,7 @@ function EditCollection() {
 
   async function handleSave(data: CollectionFormData) {
     await updateCollection({ data: { ...data, id: col.id } });
+    await router.invalidate(); // clear cached loader data so the form reflects the save
     toast.success("Collection saved");
     await router.navigate({ to: "/admin/collections" });
   }

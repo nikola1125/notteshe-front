@@ -89,7 +89,7 @@ function buildSummary(action: string, d: Record<string, unknown>): string {
     case "order.note_update":
       return "Admin note saved";
     case "shipping.update":
-      return `fee=${after.fee ?? "?"} L, threshold=${after.freeThreshold ?? "?"} L`;
+      return `fee=${after.fee ?? "?"} €, threshold=${after.freeThreshold ?? "?"} €`;
     case "discount.create":
     case "discount.update":
       return String(after.code ?? after.name ?? "—");

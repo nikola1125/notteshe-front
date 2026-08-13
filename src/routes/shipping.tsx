@@ -7,7 +7,16 @@ export const Route = createFileRoute("/shipping")({
 function ShippingPage() {
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-[800px] px-5 pb-32 pt-32 md:px-12 md:pt-40">
+      <div className="mx-auto max-w-[800px] px-5 pb-32 pt-20 md:px-12 md:pt-28">
+        <Link
+          to="/"
+          className="mb-5 inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-clay"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
+            <path d="M8 2L4 6l4 4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Back
+        </Link>
         <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Delivery</p>
         <h1 className="serif mt-4 text-5xl font-light text-ink">Shipping</h1>
 
@@ -36,7 +45,7 @@ function ShippingPage() {
                 </div>
               ))}
             </div>
-            <p className="mt-4 font-mono text-[11px] text-muted-foreground">Free shipping on all orders over 20,000 L.</p>
+            <p className="mt-4 font-mono text-[11px] text-muted-foreground">Free shipping on all orders over 200 €.</p>
           </section>
 
           <section>

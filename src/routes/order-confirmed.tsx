@@ -30,7 +30,7 @@ function OrderConfirmedPage() {
           to="/"
           className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition hover:text-ink"
         >
-          ← Back to home
+          ← Back
         </Link>
       </div>
     </div>

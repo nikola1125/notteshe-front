@@ -60,10 +60,10 @@ export function AuthModal({ onClose, onSuccess, defaultMode = "login" }: AuthMod
   return (
     <>
       <div
-        className="fixed inset-0 z-[110] bg-background/70 backdrop-blur-sm"
+        className="fixed inset-0 z-[110] bg-black/75 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="fixed left-1/2 top-1/2 z-[115] w-full max-w-md -translate-x-1/2 -translate-y-1/2 bg-background px-8 py-10 shadow-2xl">
+      <div className="fixed left-1/2 top-1/2 z-[115] w-[calc(100%-2.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-background px-6 py-8 shadow-2xl ring-1 ring-white/5 sm:px-8 sm:py-10">
         {/* Header */}
         <div className="mb-8 flex items-start justify-between">
           <div>

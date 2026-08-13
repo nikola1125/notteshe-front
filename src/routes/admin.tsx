@@ -122,7 +122,7 @@ function AdminLayout() {
         for (const ev of freshEvents) {
           const p = ev.payload;
           if (ev.type === "new_order") {
-            toast.success(`New order #${p.ref} · ${Number(p.total).toFixed(0)} L`, { duration: 6000 });
+            toast.success(`New order #${p.ref} · ${Number(p.total).toFixed(0)} €`, { duration: 6000 });
           } else if (ev.type === "new_cancellation") {
             toast.warning(`Cancellation request from ${p.name} · Order #${p.orderRef}`, { duration: 8000 });
           } else if (ev.type === "new_message") {

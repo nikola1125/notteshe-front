@@ -141,11 +141,10 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-// Evaluated once when the JS bundle loads. On true reload this is false;
-// on client-side back/forward navigation the module stays in memory so it
-// stays true after the intro has played, preventing it from showing again.
-const _navType = (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined)?.type;
-let _introShown = _navType !== "reload";
+// The intro plays once per browser session (on first entry) and never again
+// while browsing — including back/forward navigation. Persisted in
+// sessionStorage so it survives both SPA navigation and full reloads.
+const INTRO_KEY = "notteshe:intro-played";
 
 function CarouselArrows({ trackRef }: { trackRef: React.RefObject<HTMLDivElement | null> }) {
   function slide(dir: 1 | -1) {
@@ -219,9 +218,24 @@ function LookTileWrap({
 function Index() {
   const { wardrobe, wardrobeTotal, sale, featuredCollections } = Route.useLoaderData();
   const router = useRouter();
-  const [introDone, setIntroDone] = useState(() => _introShown);
+  // Default to "done" (no intro) so SSR and back/forward navigation never show
+  // it; a first-entry check below opts in to playing it once per session.
+  const [introDone, setIntroDone] = useState(true);
   const wardrobeRef = useRef<HTMLDivElement>(null);
   const saleRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let played = false;
+    try { played = sessionStorage.getItem(INTRO_KEY) === "1"; } catch { /* storage blocked */ }
+    const navType = (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined)?.type;
+    // Play only on a genuine first entry this session — not on back/forward.
+    if (!played && navType !== "back_forward") {
+      setIntroDone(false);
+    } else {
+      try { sessionStorage.setItem(INTRO_KEY, "1"); } catch { /* storage blocked */ }
+    }
+  }, []);
 
   // Refetch when the tab becomes visible (e.g. switching back from admin)
   useEffect(() => {
@@ -245,7 +259,7 @@ function Index() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {!introDone && (
-        <Intro onComplete={() => { _introShown = true; setIntroDone(true); }} />
+        <Intro onComplete={() => { try { sessionStorage.setItem(INTRO_KEY, "1"); } catch { /* storage blocked */ } setIntroDone(true); }} />
       )}
 
       {/* ─── Hero ─── */}
@@ -399,10 +413,10 @@ function Index() {
                 </div>
                 <div className="text-right">
                   {p.originalPrice && (
-                    <p className="font-mono text-[10px] text-muted-foreground line-through">{p.originalPrice} L</p>
+                    <p className="font-mono text-[10px] text-muted-foreground line-through">{p.originalPrice} €</p>
                   )}
                   <p className={`font-mono text-[12px] ${p.isSale ? "text-clay" : "text-ink/70"}`}>
-                    {p.price} L
+                    {p.price} €
                   </p>
                 </div>
               </div>
@@ -562,9 +576,9 @@ function Index() {
                 </div>
                 <div className="text-right">
                   {p.originalPrice && (
-                    <p className="font-mono text-[10px] text-muted-foreground line-through">{p.originalPrice} L</p>
+                    <p className="font-mono text-[10px] text-muted-foreground line-through">{p.originalPrice} €</p>
                   )}
-                  <p className="font-mono text-[12px] text-clay">{p.price} L</p>
+                  <p className="font-mono text-[12px] text-clay">{p.price} €</p>
                 </div>
               </div>
             </Link>
@@ -646,16 +660,17 @@ function Index() {
               </div>
             </div>
             {([
-              { title: "Shop",  links: [{ label: "Shop all", to: "/shop" }] },
+              { title: "Shop",  links: [{ label: "Shop all", to: "/shop" }, { label: "Sale", to: "/shop", search: { sale: "1" } }, { label: "Collections", to: "/collections" }] },
               { title: "House", links: [{ label: "Our Story", to: "/about" }, { label: "Contact", to: "/contact" }, { label: "FAQ", to: "/faq" }] },
-              { title: "Help",  links: [{ label: "Shipping", to: "/shipping" }, { label: "Returns", to: "/returns" }, { label: "Size Guide", to: "/size-guide" }] },
+              { title: "Help",  links: [{ label: "Shipping", to: "/shipping" }, { label: "Exchanges", to: "/exchanges" }, { label: "Size Guide", to: "/size-guide" }] },
             ] as const).map((c) => (
               <div key={c.title} className="col-span-4 md:col-span-2">
                 <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-5">{c.title}</p>
                 <ul className="space-y-3">
                   {c.links.map((l) => (
                     <li key={l.label}>
-                      <Link to={l.to} className="relative inline-block text-[13px] text-ink/55 transition-colors duration-200 after:absolute after:bottom-[-2px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-clay hover:after:scale-x-100">{l.label}</Link>
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                      <Link to={l.to} search={("search" in l ? l.search : undefined) as any} className="relative inline-block text-[13px] text-ink/55 transition-colors duration-200 after:absolute after:bottom-[-2px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-clay hover:after:scale-x-100">{l.label}</Link>
                     </li>
                   ))}
                 </ul>

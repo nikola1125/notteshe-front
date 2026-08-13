@@ -665,7 +665,7 @@ function Index() {
               { title: "Help",  links: [{ label: "Shipping", to: "/shipping" }, { label: "Exchanges", to: "/exchanges" }, { label: "Size Guide", to: "/size-guide" }] },
             ] as const).map((c) => (
               <div key={c.title} className="col-span-4 md:col-span-2">
-                <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-5">{c.title}</p>
+                <p className="mb-5 inline-block border-b border-border pb-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{c.title}</p>
                 <ul className="space-y-3">
                   {c.links.map((l) => (
                     <li key={l.label}>

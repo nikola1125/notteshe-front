@@ -47,9 +47,47 @@ export function Header() {
 
   return (
     <header className="fixed top-0 z-50 w-full bg-background/50 backdrop-blur-md">
-      <div className="mx-auto flex max-w-[1600px] items-center justify-between px-5 py-2 md:px-12 md:py-4">
-        {/* Logo */}
-        <Link to="/" className="serif text-[17px] tracking-tight text-ink">
+      <div className="relative mx-auto flex max-w-[1600px] items-center justify-between px-5 py-2 md:px-12 md:py-4">
+        {/* Left: menu (mobile) / logo (desktop) */}
+        <div className="flex items-center">
+          <button
+            className="-ml-2 flex h-11 w-11 cursor-pointer flex-col items-center justify-center gap-[5px] md:hidden"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label="Toggle menu"
+          >
+            <span className={`block h-px w-5 bg-ink/80 transition-all duration-300 origin-center ${menuOpen ? "translate-y-[5px] rotate-45" : ""}`} />
+            <span className={`block h-px w-5 bg-ink/80 transition-all duration-300 ${menuOpen ? "opacity-0" : ""}`} />
+            <span className={`block h-px w-5 bg-ink/80 transition-all duration-300 origin-center ${menuOpen ? "-translate-y-[5px] -rotate-45" : ""}`} />
+          </button>
+
+          {/* Wishlist — mobile only, after the menu */}
+          <Link
+            to="/wishlist"
+            className="relative flex h-11 w-11 cursor-pointer items-center justify-center text-ink/75 transition-colors duration-200 hover:text-clay md:hidden"
+            aria-label="Wishlist"
+          >
+            <svg
+              width="17" height="17" viewBox="0 0 24 24"
+              fill={wishlistCount > 0 ? "currentColor" : "none"}
+              stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+              className={wishlistCount > 0 ? "text-clay" : ""}
+            >
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+            </svg>
+            {wishlistCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-clay font-mono text-[9px] text-paper">
+                {wishlistCount}
+              </span>
+            )}
+          </Link>
+
+          <Link to="/" className="hidden serif text-[17px] tracking-tight text-ink md:block">
+            Notteshe<span className="text-clay">.</span>
+          </Link>
+        </div>
+
+        {/* Center logo — mobile only */}
+        <Link to="/" className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 serif text-[17px] tracking-tight text-ink md:hidden">
           Notteshe<span className="text-clay">.</span>
         </Link>
 
@@ -149,10 +187,10 @@ export function Header() {
             </svg>
           </button>
 
-          {/* Wishlist */}
+          {/* Wishlist — desktop (mobile heart lives in the left cluster) */}
           <Link
             to="/wishlist"
-            className="relative flex h-11 w-11 cursor-pointer items-center justify-center text-ink/75 transition-colors duration-200 hover:text-clay md:w-auto md:px-2"
+            className="relative hidden md:flex h-11 w-11 cursor-pointer items-center justify-center text-ink/75 transition-colors duration-200 hover:text-clay md:w-auto md:px-2"
             aria-label="Wishlist"
           >
             <svg
@@ -193,17 +231,6 @@ export function Header() {
                 {cartCount}
               </span>
             )}
-          </button>
-
-          {/* Hamburger — mobile only */}
-          <button
-            className="flex h-11 w-11 cursor-pointer flex-col items-center justify-center gap-[5px] md:hidden"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-label="Toggle menu"
-          >
-            <span className={`block h-px w-5 bg-ink/80 transition-all duration-300 origin-center ${menuOpen ? "translate-y-[5px] rotate-45" : ""}`} />
-            <span className={`block h-px w-5 bg-ink/80 transition-all duration-300 ${menuOpen ? "opacity-0" : ""}`} />
-            <span className={`block h-px w-5 bg-ink/80 transition-all duration-300 origin-center ${menuOpen ? "-translate-y-[5px] -rotate-45" : ""}`} />
           </button>
         </div>
       </div>

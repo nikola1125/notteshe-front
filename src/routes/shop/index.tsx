@@ -68,8 +68,8 @@ const getShopData = createServerFn({ method: "GET" }).handler(
     const CATEGORY_ORDER = [
       "coats & jackets",
       "coats and jackets",
-      "knitwear",
       "dresses",
+      "tops",
       "shorts & skirts",
       "shorts and skirts",
       "lingerie",

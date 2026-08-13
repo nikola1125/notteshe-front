@@ -8,12 +8,12 @@ import { category } from "../src/db/schema";
 
 const CATEGORIES = [
   { name: "Dresses",          slug: "dresses" },
+  { name: "Tops",             slug: "tops" },
   { name: "Hats",             slug: "hats" },
   { name: "Swimwear",         slug: "swimwear" },
   { name: "Shorts & Skirts",  slug: "shorts-skirts" },
   { name: "Lingerie",         slug: "lingerie" },
   { name: "Coats & Jackets",  slug: "coats-jackets" },
-  { name: "Knitwear",         slug: "knitwear" },
 ];
 
 async function main() {

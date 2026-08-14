@@ -266,7 +266,6 @@ export function Header() {
           {session?.user ? (
             <>
               <Link to="/account/orders" onClick={() => setMenuOpen(false)} className="border-b border-border/30 py-4 font-mono text-[11px] uppercase tracking-[0.25em] text-ink/70 transition-colors hover:text-ink">My orders</Link>
-              <Link to="/wishlist" onClick={() => setMenuOpen(false)} className="border-b border-border/30 py-4 font-mono text-[11px] uppercase tracking-[0.25em] text-ink/70 transition-colors hover:text-ink">Saved items</Link>
               <button
                 onClick={async () => { await signOut(); setMenuOpen(false); }}
                 className="py-4 text-left font-mono text-[11px] uppercase tracking-[0.25em] text-ink/70 transition-colors hover:text-ink"

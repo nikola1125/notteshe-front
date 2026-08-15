@@ -1,17 +1,16 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { useEffect, useState, useRef } from "react";
-import { and, desc, eq } from "drizzle-orm";
-import { subscribeNewsletter } from "@/lib/newsletter";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { Intro } from "@/components/Intro";
+import { cellSpanClass, cellAspectClass, isStructured, type RowType } from "@/lib/homeLayout";
+import { getLenis } from "@/hooks/useSmoothScroll";
 import { WishlistButton } from "@/components/WishlistButton";
 import { cldImg, cldSrcSet } from "@/lib/cldImage";
+import { Price } from "@/components/Price";
 import { db } from "@/db";
 import { product, productImage, productColour, collection, homeCollections } from "@/db/schema";
 import hero from "@/assets/hero1.jpg";
-import look1 from "@/assets/look1.jpg";
-import look2 from "@/assets/look2.jpg";
-import look3 from "@/assets/look3.jpg";
 import philosophy from "@/assets/philosophy.jpg";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -28,7 +27,7 @@ interface HomeProduct {
   colourCount: number;
 }
 
-interface FeaturedCollection {
+interface CollectionCell {
   id: string;
   name: string;
   slug: string;
@@ -37,11 +36,16 @@ interface FeaturedCollection {
   captionMeta: string;
 }
 
+interface HomeRowResolved {
+  type: RowType;
+  cells: (CollectionCell | null)[]; // positional; null = empty/removed collection
+}
+
 interface HomeData {
   wardrobe: HomeProduct[];
   wardrobeTotal: number;
   sale: HomeProduct[];
-  featuredCollections: FeaturedCollection[];
+  homeRows: HomeRowResolved[];
 }
 
 // ─── Server function ──────────────────────────────────────────────────────────
@@ -91,46 +95,59 @@ const getHomeData = createServerFn({ method: "GET" }).handler(async (): Promise<
     .filter((p) => p.isPermanentWardrobe)
     .sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0));
 
-  // Featured collections for the homepage composition (slot order 1→2→3).
-  // Wrapped defensively so the homepage still renders if the migration hasn't run.
-  let featuredCollections: FeaturedCollection[] = [];
+  // Landing collections composition — admin-controlled rows (falls back to the
+  // legacy 3 slots). Wrapped defensively so the homepage renders pre-migration.
+  let homeRows: HomeRowResolved[] = [];
   try {
-    const homeRows = await database
+    const homeConfigRows = await database
       .select()
       .from(homeCollections)
       .where(eq(homeCollections.id, "default"))
       .limit(1);
-    const home = homeRows[0];
-    const slotIds = [home?.slot1CollectionId, home?.slot2CollectionId, home?.slot3CollectionId].filter(
-      (id): id is string => Boolean(id)
-    );
-    if (slotIds.length > 0) {
+    const home = homeConfigRows[0];
+
+    // Prefer the flexible layout; fall back to the old slot1/2/3 as one row.
+    let rawRows: { type: string; items: (string | null)[] }[] =
+      Array.isArray(home?.layout) ? (home!.layout as { type: string; items: (string | null)[] }[]) : [];
+    if (rawRows.length === 0) {
+      const slotIds = [home?.slot1CollectionId ?? null, home?.slot2CollectionId ?? null, home?.slot3CollectionId ?? null];
+      if (slotIds.some(Boolean)) rawRows = [{ type: "three", items: slotIds }];
+    }
+
+    const ids = [...new Set(rawRows.flatMap((r) => r.items).filter((x): x is string => Boolean(x)))];
+    if (ids.length > 0) {
       const cols = await database
         .select()
         .from(collection)
-        .where(eq(collection.isVisible, true));
+        .where(and(inArray(collection.id, ids), eq(collection.isVisible, true)));
       const byId = new Map(cols.map((c) => [c.id, c]));
-      featuredCollections = slotIds
-        .map((id) => byId.get(id))
-        .filter((c): c is NonNullable<typeof c> => Boolean(c) && Boolean(c!.coverImageUrl))
-        .map((c) => ({
-          id: c.id,
-          name: c.name,
-          slug: c.slug,
-          coverImage: c.coverImageUrl!,
-          caption: c.homeCaption?.trim() || c.name,
-          captionMeta: c.homeCaptionMeta?.trim() || "",
-        }));
+      homeRows = rawRows
+        .map((r) => ({
+          type: r.type as RowType,
+          cells: r.items.map((id) => {
+            const c = id ? byId.get(id) : undefined;
+            if (!c || !c.coverImageUrl) return null;
+            return {
+              id: c.id,
+              name: c.name,
+              slug: c.slug,
+              coverImage: c.coverImageUrl,
+              caption: c.homeCaption?.trim() || c.name,
+              captionMeta: c.homeCaptionMeta?.trim() || "",
+            };
+          }),
+        }))
+        .filter((r) => r.cells.some(Boolean));
     }
   } catch {
-    featuredCollections = [];
+    homeRows = [];
   }
 
   return {
     wardrobe: wardrobeAll.map(toHomeProduct),
     wardrobeTotal: wardrobeAll.length,
     sale: prods.filter((p) => p.isSale).slice(0, 4).map(toHomeProduct),
-    featuredCollections,
+    homeRows,
   };
 });
 
@@ -145,6 +162,9 @@ export const Route = createFileRoute("/")({
 // while browsing — including back/forward navigation. Persisted in
 // sessionStorage so it survives both SPA navigation and full reloads.
 const INTRO_KEY = "notteshe:intro-played";
+
+// Permanent wardrobe: responsive grid (2 mobile → 4 desktop), paginated in place.
+const WARDROBE_PER_PAGE = 8;
 
 function CarouselArrows({ trackRef }: { trackRef: React.RefObject<HTMLDivElement | null> }) {
   function slide(dir: 1 | -1) {
@@ -179,50 +199,89 @@ function CarouselArrows({ trackRef }: { trackRef: React.RefObject<HTMLDivElement
   );
 }
 
-interface LookTile {
-  key: string;
-  slug: string | null;
-  src: string;
-  alt: string;
-  cap: string;      // desktop caption, e.g. "Ch. 01 — Name"
-  meta: string;     // optional decorative meta, e.g. "04:12 pm"
-  name: string;     // display name (mobile overlay)
-  chapter: string;  // e.g. "Ch. 01"
+// A single collection card. The name sits INSIDE the image (gradient overlay).
+// `compact` scales the label down for small cells (e.g. the stacked pair).
+function CollectionTile({ cell, imgClass, className, compact }: { cell: CollectionCell; imgClass: string; className?: string; compact?: boolean }) {
+  return (
+    <Link to="/collections/$slug" params={{ slug: cell.slug }} className={`reveal group block ${className ?? ""}`}>
+      <div className={`relative overflow-hidden bg-muted ${imgClass}`}>
+        <img
+          src={cldImg(cell.coverImage, 900)}
+          srcSet={cldSrcSet(cell.coverImage, 900)}
+          alt={cell.name}
+          loading="lazy"
+          className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+        />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-background/85 via-background/15 to-transparent p-4 pt-14 md:p-5 md:pt-20">
+          <div className="min-w-0">
+            <p className={`serif leading-none text-ink ${compact ? "text-base md:text-lg" : "text-xl md:text-2xl"}`}>{cell.caption}</p>
+            {cell.captionMeta && !compact && (
+              <p className="mt-1.5 font-mono text-[9px] uppercase tracking-[0.25em] text-ink/55">{cell.captionMeta}</p>
+            )}
+          </div>
+          {compact ? (
+            <span aria-hidden className="shrink-0 text-lg leading-none text-ink transition-transform duration-200 group-hover:translate-x-0.5">→</span>
+          ) : (
+            <span className="shrink-0 inline-flex items-center gap-1.5 whitespace-nowrap font-mono text-[9px] uppercase tracking-widest text-ink transition-opacity duration-200 group-hover:opacity-70 md:text-[10px]">
+              Shop collection <span aria-hidden className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
+            </span>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
 }
 
-function LookTileWrap({
-  tile,
-  className,
-  style,
-  children,
-}: {
-  tile: LookTile;
-  className: string;
-  style?: React.CSSProperties;
-  children: React.ReactNode;
-}) {
-  if (tile.slug) {
-    return (
-      <Link to="/collections/$slug" params={{ slug: tile.slug }} className={className} style={style}>
-        {children}
-      </Link>
-    );
-  }
+// Wide card beside a column of two stacked cards that fill its height.
+function StructuredRow({ row }: { row: HomeRowResolved }) {
+  const wideFirst = row.type === "wide-stack";
+  const wide = wideFirst ? row.cells[0] : row.cells[2];
+  const top = wideFirst ? row.cells[1] : row.cells[0];
+  const bottom = wideFirst ? row.cells[2] : row.cells[1];
+
+  const wideCol = wideFirst ? "col-start-1" : "col-start-5";
+  const stackCol = wideFirst ? "col-start-9" : "col-start-1";
+
   return (
-    <figure className={className} style={style}>
-      {children}
-    </figure>
+    <div className="grid grid-cols-12 grid-rows-2 gap-3 md:gap-5">
+      {wide && (
+        <CollectionTile
+          cell={wide}
+          imgClass="flex-1 min-h-0"
+          className={`col-span-8 row-span-2 row-start-1 ${wideCol} flex flex-col`}
+        />
+      )}
+      {top && (
+        <CollectionTile cell={top} imgClass="aspect-[3/4]" className={`col-span-4 row-start-1 ${stackCol}`} compact />
+      )}
+      {bottom && (
+        <CollectionTile cell={bottom} imgClass="aspect-[3/4]" className={`col-span-4 row-start-2 ${stackCol}`} compact />
+      )}
+    </div>
   );
 }
 
 function Index() {
-  const { wardrobe, wardrobeTotal, sale, featuredCollections } = Route.useLoaderData();
+  const { wardrobe, wardrobeTotal, sale, homeRows } = Route.useLoaderData();
   const router = useRouter();
   // Default to "done" (no intro) so SSR and back/forward navigation never show
   // it; a first-entry check below opts in to playing it once per session.
   const [introDone, setIntroDone] = useState(true);
-  const wardrobeRef = useRef<HTMLDivElement>(null);
   const saleRef = useRef<HTMLDivElement>(null);
+  const wardrobeSectionRef = useRef<HTMLElement>(null);
+  const [wardrobePage, setWardrobePage] = useState(0);
+  const wardrobePageCount = Math.max(1, Math.ceil(wardrobe.length / WARDROBE_PER_PAGE));
+  const wardrobePageItems = wardrobe.slice(wardrobePage * WARDROBE_PER_PAGE, (wardrobePage + 1) * WARDROBE_PER_PAGE);
+
+  function goToWardrobePage(page: number) {
+    setWardrobePage(page);
+    const el = wardrobeSectionRef.current;
+    if (!el) return;
+    // Lenis hijacks scrolling; use its scrollTo (offset clears the fixed header).
+    const lenis = getLenis();
+    if (lenis) lenis.scrollTo(el, { offset: -90, duration: 0.8 });
+    else el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -254,7 +313,8 @@ function Index() {
     );
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();
-  }, []);
+    // Re-run when the wardrobe page changes so newly rendered cards get observed.
+  }, [wardrobePage]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -306,11 +366,10 @@ function Index() {
       {/* ─── Manifesto ─── */}
       <section className="reveal border-y border-border/40 py-12 text-center md:py-20">
         <p className="serif mx-auto max-w-3xl px-8 text-2xl leading-[1.25] text-ink md:text-5xl md:leading-[1.1]">
-          Considered essentials, cut for stillness —<br />
-          <em className="italic text-clay">and one long refusal to shout.</em>
+          <em className="italic text-clay">— Grua e Fortë —</em>
         </p>
         <div className="mx-auto mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 px-8 font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-          {[`${wardrobeTotal} Pieces`, "6 Mills", "IT · JP", "AW26"].map((s, i) => (
+          {[`${wardrobeTotal} Pieces`, "Born in Albania", "Made to last", "Worn by the world"].map((s, i) => (
             <span key={s} className="flex items-center gap-5">
               {i > 0 && <span className="text-border">·</span>}
               {s}
@@ -334,7 +393,7 @@ function Index() {
       </div>
 
       {/* ─── Products ─── */}
-      <section id="shop" className="mx-auto mt-16 max-w-[1600px] px-5 md:mt-20 md:px-12">
+      <section ref={wardrobeSectionRef} id="shop" className="mx-auto mt-16 max-w-[1600px] scroll-mt-24 px-5 md:mt-20 md:px-12">
         <div className="reveal mb-10 flex items-end justify-between md:mb-14">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">New Arrivals</p>
@@ -344,24 +403,22 @@ function Index() {
             <Link to="/shop" search={{ sale: undefined }} className="relative hidden font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-clay hover:after:scale-x-100 md:inline-block">
               View all — {wardrobeTotal}
             </Link>
-            <CarouselArrows trackRef={wardrobeRef} />
           </div>
         </div>
 
-        <div
-          ref={wardrobeRef}
-          className="-mx-5 flex gap-4 overflow-x-auto overflow-y-hidden scroll-pl-5 px-5 pb-6 snap-x snap-mandatory scrollbar-hide overscroll-x-contain md:-mx-12 md:scroll-pl-12 md:px-12 md:pb-8 md:overflow-x-hidden"
-        >
-          {wardrobe.length === 0 ? (
-            <p className="col-span-4 py-16 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
-              No pieces in the permanent wardrobe yet.
-            </p>
-          ) : wardrobe.map((p, i) => (
+        {wardrobe.length === 0 ? (
+          <p className="py-16 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
+            No pieces in the permanent wardrobe yet.
+          </p>
+        ) : (
+          <>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 md:gap-x-6 md:gap-y-12 lg:grid-cols-4">
+            {wardrobePageItems.map((p, i) => (
             <Link
               key={p.id}
               to="/shop/$slug"
               params={{ slug: p.slug }}
-              className="reveal group w-[68vw] shrink-0 snap-start md:w-[22vw] md:max-w-[320px]"
+              className="reveal group"
               style={{ transitionDelay: `${i * 80}ms` }}
             >
               <div className="relative aspect-[3/4] overflow-hidden bg-muted">
@@ -413,100 +470,82 @@ function Index() {
                 </div>
                 <div className="text-right">
                   {p.originalPrice && (
-                    <p className="font-mono text-[10px] text-muted-foreground line-through">{p.originalPrice} €</p>
+                    <p className="font-mono text-[10px] text-muted-foreground line-through"><Price value={p.originalPrice} /></p>
                   )}
                   <p className={`font-mono text-[12px] ${p.isSale ? "text-clay" : "text-ink/70"}`}>
-                    {p.price} €
+                    <Price value={p.price} />
                   </p>
                 </div>
               </div>
             </Link>
-          ))}
-        </div>
+            ))}
+          </div>
+
+          {wardrobePageCount > 1 && (
+            <div className="mt-12 flex items-center justify-center gap-3 md:mt-16">
+              <button
+                onClick={() => goToWardrobePage(Math.max(0, wardrobePage - 1))}
+                disabled={wardrobePage === 0}
+                aria-label="Previous page"
+                className="flex h-9 w-9 items-center justify-center text-ink/60 transition-colors hover:text-ink disabled:opacity-30 disabled:hover:text-ink/60"
+              >
+                <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M8 2L4 6l4 4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </button>
+              {Array.from({ length: wardrobePageCount }).map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => goToWardrobePage(idx)}
+                  aria-label={`Page ${idx + 1}`}
+                  aria-current={idx === wardrobePage ? "true" : undefined}
+                  className={`h-9 w-9 font-mono text-[11px] transition-colors ${idx === wardrobePage ? "text-ink underline underline-offset-4" : "text-muted-foreground/60 hover:text-ink"}`}
+                >
+                  {idx + 1}
+                </button>
+              ))}
+              <button
+                onClick={() => goToWardrobePage(Math.min(wardrobePageCount - 1, wardrobePage + 1))}
+                disabled={wardrobePage === wardrobePageCount - 1}
+                aria-label="Next page"
+                className="flex h-9 w-9 items-center justify-center text-ink/60 transition-colors hover:text-ink disabled:opacity-30 disabled:hover:text-ink/60"
+              >
+                <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M4 2l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </button>
+            </div>
+          )}
+          </>
+        )}
       </section>
 
-      {/* ─── Collections ─── */}
-      {(() => {
-        const usingCollections = featuredCollections.length > 0;
-        const tiles: LookTile[] = usingCollections
-          ? featuredCollections.map((c, i) => ({
-              key: c.id,
-              slug: c.slug,
-              src: c.coverImage,
-              alt: c.name,
-              cap: `Ch. 0${i + 1} — ${c.caption}`,
-              meta: c.captionMeta,
-              name: c.caption,
-              chapter: `Ch. 0${i + 1}`,
-            }))
-          : [
-              { key: "l1", slug: null, src: look1, alt: "Lookbook chapter one",   cap: "Ch. 01 — Threshold", meta: "04:12 pm", name: "Threshold", chapter: "Ch. 01" },
-              { key: "l2", slug: null, src: look2, alt: "Lookbook chapter two",   cap: "Ch. 02 — Corridor",  meta: "05:38 pm", name: "Corridor",  chapter: "Ch. 02" },
-              { key: "l3", slug: null, src: look3, alt: "Lookbook chapter three", cap: "Ch. 03 — Cuff",      meta: "06:04 pm", name: "Cuff",      chapter: "Ch. 03" },
-            ];
-        const desktopClasses = ["col-span-5", "col-span-4 mt-20", "col-span-3 mt-8"];
-
-        return (
-          <section className="mt-16 md:mt-32">
-            <div className="reveal mx-auto flex max-w-[1600px] items-end justify-between px-5 md:px-12">
-              <div>
-                <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">The Lookbook</p>
-                <h2 className="serif mt-2 text-3xl leading-tight text-ink md:text-5xl">
-                  Stillness, <em className="italic text-clay">in motion.</em>
-                </h2>
-              </div>
-              <Link to="/collections" className="relative hidden font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-clay hover:after:scale-x-100 md:inline-block">
-                AW26 · 03 chapters →
-              </Link>
+      {/* ─── Collections (admin-controlled row layout) ─── */}
+      {homeRows.length > 0 && (
+        <section className="mt-16 md:mt-32">
+          <div className="reveal mx-auto flex max-w-[1600px] items-end justify-between px-5 md:px-12">
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">The Lookbook</p>
+              <h2 className="serif mt-2 text-3xl leading-tight text-ink md:text-5xl">
+                Stillness, <em className="italic text-clay">in motion.</em>
+              </h2>
             </div>
+            <Link to="/collections" className="relative hidden font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors duration-200 after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-clay hover:after:scale-x-100 md:inline-block">
+              View all →
+            </Link>
+          </div>
 
-            {/* Mobile: full-width editorial cards — clean at any count */}
-            <div className="mt-8 flex flex-col gap-4 px-5 md:hidden">
-              {tiles.map((t) => (
-                <LookTileWrap key={t.key} tile={t} className="group relative block overflow-hidden">
-                  <div className="aspect-[4/5] overflow-hidden bg-muted">
-                    <img
-                      src={cldImg(t.src, 640)}
-                      srcSet={cldSrcSet(t.src, 640)}
-                      alt={t.alt}
-                      width={1000}
-                      height={1250}
-                      loading="lazy"
-                      className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
-                    />
-                  </div>
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/90 via-background/25 to-transparent p-5 pt-16">
-                    <p className="font-mono text-[9px] uppercase tracking-[0.25em] text-ink/55">
-                      {t.chapter}{t.meta ? ` · ${t.meta}` : ""}
-                    </p>
-                    <p className="serif mt-1 text-3xl leading-none text-ink">{t.name}</p>
-                  </div>
-                </LookTileWrap>
-              ))}
-            </div>
-
-            {/* Desktop: staggered grid */}
-            <div className="mx-auto mt-10 hidden max-w-[1600px] grid-cols-12 gap-5 px-12 md:grid">
-              {tiles.map((t, i) => (
-                <LookTileWrap
-                  key={t.key}
-                  tile={t}
-                  className={`reveal group cursor-pointer ${desktopClasses[i] ?? "col-span-4"}`}
-                  style={{ transitionDelay: `${i * 80}ms` }}
-                >
-                  <div className="aspect-[3/4] overflow-hidden bg-muted">
-                    <img src={cldImg(t.src, 640)} srcSet={cldSrcSet(t.src, 640)} alt={t.alt} width={1000} height={1400} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]" />
-                  </div>
-                  <figcaption className="mt-3 flex justify-between font-mono text-[10px] uppercase tracking-widest text-muted-foreground/70">
-                    <span>{t.cap}</span>
-                    {t.meta && <span>{t.meta}</span>}
-                  </figcaption>
-                </LookTileWrap>
-              ))}
-            </div>
-          </section>
-        );
-      })()}
+          <div className="mx-auto mt-8 max-w-[1600px] space-y-4 px-5 md:mt-10 md:space-y-5 md:px-12">
+            {homeRows.map((row, ri) => {
+              if (isStructured(row.type)) return <StructuredRow key={ri} row={row} />;
+              const filled = row.cells.filter((c): c is CollectionCell => Boolean(c));
+              return (
+                <div key={ri} className="grid grid-cols-12 gap-4 md:gap-5">
+                  {filled.map((cell, ci) => (
+                    <CollectionTile key={cell.id} cell={cell} imgClass={cellAspectClass(row.type, ci)} className={cellSpanClass(row.type, ci)} />
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* ─── Sale ─── */}
       <section className="mx-auto mt-16 max-w-[1600px] px-5 md:mt-32 md:px-12">
@@ -576,9 +615,9 @@ function Index() {
                 </div>
                 <div className="text-right">
                   {p.originalPrice && (
-                    <p className="font-mono text-[10px] text-muted-foreground line-through">{p.originalPrice} €</p>
+                    <p className="font-mono text-[10px] text-muted-foreground line-through"><Price value={p.originalPrice} /></p>
                   )}
-                  <p className="font-mono text-[12px] text-clay">{p.price} €</p>
+                  <p className="font-mono text-[12px] text-clay"><Price value={p.price} /></p>
                 </div>
               </div>
             </Link>
@@ -623,22 +662,6 @@ function Index() {
               <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">This is not fashion. This is identity.</p>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* ─── Newsletter ─── */}
-      <section className="reveal mx-auto mt-16 max-w-[1600px] px-5 md:mt-40 md:px-12">
-        <div className="border-t border-border pt-16 flex flex-col gap-10 md:grid md:grid-cols-2 md:items-end md:gap-12">
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Correspondence</p>
-            <h2 className="serif mt-4 text-4xl leading-tight text-ink md:text-6xl">
-              Join the <em className="italic text-clay">quiet</em> list.
-            </h2>
-            <p className="mt-5 text-[13px] leading-relaxed text-muted-foreground">
-              New arrivals, early access, and the occasional word from us. Sent no more than once a month. Nothing more.
-            </p>
-          </div>
-          <NewsletterForm />
         </div>
       </section>
 
@@ -692,71 +715,5 @@ function Index() {
       </footer>
 
     </div>
-  );
-}
-
-function NewsletterForm() {
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "sending" | "done" | "already" | "error">("idle");
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      inputRef.current?.focus();
-      return;
-    }
-    setStatus("sending");
-    try {
-      const result = await subscribeNewsletter({ data: { email } });
-      setStatus(result.alreadySubscribed ? "already" : "done");
-    } catch {
-      setStatus("error");
-    }
-  }
-
-  if (status === "done") {
-    return (
-      <div className="w-full">
-        <p className="font-mono text-[11px] uppercase tracking-widest text-clay">You're on the list.</p>
-        <p className="mt-2 text-[13px] font-light text-muted-foreground">We'll be in touch — quietly.</p>
-      </div>
-    );
-  }
-
-  if (status === "already") {
-    return (
-      <div className="w-full">
-        <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Already subscribed.</p>
-        <p className="mt-2 text-[13px] font-light text-muted-foreground">This address is already on the list.</p>
-      </div>
-    );
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="w-full min-w-0">
-      <label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Your address</label>
-      <div className="mt-3 w-full border-b border-ink/20 pb-3 transition-colors focus-within:border-ink/50">
-        <input
-          ref={inputRef}
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@somewhere.com"
-          className="w-full min-w-0 bg-transparent text-[15px] text-ink outline-none placeholder:text-muted-foreground/35"
-        />
-      </div>
-      <button
-        type="submit"
-        disabled={status === "sending"}
-        className="mt-5 font-mono text-[10px] uppercase tracking-widest text-clay transition-colors duration-200 hover:text-ink disabled:opacity-50"
-      >
-        {status === "sending" ? "…" : "Subscribe →"}
-      </button>
-      {status === "error" && (
-        <p className="mt-2 font-mono text-[9px] uppercase tracking-widest text-clay">Something went wrong. Try again.</p>
-      )}
-      <p className="mt-3 font-mono text-[9px] uppercase tracking-widest text-muted-foreground/50">No spam, ever.</p>
-    </form>
   );
 }

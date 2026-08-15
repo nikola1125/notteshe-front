@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { useCart } from "@/store/cartStore";
+import { Price } from "@/components/Price";
 
 interface FlyState {
   src: string;
@@ -323,11 +324,11 @@ export function CartDrawer() {
                         <div className="text-right">
                           {item.originalPrice && (
                             <p className="font-mono text-[10px] text-muted-foreground line-through">
-                              {item.originalPrice} €
+                              <Price value={item.originalPrice} />
                             </p>
                           )}
                           <p className={`font-mono text-[13px] ${item.originalPrice ? "text-clay" : "text-ink"}`}>
-                            {(item.price * item.quantity).toFixed(0)} €
+                            <Price value={item.price * item.quantity} />
                           </p>
                         </div>
                       </div>
@@ -346,7 +347,7 @@ export function CartDrawer() {
               <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                 Subtotal
               </p>
-              <p className="serif text-xl text-ink">{total.toFixed(0)} €</p>
+              <Price value={total} className="serif text-xl text-ink" />
             </div>
             <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/50">
               Shipping calculated at checkout

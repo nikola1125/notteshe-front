@@ -7,6 +7,7 @@ import { product, productImage, productColour, category } from "@/db/schema";
 import { useWishlist } from "@/store/wishlistStore";
 import { WishlistButton } from "@/components/WishlistButton";
 import { cldImg, cldSrcSet } from "@/lib/cldImage";
+import { Price } from "@/components/Price";
 
 interface WishlistProduct {
   id: string;
@@ -192,11 +193,11 @@ function WishlistPage() {
                     <div className="text-right">
                       {p.originalPrice && (
                         <p className="font-mono text-[10px] text-muted-foreground line-through">
-                          {p.originalPrice} €
+                          <Price value={p.originalPrice} />
                         </p>
                       )}
                       <p className={`font-mono text-[12px] ${p.isSale ? "text-clay" : "text-ink/70"}`}>
-                        {p.price} €
+                        <Price value={p.price} />
                       </p>
                     </div>
                   </div>

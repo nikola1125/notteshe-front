@@ -2,6 +2,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useCart } from "@/store/cartStore";
 import { useWishlist } from "@/store/wishlistStore";
+import { useCurrency, useCurrencyStore } from "@/store/currencyStore";
 import { useAuthStore } from "@/store/authStore";
 import { useSession, signOut } from "@/lib/auth/client";
 import { SearchOverlay } from "@/components/SearchOverlay";
@@ -44,6 +45,9 @@ export function Header() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
   const wishlistCount = useWishlist((s) => s.ids.length);
+  const currency = useCurrency();
+  const openRegionPicker = useCurrencyStore((s) => s.openPicker);
+  const currencyLabel = currency === "ALL" ? "Lek" : "Euro";
 
   return (
     <header className="fixed top-0 z-50 w-full bg-background/50 backdrop-blur-md">
@@ -105,6 +109,9 @@ export function Header() {
           <Link to="/collections" className={`relative text-[14px] after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:bg-ink after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100 ${isCollections ? "text-ink after:scale-x-100" : "text-ink/75 after:scale-x-0"}`}>Collections</Link>
           <Link to="/about" className={`relative text-[14px] after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:bg-ink after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100 ${isStory ? "text-ink after:scale-x-100" : "text-ink/75 after:scale-x-0"}`}>Story</Link>
           <Link to="/contact" className={`relative text-[14px] after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:bg-ink after:transition-transform after:duration-300 hover:text-ink hover:after:scale-x-100 ${isContact ? "text-ink after:scale-x-100" : "text-ink/75 after:scale-x-0"}`}>Contact</Link>
+          <button onClick={openRegionPicker} className="text-[14px] text-ink/75 transition-colors duration-200 hover:text-ink" aria-label="Change region">
+            {currencyLabel}
+          </button>
         </nav>
 
         {/* Actions */}
@@ -261,6 +268,9 @@ export function Header() {
           <Link to="/collections" onClick={() => setMenuOpen(false)} className="border-b border-border/30 py-4 font-mono text-[11px] uppercase tracking-[0.25em] text-ink/70 transition-colors hover:text-ink">Collections</Link>
           <Link to="/about" onClick={() => setMenuOpen(false)} className="border-b border-border/30 py-4 font-mono text-[11px] uppercase tracking-[0.25em] text-ink/70 transition-colors hover:text-ink">Story</Link>
           <Link to="/contact" onClick={() => setMenuOpen(false)} className="border-b border-border/30 py-4 font-mono text-[11px] uppercase tracking-[0.25em] text-ink/70 transition-colors hover:text-ink">Contact</Link>
+          <button onClick={() => { openRegionPicker(); setMenuOpen(false); }} className="flex items-center justify-between border-b border-border/30 py-4 text-left font-mono text-[11px] uppercase tracking-[0.25em] text-ink/70 transition-colors hover:text-ink">
+            <span>Region</span><span className="text-muted-foreground">{currencyLabel}</span>
+          </button>
 
           {/* Profile — at the end of the menu on mobile */}
           {session?.user ? (

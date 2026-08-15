@@ -7,6 +7,9 @@ import { orders, cancellationRequest } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
+import { Price, useRate } from "@/components/Price";
+import { useCurrency } from "@/store/currencyStore";
+import { formatMoney } from "@/lib/currency";
 
 const getMyOrders = createServerFn({ method: "GET" }).handler(async () => {
   const session = await requireAuth();
@@ -105,6 +108,8 @@ function OrdersPage() {
     () => new Set((rows as any[]).filter((r) => r.cancellationRequested).map((r) => r.id))
   );
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const currency = useCurrency();
+  const rate = useRate();
 
   function copyRef(e: React.MouseEvent, orderId: string) {
     e.preventDefault();
@@ -189,7 +194,7 @@ function OrdersPage() {
                       <p className={`font-mono text-[10px] uppercase tracking-widest ${STATUS_COLOR[order.status] ?? "text-ink"}`}>
                         {STATUS_LABEL[order.status] ?? order.status}
                       </p>
-                      <p className="serif mt-1 text-xl text-ink">{order.total.toFixed(0)} €</p>
+                      <Price value={order.total} className="serif mt-1 text-xl text-ink" />
                     </div>
                   </div>
 
@@ -210,7 +215,7 @@ function OrdersPage() {
                       <div>
                         <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">Discount</p>
                         <p className="mt-0.5 font-mono text-[11px] text-green-400">
-                          {order.discountCode} — −{Number(order.discountAmount ?? 0).toFixed(0)} €
+                          {order.discountCode} — −{formatMoney(Number(order.discountAmount ?? 0), currency, rate)}
                         </p>
                       </div>
                     )}

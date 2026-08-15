@@ -33,6 +33,8 @@ async function pokAuth(): Promise<string> {
 // Client sends structural cart data only — no prices (fetched from DB server-side)
 const CreatePokOrderSchema = z.object({
   merchantReference: z.string().uuid(),
+  // Currency the shopper selected. EUR is the base price; ALL is converted server-side.
+  currency: z.enum(["EUR", "ALL"]).default("EUR"),
   discountCode: z.string().optional(),
   shippingForm: z.object({
     email: z.string().email(),
@@ -80,7 +82,9 @@ export type OrderDataPayload = {
   subtotal: number;
   shippingFee: number;
   paymentFee: number;
-  total: number;
+  total: number;              // EUR base total (source of truth)
+  currency: "EUR" | "ALL";    // currency charged via POK
+  pokAmount: number;          // exact amount sent to POK in `currency`
 };
 
 export const createPokOrder = createServerFn({ method: "POST" })
@@ -167,14 +171,20 @@ export const createPokOrder = createServerFn({ method: "POST" })
       .from(shippingConfig)
       .limit(1);
 
-    // Payment fee columns added in migration 0003 — read separately so order creation works before migration
+    // Payment fee (0003) + currency rate (0005) columns — read separately so order creation works before migration
     let paymentFeeCfg = { paymentFeeEnabled: false, paymentFeePercent: 0, paymentFeeFixed: 0 };
+    let eurToLekRate = 100;
+    let lekRounding = 100;
     try {
       const [pf] = await db()
-        .select({ paymentFeeEnabled: shippingConfig.paymentFeeEnabled, paymentFeePercent: shippingConfig.paymentFeePercent, paymentFeeFixed: shippingConfig.paymentFeeFixed })
+        .select({ paymentFeeEnabled: shippingConfig.paymentFeeEnabled, paymentFeePercent: shippingConfig.paymentFeePercent, paymentFeeFixed: shippingConfig.paymentFeeFixed, eurToLekRate: shippingConfig.eurToLekRate, lekRounding: shippingConfig.lekRounding })
         .from(shippingConfig)
         .limit(1);
-      if (pf) paymentFeeCfg = { paymentFeeEnabled: pf.paymentFeeEnabled ?? false, paymentFeePercent: pf.paymentFeePercent ?? 0, paymentFeeFixed: pf.paymentFeeFixed ?? 0 };
+      if (pf) {
+        paymentFeeCfg = { paymentFeeEnabled: pf.paymentFeeEnabled ?? false, paymentFeePercent: pf.paymentFeePercent ?? 0, paymentFeeFixed: pf.paymentFeeFixed ?? 0 };
+        eurToLekRate = pf.eurToLekRate ?? 100;
+        lekRounding = pf.lekRounding ?? 100;
+      }
     } catch { /* columns not yet migrated */ }
     const shippingFee = cfg?.enabled
       ? (subtotal >= (cfg.freeThreshold ?? 200) ? 0 : (cfg.fee ?? 12))
@@ -220,9 +230,21 @@ export const createPokOrder = createServerFn({ method: "POST" })
 
     const total = Math.max(0, subtotal + shippingFee - discountAmount + paymentFee);
 
-    // POK minimum is 50 ALL — reject before calling the API
-    if (Math.round(total) < 50) {
-      throw new Error("Order total is below the minimum amount required for card payment (50 L). Please add more items or use Cash on Delivery.");
+    // ── Convert EUR base amounts into the currency POK will charge ─────────────
+    // EUR: keep 2 decimals. ALL: multiply by rate and round to the nearest step.
+    const currency = data.currency;
+    const toCharge = (eur: number): number => {
+      if (currency === "EUR") return Math.round(eur * 100) / 100;
+      const step = lekRounding > 0 ? lekRounding : 1;
+      return Math.round((eur * eurToLekRate) / step) * step;
+    };
+    const chargeTotal = toCharge(total);
+
+    // POK minimum is 50 ALL (~€0.50). Reject before calling the API.
+    const minCharge = currency === "ALL" ? 50 : 0.5;
+    if (chargeTotal < minCharge) {
+      const label = currency === "ALL" ? "50 L" : "0.50 €";
+      throw new Error(`Order total is below the minimum amount required for card payment (${label}). Please add more items or use Cash on Delivery.`);
     }
 
     // ── Build authoritative order payload stored in pendingOrder ───────────────
@@ -243,21 +265,23 @@ export const createPokOrder = createServerFn({ method: "POST" })
       shippingFee,
       paymentFee,
       total,
+      currency,
+      pokAmount: chargeTotal,
     };
 
     // ── Authenticate with POK and create SDK order ─────────────────────────────
     const token = await pokAuth();
 
     const pokBody: Record<string, unknown> = {
-      amount: Math.round(total),        // NUMBER, not string — POK API expects integer
-      currencyCode: "ALL",
+      amount: chargeTotal,              // in `currency` (EUR: 2dp, ALL: whole)
+      currencyCode: currency,
       autoCapture: false,
       products: itemsWithPrices.map((i) => ({
         name: i.name,
         quantity: i.quantity,
-        price: Math.round(i.price),
+        price: toCharge(i.price),
       })),
-      shippingCost: Math.round(shippingFee + paymentFee),
+      shippingCost: toCharge(shippingFee + paymentFee),
       merchantCustomReference: data.merchantReference,
       expiresAfterMinutes: 30,
     };
@@ -339,8 +363,10 @@ async function pokAction(
   }
 }
 
-export async function pokCapture(pokOrderId: string, amount: number): Promise<void> {
-  await pokAction(`${pokOrderId}/capture`, { amount: Math.round(amount) });
+export async function pokCapture(pokOrderId: string, amount: number, currency: "EUR" | "ALL" = "ALL"): Promise<void> {
+  // Capture the amount POK authorised, in its currency (ALL: whole, EUR: 2dp).
+  const value = currency === "ALL" ? Math.round(amount) : Math.round(amount * 100) / 100;
+  await pokAction(`${pokOrderId}/capture`, { amount: value });
 }
 
 export async function pokCancel(pokOrderId: string, reason?: string): Promise<void> {

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "@tanstack/react-router";
 import { searchProducts, type SearchResult } from "@/lib/search";
 import { cldImg } from "@/lib/cldImage";
+import { Price } from "@/components/Price";
 
 export function SearchOverlay({ onClose }: { onClose: () => void }) {
   const [q, setQ] = useState("");
@@ -111,7 +112,7 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
                       </div>
                       <div className="mt-3 flex items-start justify-between gap-2">
                         <h3 className="serif text-[14px] leading-tight text-ink">{p.name}</h3>
-                        <p className="shrink-0 font-mono text-[11px] text-ink/70">{p.price} €</p>
+                        <Price value={p.price} className="shrink-0 font-mono text-[11px] text-ink/70" />
                       </div>
                     </Link>
                   ))}

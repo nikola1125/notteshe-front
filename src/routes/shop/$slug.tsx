@@ -14,6 +14,9 @@ import {
 import { WishlistButton } from "@/components/WishlistButton";
 import { cldImg, cldSrcSet } from "@/lib/cldImage";
 import { useCart } from "@/store/cartStore";
+import { Price, useRate } from "@/components/Price";
+import { useCurrency } from "@/store/currencyStore";
+import { formatMoney } from "@/lib/currency";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -204,6 +207,8 @@ function ProductPage() {
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const galleryRef = useRef<HTMLDivElement>(null);
+  const currency = useCurrency();
+  const rate = useRate();
 
   function scrollTo(i: number) {
     scrollRef.current?.scrollTo({ left: scrollRef.current.offsetWidth * i, behavior: "smooth" });
@@ -357,9 +362,9 @@ function ProductPage() {
           <h1 className="serif mt-3 text-4xl leading-tight text-ink md:text-5xl">{product.name}</h1>
 
           <div className="mt-4 flex items-baseline gap-3">
-            <span className={`font-mono text-[18px] ${product.isSale ? "text-clay" : "text-ink"}`}>{product.price} €</span>
+            <Price value={product.price} className={`font-mono text-[18px] ${product.isSale ? "text-clay" : "text-ink"}`} />
             {product.originalPrice && (
-              <span className="font-mono text-[13px] text-muted-foreground line-through">{product.originalPrice} €</span>
+              <Price value={product.originalPrice} className="font-mono text-[13px] text-muted-foreground line-through" />
             )}
           </div>
 
@@ -471,7 +476,7 @@ function ProductPage() {
               </svg>
             </summary>
             <div className="space-y-2 pb-6 text-[12px] leading-relaxed text-muted-foreground">
-              <p>Free shipping on orders over 200 €.</p>
+              <p>Free shipping on orders over {formatMoney(200, currency, rate)}.</p>
               <p>Standard delivery 3–5 working days. Express available at checkout.</p>
               <p>Exchanges accepted within 14 days of delivery — no refunds. Items must be unworn and in original packaging.</p>
             </div>

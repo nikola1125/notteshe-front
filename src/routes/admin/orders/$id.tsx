@@ -198,14 +198,16 @@ const updateOrderStatus = createServerFn({ method: "POST" })
     const database = db();
 
     const [current] = await database
-      .select({ status: orders.status, pokOrderId: orders.pokOrderId, total: orders.total })
+      .select({ status: orders.status, pokOrderId: orders.pokOrderId, total: orders.total, currency: orders.currency, pokAmount: orders.pokAmount })
       .from(orders)
       .where(eq(orders.id, data.id))
       .limit(1);
 
     const prevStatus = current?.status as OrderStatus | undefined;
     const pokOrderId = current?.pokOrderId ?? null;
-    const total = Number(current?.total ?? 0);
+    const currency = (current?.currency ?? "EUR") as "EUR" | "ALL";
+    // Capture the exact amount POK authorised (in its currency); fall back to EUR total.
+    const captureAmount = Number(current?.pokAmount ?? current?.total ?? 0);
 
     // Authorize-capture flow (autoCapture: false):
     //   PENDING → CONFIRMED  : capture the frozen authorization → money goes through
@@ -220,7 +222,7 @@ const updateOrderStatus = createServerFn({ method: "POST" })
         String((err as Error)?.message ?? "").toLowerCase().includes("not eligible");
 
       if (data.status === "CONFIRMED" && prevStatus === "PENDING") {
-        await pokCapture(pokOrderId, total);
+        await pokCapture(pokOrderId, captureAmount, currency);
       } else if (data.status === "CANCELLED" && prevStatus === "PENDING") {
         await pokCancel(pokOrderId, "Order rejected by merchant").catch((err) => {
           if (!isAlreadyProcessed(err)) throw err;

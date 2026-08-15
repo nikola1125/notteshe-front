@@ -15,6 +15,10 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Header } from "@/components/Header";
 import { CartDrawer } from "@/components/CartDrawer";
 import { AuthModal } from "@/components/AuthModal";
+import { RegionModal } from "@/components/RegionModal";
+import { CurrencyRateProvider } from "@/components/Price";
+import { getStorefrontConfig } from "@/lib/storefront";
+import { DEFAULT_RATE } from "@/lib/currency";
 import { useAuthStore } from "@/store/authStore";
 import { useSmoothScroll } from "@/hooks/useSmoothScroll";
 
@@ -100,6 +104,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" },
     ],
   }),
+  loader: () => getStorefrontConfig(),
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
@@ -122,6 +127,7 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const { rate } = Route.useLoaderData() ?? { rate: DEFAULT_RATE };
   const { authModalOpen, authModalMode, authModalCallback, closeAuthModal } = useAuthStore();
   const location = useLocation();
   const isAdmin = location.pathname.startsWith("/admin");
@@ -129,19 +135,22 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {!isAdmin && <Header />}
-      {!isAdmin && <CartDrawer />}
-      {!isAdmin && authModalOpen && (
-        <AuthModal
-          defaultMode={authModalMode}
-          onClose={closeAuthModal}
-          onSuccess={() => {
-            authModalCallback?.();
-            closeAuthModal();
-          }}
-        />
-      )}
-      <Outlet />
+      <CurrencyRateProvider rate={rate}>
+        {!isAdmin && <Header />}
+        {!isAdmin && <CartDrawer />}
+        {!isAdmin && <RegionModal />}
+        {!isAdmin && authModalOpen && (
+          <AuthModal
+            defaultMode={authModalMode}
+            onClose={closeAuthModal}
+            onSuccess={() => {
+              authModalCallback?.();
+              closeAuthModal();
+            }}
+          />
+        )}
+        <Outlet />
+      </CurrencyRateProvider>
     </QueryClientProvider>
   );
 }

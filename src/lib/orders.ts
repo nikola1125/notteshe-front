@@ -59,6 +59,7 @@ export const placeOrder = createServerFn({ method: "POST" })
         size: string; colour: string; quantity: number;
       }>;
       subtotal: number; shippingFee: number; paymentFee?: number; total: number;
+      currency?: "EUR" | "ALL"; pokAmount?: number;
     };
     const orderData = pending.orderData as OrderData;
 
@@ -101,6 +102,8 @@ export const placeOrder = createServerFn({ method: "POST" })
       discountCode: orderData.discountCode,
       discountAmount: orderData.discountAmount,
       total: orderData.total,
+      currency: orderData.currency ?? "EUR",
+      pokAmount: orderData.pokAmount ?? null,
       shippingAddress,
       pokOrderId: data.pokOrderId,
     };

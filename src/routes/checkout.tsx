@@ -9,6 +9,9 @@ import { useSession } from "@/lib/auth/client";
 import { useAuthStore } from "@/store/authStore";
 import { placeOrder } from "@/lib/orders";
 import { createPokOrder } from "@/lib/pok";
+import { useCurrency } from "@/store/currencyStore";
+import { useRate } from "@/components/Price";
+import { formatMoney } from "@/lib/currency";
 
 const GuestCheckoutForm = lazy(() =>
   import("@nebula-ltd/pok-payments-js/react").then((m) => ({
@@ -75,6 +78,7 @@ const logPlaceOrderError = createServerFn({ method: "POST" })
   });
 
 const CodOrderSchema = z.object({
+  currency: z.enum(["EUR", "ALL"]).default("EUR"),
   discountCode: z.string().optional(),
   shippingForm: z.object({
     email: z.string().email(),
@@ -140,6 +144,14 @@ const placeCodOrder = createServerFn({ method: "POST" })
       .from(shippingConfig).limit(1);
     const shippingFee = cfg?.enabled ? (subtotal >= (cfg.freeThreshold ?? 200) ? 0 : (cfg.fee ?? 12)) : 0;
 
+    // EUR→Lek rate for computing the amount the courier collects (read-only; defaults if unmigrated)
+    let eurToLekRate = 100;
+    let lekRounding = 100;
+    try {
+      const [rc] = await db().select({ eurToLekRate: shippingConfig.eurToLekRate, lekRounding: shippingConfig.lekRounding }).from(shippingConfig).limit(1);
+      if (rc) { eurToLekRate = rc.eurToLekRate ?? 100; lekRounding = rc.lekRounding ?? 100; }
+    } catch { /* not migrated */ }
+
     let discountAmount = 0;
     let validatedDiscountCode: string | null = null;
     if (data.discountCode) {
@@ -160,6 +172,11 @@ const placeCodOrder = createServerFn({ method: "POST" })
     }
 
     const total = Math.max(0, subtotal + shippingFee - discountAmount);
+    // Amount to collect on delivery, in the shopper's currency.
+    const codCurrency = data.currency;
+    const codCollect = codCurrency === "ALL"
+      ? Math.round((total * eurToLekRate) / (lekRounding > 0 ? lekRounding : 1)) * (lekRounding > 0 ? lekRounding : 1)
+      : Math.round(total * 100) / 100;
 
     for (const item of itemsWithPrices) {
       const updated = await db()
@@ -194,6 +211,8 @@ const placeCodOrder = createServerFn({ method: "POST" })
       discountCode: validatedDiscountCode,
       discountAmount,
       total,
+      currency: codCurrency,
+      pokAmount: codCollect,
       shippingAddress,
       pokOrderId: null,
     });
@@ -446,6 +465,18 @@ type CheckoutStep = "details" | "initiating" | "card-payment" | "saved-card-paym
 
 const POK_ENV = (typeof import.meta !== "undefined" && import.meta.env?.VITE_POK_ENV as "production" | "staging") || "staging";
 
+// crypto.randomUUID() only works in secure contexts (HTTPS / localhost). Over a
+// plain http:// LAN IP (mobile testing) it's undefined — fall back to a valid v4.
+function safeUUID(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    try { return crypto.randomUUID(); } catch { /* insecure context */ }
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 function CheckoutPage() {
@@ -459,6 +490,8 @@ function CheckoutPage() {
 
   const hasSavedCards = savedCards.length > 0;
 
+  const currency = useCurrency();
+  const rate = useRate();
   const [step, setStep] = useState<CheckoutStep>("details");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
     hasSavedCards ? "saved-card" : "cod"
@@ -623,6 +656,7 @@ function CheckoutPage() {
     try {
       await placeCodOrder({
         data: {
+          currency,
           discountCode: appliedDiscount?.code,
           shippingForm: buildShippingForm(),
           items: buildOrderItems(),
@@ -650,10 +684,11 @@ function CheckoutPage() {
     setStep("initiating");
     setPlaceError(null);
     try {
-      const ref = crypto.randomUUID();
+      const ref = safeUUID();
       const { pokOrderId: id } = await createPokOrder({
         data: {
           merchantReference: ref,
+          currency,
           discountCode: appliedDiscount?.code,
           shippingForm: buildShippingForm(),
           items: buildOrderItems(),
@@ -705,10 +740,11 @@ function CheckoutPage() {
     setStep("initiating");
     setPlaceError(null);
     try {
-      const ref = crypto.randomUUID();
+      const ref = safeUUID();
       const { pokOrderId: id } = await createPokOrder({
         data: {
           merchantReference: ref,
+          currency,
           discountCode: appliedDiscount?.code,
           shippingForm: buildShippingForm(),
           items: buildOrderItems(),
@@ -890,10 +926,10 @@ function CheckoutPage() {
                       </div>
                       <div>
                         {item.originalPrice && (
-                          <p className="font-mono text-[10px] text-muted-foreground line-through">{item.originalPrice} €</p>
+                          <p className="font-mono text-[10px] text-muted-foreground line-through">{formatMoney(item.originalPrice, currency, rate)}</p>
                         )}
                         <p className={`font-mono text-[12px] ${item.originalPrice ? "text-clay" : "text-ink"}`}>
-                          {(item.price * item.quantity).toFixed(0)} €
+                          {formatMoney(item.price * item.quantity, currency, rate)}
                         </p>
                       </div>
                     </div>
@@ -903,10 +939,10 @@ function CheckoutPage() {
 
               <div className="mt-6 space-y-3 border-t border-border pt-6">
                 <div className="flex justify-between font-mono text-[11px] text-ink/60">
-                  <span>Subtotal</span><span>{subtotal.toFixed(0)} €</span>
+                  <span>Subtotal</span><span>{formatMoney(subtotal, currency, rate)}</span>
                 </div>
                 <div className="flex justify-between font-mono text-[11px] text-ink/60">
-                  <span>Shipping</span><span>{shipping === 0 ? "Free" : `${shipping} €`}</span>
+                  <span>Shipping</span><span>{shipping === 0 ? "Free" : formatMoney(shipping, currency, rate)}</span>
                 </div>
                 {appliedDiscount && (
                   <div className="flex items-center justify-between font-mono text-[11px] text-green-400">
@@ -916,7 +952,7 @@ function CheckoutPage() {
                         <button onClick={() => setAppliedDiscount(null)} className="font-mono text-[9px] text-muted-foreground/50 hover:text-clay transition-colors" title="Remove">✕</button>
                       )}
                     </span>
-                    <span>−{discount.toFixed(0)} €</span>
+                    <span>−{formatMoney(discount, currency, rate)}</span>
                   </div>
                 )}
                 {paymentFee > 0 && (
@@ -924,14 +960,14 @@ function CheckoutPage() {
                     <span className="flex items-center gap-1">
                       Payment fee
                       <span className="font-mono text-[9px] text-muted-foreground/50">
-                        ({shippingCfg.paymentFeePercent > 0 && `${shippingCfg.paymentFeePercent}%`}{shippingCfg.paymentFeePercent > 0 && shippingCfg.paymentFeeFixed > 0 && " + "}{shippingCfg.paymentFeeFixed > 0 && `${shippingCfg.paymentFeeFixed} €`})
+                        ({shippingCfg.paymentFeePercent > 0 && `${shippingCfg.paymentFeePercent}%`}{shippingCfg.paymentFeePercent > 0 && shippingCfg.paymentFeeFixed > 0 && " + "}{shippingCfg.paymentFeeFixed > 0 && formatMoney(shippingCfg.paymentFeeFixed, currency, rate)})
                       </span>
                     </span>
-                    <span>{paymentFee.toFixed(2)} €</span>
+                    <span>{formatMoney(paymentFee, currency, rate)}</span>
                   </div>
                 )}
                 {shippingCfg.enabled && shipping > 0 && (
-                  <p className="font-mono text-[9px] text-muted-foreground/40">Free shipping on orders over {shippingCfg.freeThreshold} €</p>
+                  <p className="font-mono text-[9px] text-muted-foreground/40">Free shipping on orders over {formatMoney(shippingCfg.freeThreshold, currency, rate)}</p>
                 )}
               </div>
 
@@ -963,7 +999,7 @@ function CheckoutPage() {
                   <div className="mt-5 border-t border-border pt-5">
                     <p className="font-mono text-[9px] uppercase tracking-widest text-green-400">
                       Code <span className="font-bold">{appliedDiscount.code}</span> applied —{" "}
-                      {appliedDiscount.type === "PERCENT" ? `${appliedDiscount.value}% off` : `${appliedDiscount.value} € off`}
+                      {appliedDiscount.type === "PERCENT" ? `${appliedDiscount.value}% off` : `${formatMoney(appliedDiscount.value, currency, rate)} off`}
                     </p>
                   </div>
                 )
@@ -971,7 +1007,7 @@ function CheckoutPage() {
 
               <div className="mt-5 flex items-baseline justify-between border-t border-border pt-5">
                 <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Total</p>
-                <p className="serif text-2xl text-ink">{total.toFixed(0)} €</p>
+                <p className="serif text-2xl text-ink">{formatMoney(total, currency, rate)}</p>
               </div>
             </div>
 
@@ -1202,7 +1238,7 @@ function CheckoutPage() {
                   >
                     {placing
                       ? <span className="flex items-center justify-center gap-3"><Spinner />Placing order…</span>
-                      : `Place order — ${total.toFixed(0)} €`}
+                      : `Place order — ${formatMoney(total, currency, rate)}`}
                   </button>
                 )}
 
@@ -1211,7 +1247,7 @@ function CheckoutPage() {
                     onClick={handleInitiateCardPayment}
                     className="w-full bg-foreground py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-opacity hover:opacity-80"
                   >
-                    {`Continue to card payment — ${total.toFixed(0)} €`}
+                    {`Continue to card payment — ${formatMoney(total, currency, rate)}`}
                   </button>
                 )}
 
@@ -1221,7 +1257,7 @@ function CheckoutPage() {
                     disabled={!selectedSavedCardId}
                     className="w-full bg-foreground py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-opacity hover:opacity-80 disabled:opacity-50"
                   >
-                    {`Pay with saved card — ${total.toFixed(0)} €`}
+                    {`Pay with saved card — ${formatMoney(total, currency, rate)}`}
                   </button>
                 )}
 

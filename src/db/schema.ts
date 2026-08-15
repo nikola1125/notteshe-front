@@ -126,6 +126,8 @@ export const homeCollections = pgTable("home_collections", {
   slot1CollectionId: text("slot1_collection_id").references(() => collection.id, { onDelete: "set null" }),
   slot2CollectionId: text("slot2_collection_id").references(() => collection.id, { onDelete: "set null" }),
   slot3CollectionId: text("slot3_collection_id").references(() => collection.id, { onDelete: "set null" }),
+  // Flexible landing layout: ordered rows, each holding collection ids per cell.
+  layout: jsonb("layout").$type<{ id: string; type: string; items: (string | null)[] }[]>(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
@@ -217,6 +219,10 @@ export const orders = pgTable("orders", {
   discountCode: text("discount_code"),
   discountAmount: real("discount_amount").notNull().default(0),
   total: real("total").notNull(),
+  // Currency the order was charged in, and the exact amount sent to POK in that
+  // currency. `total`/`subtotal`/etc. stay in EUR base; these capture what POK took.
+  currency: text("currency").notNull().default("EUR"),
+  pokAmount: real("pok_amount"),
   // Frozen copy of shipping address at order time
   shippingAddress: jsonb("shipping_address").notNull(),
   pokOrderId: text("pok_order_id").unique(),
@@ -256,6 +262,9 @@ export const shippingConfig = pgTable("shipping_config", {
   paymentFeeEnabled: boolean("payment_fee_enabled").notNull().default(false),
   paymentFeePercent: real("payment_fee_percent").notNull().default(0),
   paymentFeeFixed: real("payment_fee_fixed").notNull().default(0),
+  // Currency: EUR is the base/source-of-truth price; Lek is derived from this rate.
+  eurToLekRate: real("eur_to_lek_rate").notNull().default(100),
+  lekRounding: integer("lek_rounding").notNull().default(100), // round Lek prices to nearest N
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 

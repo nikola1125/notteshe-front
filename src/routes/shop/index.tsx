@@ -1,11 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { eq, desc, and } from "drizzle-orm";
 import { db } from "@/db";
 import { product, productImage, productColour, category } from "@/db/schema";
 import { WishlistButton } from "@/components/WishlistButton";
 import { cldImg, cldSrcSet } from "@/lib/cldImage";
+import { Price, useRate } from "@/components/Price";
+import { useCurrency } from "@/store/currencyStore";
+import { formatMoney } from "@/lib/currency";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -132,6 +135,46 @@ function ShopPage() {
   const [activeCategoryId, setActiveCategoryId] = useState<string | "all" | "sale">(sale === "1" ? "sale" : "all");
   const [activeSort, setActiveSort] = useState<SortValue>("featured");
   const [sortOpen, setSortOpen] = useState(false);
+  const currency = useCurrency();
+  const rate = useRate();
+
+  // Category slide indicator — thumb repositioned imperatively via ref inside rAF
+  // so scrolling stays smooth (no React re-render per scroll tick).
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const thumbRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
+  const [tabScrollable, setTabScrollable] = useState(false);
+
+  function paintThumb() {
+    const el = tabsRef.current, thumb = thumbRef.current;
+    if (!el || !thumb) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    const w = clientWidth / scrollWidth;
+    const max = scrollWidth - clientWidth;
+    const leftFrac = max > 0 ? scrollLeft / max : 0;
+    thumb.style.width = `${w * 100}%`;
+    thumb.style.marginLeft = `${leftFrac * (1 - w) * 100}%`;
+  }
+  function onTabScroll() {
+    if (rafRef.current != null) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      paintThumb();
+    });
+  }
+  function measureTabs() {
+    const el = tabsRef.current;
+    if (!el) return;
+    setTabScrollable(el.scrollWidth > el.clientWidth + 2);
+    paintThumb();
+  }
+  useEffect(() => {
+    measureTabs();
+    window.addEventListener("resize", measureTabs);
+    return () => window.removeEventListener("resize", measureTabs);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories.length]);
+  useEffect(() => { if (tabScrollable) paintThumb(); }, [tabScrollable]);
 
   useEffect(() => {
     setActiveCategoryId(sale === "1" ? "sale" : "all");
@@ -208,13 +251,13 @@ function ShopPage() {
           {/* Category tabs — scrollable, stops before the divider */}
           {/* Fade on the right hints that more tabs are hiding off-screen */}
           <div className="relative min-w-0 flex-1 after:pointer-events-none after:absolute after:right-0 after:top-0 after:h-full after:w-10 after:bg-gradient-to-l after:from-background/90 after:to-transparent after:content-[''] md:after:hidden">
-          <div className="flex overflow-x-auto scrollbar-hide pr-10 md:pr-0">
+          <div ref={tabsRef} onScroll={onTabScroll} className="flex overflow-x-auto scrollbar-hide pr-10 md:pr-0">
             <button
               onClick={() => setActiveCategoryId("all")}
-              className={`shrink-0 border-b-[1.5px] px-4 py-4 font-mono text-[10px] uppercase tracking-widest transition-colors duration-200 md:px-5 ${
+              className={`shrink-0 px-4 py-5 font-mono text-[10px] uppercase tracking-widest transition-colors duration-200 md:px-5 md:py-4 ${
                 activeCategoryId === "all"
-                  ? "border-ink text-ink"
-                  : "border-transparent text-muted-foreground hover:text-ink"
+                  ? "font-medium text-ink"
+                  : "text-muted-foreground hover:text-ink"
               }`}
             >
               All
@@ -223,10 +266,10 @@ function ShopPage() {
               <button
                 key={cat.id}
                 onClick={() => setActiveCategoryId(cat.id)}
-                className={`shrink-0 border-b-[1.5px] px-4 py-4 font-mono text-[10px] uppercase tracking-widest transition-colors duration-200 md:px-5 ${
+                className={`shrink-0 px-4 py-5 font-mono text-[10px] uppercase tracking-widest transition-colors duration-200 md:px-5 md:py-4 ${
                   activeCategoryId === cat.id
-                    ? "border-ink text-ink"
-                    : "border-transparent text-muted-foreground hover:text-ink"
+                    ? "font-medium text-ink"
+                    : "text-muted-foreground hover:text-ink"
                 }`}
               >
                 {cat.name}
@@ -234,15 +277,23 @@ function ShopPage() {
             ))}
             <button
               onClick={() => setActiveCategoryId("sale")}
-              className={`md:hidden shrink-0 border-b-[1.5px] px-4 py-4 font-mono text-[10px] uppercase tracking-widest transition-colors duration-200 ${
+              className={`md:hidden shrink-0 px-4 py-5 font-mono text-[10px] uppercase tracking-widest transition-colors duration-200 ${
                 activeCategoryId === "sale"
-                  ? "border-clay text-clay"
-                  : "border-transparent text-clay/60 hover:text-clay"
+                  ? "font-medium text-clay"
+                  : "text-clay/60 hover:text-clay"
               }`}
             >
               Sale
             </button>
           </div>
+
+          {/* Slide indicator — position updated imperatively for smoothness (mobile) */}
+          {tabScrollable && (
+            <div className="mb-2.5 mr-10 h-[2px] overflow-hidden rounded-full bg-ink/10 md:hidden">
+              <div ref={thumbRef} className="h-full min-w-[24px] rounded-full bg-ink/45" />
+            </div>
+          )}
+
           </div>
 
           {/* Divider — always visible, categories scroll before it */}
@@ -356,11 +407,11 @@ function ShopPage() {
                   <div className="text-right">
                     {p.originalPrice && (
                       <p className="font-mono text-[10px] text-muted-foreground line-through">
-                        {p.originalPrice} €
+                        <Price value={p.originalPrice} />
                       </p>
                     )}
                     <p className={`font-mono text-[12px] ${p.isSale ? "text-clay" : "text-ink/70"}`}>
-                      {p.price} €
+                      <Price value={p.price} />
                     </p>
                   </div>
                 </div>
@@ -372,7 +423,7 @@ function ShopPage() {
 
       <div className="border-t border-border py-10 text-center">
         <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
-          All prices include VAT · Free shipping over 200 € · Exchanges within 14 days
+          All prices include VAT · Free shipping over {formatMoney(200, currency, rate)} · Exchanges within 14 days
         </p>
       </div>
     </div>

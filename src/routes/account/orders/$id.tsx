@@ -4,6 +4,9 @@ import { requireAuth } from "@/lib/auth/session";
 import { db } from "@/db";
 import { orders, orderItem } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { Price, useRate } from "@/components/Price";
+import { useCurrency } from "@/store/currencyStore";
+import { formatMoney } from "@/lib/currency";
 
 interface ProductSnapshot {
   name?: string;
@@ -103,6 +106,8 @@ const STATUS_COLOR: Record<string, string> = {
 function OrderDetailPage() {
   const order = Route.useLoaderData();
   const addr = order.shippingAddress;
+  const currency = useCurrency();
+  const rate = useRate();
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -158,11 +163,11 @@ function OrderDetailPage() {
                       <div className="text-right">
                         {item.snapshot.originalPrice && (
                           <p className="font-mono text-[10px] text-muted-foreground line-through">
-                            {item.snapshot.originalPrice} €
+                            <Price value={item.snapshot.originalPrice} />
                           </p>
                         )}
                         <p className={`font-mono text-[13px] ${item.snapshot.originalPrice ? "text-clay" : "text-ink"}`}>
-                          {(item.unitPrice * item.quantity).toFixed(0)} €
+                          <Price value={item.unitPrice * item.quantity} />
                         </p>
                       </div>
                     </div>
@@ -174,21 +179,21 @@ function OrderDetailPage() {
             {/* Price breakdown */}
             <div className="mt-6 space-y-3 border-b border-border pb-6">
               <div className="flex justify-between font-mono text-[11px] text-ink/60">
-                <span>Subtotal</span><span>{order.subtotal.toFixed(0)} €</span>
+                <span>Subtotal</span><Price value={order.subtotal} />
               </div>
               <div className="flex justify-between font-mono text-[11px] text-ink/60">
                 <span>Shipping</span>
-                <span>{order.shippingFee === 0 ? "Free" : `${order.shippingFee.toFixed(0)} €`}</span>
+                <span>{order.shippingFee === 0 ? "Free" : formatMoney(order.shippingFee, currency, rate)}</span>
               </div>
               {order.discountCode && (
                 <div className="flex justify-between font-mono text-[11px] text-green-400">
                   <span>{order.discountCode}</span>
-                  <span>−{order.discountAmount.toFixed(0)} €</span>
+                  <span>−{formatMoney(order.discountAmount, currency, rate)}</span>
                 </div>
               )}
               <div className="flex justify-between border-t border-border pt-3">
                 <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Total</span>
-                <span className="serif text-xl text-ink">{order.total.toFixed(0)} €</span>
+                <Price value={order.total} className="serif text-xl text-ink" />
               </div>
             </div>
           </div>

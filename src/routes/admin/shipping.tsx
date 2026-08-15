@@ -25,35 +25,40 @@ const getShippingConfig = createServerFn({ method: "GET" }).handler(
       const defaults: ShippingConfig = {
         id: "default", enabled: true, fee: 12, freeThreshold: 200,
         paymentFeeEnabled: false, paymentFeePercent: 0, paymentFeeFixed: 0,
+        eurToLekRate: 100, lekRounding: 100,
         updatedAt: new Date(),
       };
       await database.insert(shippingConfig).values(defaults);
       return defaults;
     }
 
-    // Payment fee columns added in migration 0003 — read separately so page works before migration
+    // Payment fee (0003) + currency rate (0005) columns — read separately so page works before migration
     let paymentFeeEnabled = false;
     let paymentFeePercent = 0;
     let paymentFeeFixed = 0;
+    let eurToLekRate = 100;
+    let lekRounding = 100;
     try {
       const pf = await database
-        .select({ paymentFeeEnabled: shippingConfig.paymentFeeEnabled, paymentFeePercent: shippingConfig.paymentFeePercent, paymentFeeFixed: shippingConfig.paymentFeeFixed })
+        .select({ paymentFeeEnabled: shippingConfig.paymentFeeEnabled, paymentFeePercent: shippingConfig.paymentFeePercent, paymentFeeFixed: shippingConfig.paymentFeeFixed, eurToLekRate: shippingConfig.eurToLekRate, lekRounding: shippingConfig.lekRounding })
         .from(shippingConfig)
         .where(eq(shippingConfig.id, "default"))
         .limit(1);
       paymentFeeEnabled = pf[0]?.paymentFeeEnabled ?? false;
       paymentFeePercent = pf[0]?.paymentFeePercent ?? 0;
       paymentFeeFixed = pf[0]?.paymentFeeFixed ?? 0;
+      eurToLekRate = pf[0]?.eurToLekRate ?? 100;
+      lekRounding = pf[0]?.lekRounding ?? 100;
     } catch { /* columns not yet migrated */ }
 
-    return { ...rows[0], paymentFeeEnabled, paymentFeePercent, paymentFeeFixed };
+    return { ...rows[0], paymentFeeEnabled, paymentFeePercent, paymentFeeFixed, eurToLekRate, lekRounding };
   }
 );
 
 const saveShippingConfig = createServerFn({ method: "POST" })
   .validator(
     (input: unknown) =>
-      input as { enabled: boolean; fee: number; freeThreshold: number; paymentFeeEnabled: boolean; paymentFeePercent: number; paymentFeeFixed: number }
+      input as { enabled: boolean; fee: number; freeThreshold: number; paymentFeeEnabled: boolean; paymentFeePercent: number; paymentFeeFixed: number; eurToLekRate: number; lekRounding: number }
   )
   .handler(async ({ data }) => {
     const admin = await requireAdmin();
@@ -65,11 +70,11 @@ const saveShippingConfig = createServerFn({ method: "POST" })
       .set({ enabled: data.enabled, fee: data.fee, freeThreshold: data.freeThreshold, updatedAt: new Date() })
       .where(eq(shippingConfig.id, "default"));
 
-    // Save payment fee fields only if migration has been run
+    // Save payment fee + currency rate fields only if migration has been run
     try {
       await database
         .update(shippingConfig)
-        .set({ paymentFeeEnabled: data.paymentFeeEnabled, paymentFeePercent: data.paymentFeePercent, paymentFeeFixed: data.paymentFeeFixed })
+        .set({ paymentFeeEnabled: data.paymentFeeEnabled, paymentFeePercent: data.paymentFeePercent, paymentFeeFixed: data.paymentFeeFixed, eurToLekRate: data.eurToLekRate, lekRounding: data.lekRounding })
         .where(eq(shippingConfig.id, "default"));
     } catch { /* columns not yet migrated */ }
 
@@ -107,6 +112,8 @@ function Shipping() {
   const [fixedEnabled, setFixedEnabled] = useState((config.paymentFeeEnabled ?? false) && (config.paymentFeeFixed ?? 0) > 0);
   const [paymentFeePercent, setPaymentFeePercent] = useState(String(config.paymentFeePercent ?? 0));
   const [paymentFeeFixed, setPaymentFeeFixed] = useState(String(config.paymentFeeFixed ?? 0));
+  const [eurToLekRate, setEurToLekRate] = useState(String(config.eurToLekRate ?? 100));
+  const [lekRounding, setLekRounding] = useState(String(config.lekRounding ?? 100));
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -121,6 +128,8 @@ function Shipping() {
           paymentFeeEnabled: percentEnabled || fixedEnabled,
           paymentFeePercent: percentEnabled ? (parseFloat(paymentFeePercent) || 0) : 0,
           paymentFeeFixed: fixedEnabled ? (parseFloat(paymentFeeFixed) || 0) : 0,
+          eurToLekRate: parseFloat(eurToLekRate) || 100,
+          lekRounding: parseInt(lekRounding, 10) || 1,
         },
       });
       toast.success("Shipping config saved");
@@ -241,6 +250,43 @@ function Shipping() {
                 ].filter(Boolean).join(" + ")}
               </p>
             )}
+          </div>
+        </div>
+
+        {/* ── Currency ── */}
+        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-6 space-y-5">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">Currency</p>
+          <p className="font-mono text-[10px] text-[var(--color-muted-foreground)]">
+            Prices are stored in EUR. Albania shops in Lek; the Lek price is calculated from this rate.
+          </p>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div>
+              <label htmlFor="cur-rate" className={labelClass}>Exchange rate (1 € = ? L)</label>
+              <input
+                id="cur-rate"
+                type="number"
+                step="0.01"
+                min="0"
+                value={eurToLekRate}
+                onChange={(e) => setEurToLekRate(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label htmlFor="cur-round" className={labelClass}>Round Lek to nearest</label>
+              <input
+                id="cur-round"
+                type="number"
+                step="1"
+                min="1"
+                value={lekRounding}
+                onChange={(e) => setLekRounding(e.target.value)}
+                className={inputClass}
+              />
+              <p className="mt-1 font-mono text-[10px] text-[var(--color-muted-foreground)]">
+                e.g. 100 → a €3.20 item shows as {new Intl.NumberFormat("sq-AL").format(Math.round((parseFloat(eurToLekRate) || 100) * 3.2 / (parseInt(lekRounding, 10) || 1)) * (parseInt(lekRounding, 10) || 1))} L
+              </p>
+            </div>
           </div>
         </div>
 

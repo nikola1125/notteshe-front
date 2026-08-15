@@ -1,10 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useRate } from "@/components/Price";
+import { useCurrency } from "@/store/currencyStore";
+import { formatMoney } from "@/lib/currency";
 
 export const Route = createFileRoute("/shipping")({
   component: ShippingPage,
 });
 
 function ShippingPage() {
+  const currency = useCurrency();
+  const rate = useRate();
+
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-[800px] px-5 pb-32 pt-20 md:px-12 md:pt-28">
@@ -45,7 +51,7 @@ function ShippingPage() {
                 </div>
               ))}
             </div>
-            <p className="mt-4 font-mono text-[11px] text-muted-foreground">Free shipping on all orders over 200 €.</p>
+            <p className="mt-4 font-mono text-[11px] text-muted-foreground">Free shipping on all orders over {formatMoney(200, currency, rate)}.</p>
           </section>
 
           <section>

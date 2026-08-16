@@ -239,10 +239,15 @@ export const placeOrder = createServerFn({ method: "POST" })
       },
     });
 
-    // Notify connected admins in real time (must be awaited on CF Workers,
-    // else the unawaited promise is killed when the response is sent).
-    const { notifyAdmins } = await import("@/lib/admin/sse");
-    await notifyAdmins("new_order", { ref: orderId.slice(0, 8).toUpperCase(), total: orderData.total });
+    // Notify connected admins — skip for gift card-only orders (digital, no fulfilment needed)
+    const isGiftCardOnlyOrder = orderData.items.every((i) => i.isGiftCard);
+    if (!isGiftCardOnlyOrder) {
+      const { notifyAdmins } = await import("@/lib/admin/sse");
+      await notifyAdmins("new_order", { ref: orderId.slice(0, 8).toUpperCase(), total: orderData.total });
+    }
+
+    // Skip order confirmation email for gift card-only orders — recipient already gets the delivery email
+    if (isGiftCardOnlyOrder) return { orderId };
 
     // Fire-and-forget confirmation email
     const { sendOrderConfirmation } = await import("@/lib/resend");

@@ -127,9 +127,9 @@ export async function issueGiftCard(params: IssueGiftCardParams): Promise<string
     orderId: params.sourceOrderId,
   });
 
-  // Send delivery email (fire-and-forget)
+  // Must be awaited on CF Workers — unawaited promises are killed when the response sends
   const { sendGiftCardDelivery } = await import("@/lib/resend");
-  sendGiftCardDelivery({
+  await sendGiftCardDelivery({
     to: params.recipientEmail,
     recipientName: params.recipientName,
     senderName: params.forSelf ? null : params.purchaserEmail,

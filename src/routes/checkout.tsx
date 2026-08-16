@@ -258,11 +258,19 @@ const placeCodOrder = createServerFn({ method: "POST" })
       to: data.shippingForm.email,
       firstName: data.shippingForm.firstName,
       orderId,
-      items: itemsWithPrices.map((i) => ({ name: i.name, size: i.size, colour: i.colour, quantity: i.quantity, unitPrice: i.price })),
+      currency: codCurrency,
+      items: itemsWithPrices.map((i) => ({ name: i.name, size: i.size, colour: i.colour, quantity: i.quantity, unitPrice: i.price, image: i.image })),
       subtotal,
       shippingFee,
+      discountAmount,
       total,
       paymentMethod: "Cash on Delivery",
+      shippingAddress: {
+        firstName: data.shippingForm.firstName, lastName: data.shippingForm.lastName,
+        line1: data.shippingForm.address, line2: data.shippingForm.address2 ?? null,
+        city: data.shippingForm.city, postalCode: data.shippingForm.postalCode,
+        country: data.shippingForm.country, phone: data.shippingForm.phone,
+      },
     }).catch((err) => console.error("[resend] COD confirmation failed:", err));
 
     return { orderId };

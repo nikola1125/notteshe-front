@@ -64,6 +64,8 @@ interface OrderDetailData {
     discountCode: string | null;
     discountAmount: number;
     total: number;
+    currency: "EUR" | "ALL";
+    pokAmount: number | null;
     shippingAddress: ShippingAddress;
     adminNote: string | null;
     trackingNumber: string | null;
@@ -103,6 +105,8 @@ const getOrderDetail = createServerFn({ method: "GET" })
             subtotal: orders.subtotal,
             shippingFee: orders.shippingFee,
             total: orders.total,
+            currency: orders.currency,
+            pokAmount: orders.pokAmount,
             shippingAddress: orders.shippingAddress,
             adminNote: orders.adminNote,
             trackingNumber: orders.trackingNumber,
@@ -163,6 +167,8 @@ const getOrderDetail = createServerFn({ method: "GET" })
         discountCode,
         discountAmount,
         total: Number(o.total),
+        currency: (o.currency ?? "EUR") as "EUR" | "ALL",
+        pokAmount: o.pokAmount != null ? Number(o.pokAmount) : null,
         shippingAddress: o.shippingAddress as ShippingAddress,
         adminNote: o.adminNote,
         trackingNumber: o.trackingNumber,
@@ -408,7 +414,17 @@ function OrderDetail() {
     }
   }
 
+  // Show amounts in the order's currency. EUR values are stored as base; for Lek
+  // orders we convert using the rate implied by the charged amount (pokAmount/total).
+  const orderCurrency = data.order.currency;
+  const lekRate =
+    orderCurrency === "ALL" && data.order.pokAmount && data.order.total > 0
+      ? data.order.pokAmount / data.order.total
+      : 1;
   function fmt(n: number) {
+    if (orderCurrency === "ALL") {
+      return `${new Intl.NumberFormat("sq-AL").format(Math.round(n * lekRate))} L`;
+    }
     return `${n.toFixed(2)} €`;
   }
 

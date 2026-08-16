@@ -96,6 +96,7 @@ async function handleWebhook(body: unknown) {
       size: string; colour: string; quantity: number;
     }>;
     subtotal: number; shippingFee: number; paymentFee?: number; total: number;
+    currency?: "EUR" | "ALL";
   };
   const orderData = pending.orderData as OrderData;
 
@@ -231,13 +232,22 @@ async function handleWebhook(body: unknown) {
     to: orderData.email,
     firstName: orderData.firstName,
     orderId,
+    currency: orderData.currency ?? "EUR",
     items: orderData.items.map((i) => ({
       name: i.name, size: i.size, colour: i.colour,
-      quantity: i.quantity, unitPrice: i.price,
+      quantity: i.quantity, unitPrice: i.price, image: i.image,
     })),
     subtotal: orderData.subtotal,
     shippingFee: orderData.shippingFee,
+    discountAmount: orderData.discountAmount,
     total: orderData.total,
+    paymentMethod: "Card (POK Pay)",
+    shippingAddress: {
+      firstName: orderData.firstName, lastName: orderData.lastName,
+      line1: orderData.address, line2: orderData.address2 ?? null,
+      city: orderData.city, postalCode: orderData.postalCode,
+      country: orderData.country, phone: orderData.phone,
+    },
   }).catch((err) => console.error("[resend] webhook recovery email failed:", err));
 
   console.log("[POK webhook] recovery order created:", orderId);

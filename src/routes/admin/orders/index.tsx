@@ -21,6 +21,8 @@ interface OrderRow {
   email: string;
   itemCount: number;
   total: number;
+  currency: "EUR" | "ALL";
+  pokAmount: number | null;
   status: string;
   createdAt: string;
   isRead: boolean;
@@ -89,6 +91,8 @@ const getOrders = createServerFn({ method: "GET" })
           id: orders.id,
           email: user.email,
           total: orders.total,
+          currency: orders.currency,
+          pokAmount: orders.pokAmount,
           status: orders.status,
           isRead: orders.isRead,
           createdAt: orders.createdAt,
@@ -98,7 +102,7 @@ const getOrders = createServerFn({ method: "GET" })
         .innerJoin(user, eq(orders.userId, user.id))
         .leftJoin(orderItem, eq(orderItem.orderId, orders.id))
         .where(whereClause)
-        .groupBy(orders.id, user.email, orders.isRead)
+        .groupBy(orders.id, user.email, orders.isRead, orders.currency, orders.pokAmount)
         .orderBy(desc(orders.createdAt))
         .limit(PAGE_SIZE)
         .offset(offset),
@@ -126,6 +130,8 @@ const getOrders = createServerFn({ method: "GET" })
         email: r.email,
         itemCount: Number(r.itemCount),
         total: Number(r.total),
+        currency: (r.currency ?? "EUR") as "EUR" | "ALL",
+        pokAmount: r.pokAmount != null ? Number(r.pokAmount) : null,
         status: r.status,
         isRead: r.isRead,
         createdAt: r.createdAt.toISOString(),
@@ -166,8 +172,13 @@ function OrderList() {
     navigate({ to: "/admin/orders", search: { status: data.status, page: "1", search: value.trim() } });
   }
 
-  function fmt(n: number) {
-    return `${n.toFixed(2)} €`;
+  // Show the order in the currency it was purchased in (Lek uses the exact charged amount).
+  function fmtOrder(o: OrderRow) {
+    if (o.currency === "ALL") {
+      const lek = o.pokAmount ?? 0;
+      return `${new Intl.NumberFormat("sq-AL").format(Math.round(lek))} L`;
+    }
+    return `${o.total.toFixed(2)} €`;
   }
 
   function fmtDate(iso: string) {
@@ -287,7 +298,7 @@ function OrderList() {
                   {o.itemCount}
                 </td>
                 <td className="px-4 py-3 font-mono text-xs text-[var(--color-foreground)]">
-                  {fmt(o.total)}
+                  {fmtOrder(o)}
                 </td>
                 <td className="px-4 py-3">
                   <span

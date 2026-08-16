@@ -193,14 +193,22 @@ export const placeOrder = createServerFn({ method: "POST" })
       to: orderData.email,
       firstName: orderData.firstName,
       orderId,
+      currency: orderData.currency ?? "EUR",
       items: orderData.items.map((i) => ({
         name: i.name, size: i.size, colour: i.colour,
-        quantity: i.quantity, unitPrice: i.price,
+        quantity: i.quantity, unitPrice: i.price, image: i.image,
       })),
       subtotal: orderData.subtotal,
       shippingFee: orderData.shippingFee,
+      discountAmount: orderData.discountAmount,
       total: orderData.total,
       paymentMethod: "Card (POK Pay)",
+      shippingAddress: {
+        firstName: orderData.firstName, lastName: orderData.lastName,
+        line1: orderData.address, line2: orderData.address2 ?? null,
+        city: orderData.city, postalCode: orderData.postalCode,
+        country: orderData.country, phone: orderData.phone,
+      },
     }).catch((err) => console.error("[resend] order confirmation failed:", err));
 
     return { orderId };

@@ -52,7 +52,7 @@ export const products: Product[] = [
       "Relaxed fit — model wears size S",
       "Length 74cm (size S)",
       "Dry clean only",
-      "Made in Italy",
+      "Made in Albania",
     ],
     sizes: SIZES_XS_XL,
     colours: [
@@ -80,7 +80,7 @@ export const products: Product[] = [
       "Bias cut — model wears size S",
       "Length 112cm (size S)",
       "Hand wash cold",
-      "Made in Japan",
+      "Made in Albania",
     ],
     sizes: SIZES_XS_XL,
     colours: [
@@ -136,7 +136,7 @@ export const products: Product[] = [
       "Wide-leg, high-waist fit",
       "Inseam 82cm (size S)",
       "Dry clean only",
-      "Made in Japan",
+      "Made in Albania",
     ],
     sizes: SIZES_XS_XL,
     colours: [
@@ -164,7 +164,7 @@ export const products: Product[] = [
       "Relaxed fit — model wears size S",
       "Length 118cm (size S)",
       "Dry clean only",
-      "Made in Italy",
+      "Made in Albania",
     ],
     sizes: SIZES_XS_XL,
     colours: [
@@ -219,7 +219,7 @@ export const products: Product[] = [
       "Relaxed fit — model wears size S",
       "Length 68cm (size S)",
       "Hand wash cold",
-      "Made in Italy",
+      "Made in Albania",
     ],
     sizes: SIZES_XS_XL,
     colours: [
@@ -248,7 +248,7 @@ export const products: Product[] = [
       "Slim fit — model wears size S",
       "Length 58cm (size S)",
       "Machine wash 30°",
-      "Made in Italy",
+      "Made in Albania",
     ],
     sizes: SIZES_XS_XL,
     colours: [
@@ -275,7 +275,7 @@ export const products: Product[] = [
       "Oversized fit — model wears size S",
       "Length 80cm (size S)",
       "Machine wash 30°",
-      "Made in Italy",
+      "Made in Albania",
     ],
     sizes: SIZES_XS_XL,
     colours: [
@@ -302,7 +302,7 @@ export const products: Product[] = [
       "Wide-leg, mid-rise fit",
       "Inseam 80cm (size S)",
       "Machine wash cold, inside out",
-      "Made in Japan",
+      "Made in Albania",
     ],
     sizes: SIZES_XS_XL,
     colours: [
@@ -329,7 +329,7 @@ export const products: Product[] = [
       "Slim fit — model wears size S",
       "Length 110cm (size S)",
       "Hand wash cold",
-      "Made in Italy",
+      "Made in Albania",
     ],
     sizes: SIZES_XS_XL,
     colours: [

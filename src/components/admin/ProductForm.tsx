@@ -310,7 +310,7 @@ export function ProductForm({
             rows={4}
             value={detailsText}
             onChange={(e) => setDetailsText(e.target.value)}
-            placeholder={"100% silk\nDry clean only\nMade in Italy"}
+            placeholder={"100% silk\nDry clean only\nMade in Albania"}
             className={inputClass}
           />
         </div>

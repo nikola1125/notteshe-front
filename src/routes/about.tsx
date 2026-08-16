@@ -15,9 +15,11 @@ function AboutPage() {
         <img
           src={aboutHero}
           alt="Notteshe"
-          className="h-full w-full object-cover object-center"
+          className="h-full w-full object-cover object-center brightness-150"
         />
-        <div className="absolute inset-0 bg-black/55" />
+        {/* Lighter overlay + a bottom gradient so the heading stays readable */}
+        <div className="absolute inset-0 bg-black/15" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/20" />
 
         <div className="absolute inset-0 flex flex-col justify-between px-8 py-10 pt-20 md:px-14 md:py-14 md:pt-20">
           <div className="flex items-center justify-between">
@@ -47,7 +49,7 @@ function AboutPage() {
           "Notteshe was born from a belief that clothing should feel like a second skin — unhurried, intentional, and made to last far beyond a single season."
         </p>
         <div className="mt-8 flex gap-8 border-t border-white/10 pt-6">
-          {[["Founded", "2024"], ["Origin", "Tirana, AL"], ["Made in", "IT · JP"], ["Seasons", "Two / year"]].map(([k, v]) => (
+          {[["Founded", "2024"], ["Origin", "Tirana, AL"], ["Made in", "Albania"], ["Seasons", "Two / year"]].map(([k, v]) => (
             <div key={k}>
               <p className="font-mono text-[8px] uppercase tracking-[0.3em] text-white/25">{k}</p>
               <p className="mt-1 font-mono text-[11px] text-white/70">{v}</p>
@@ -110,7 +112,7 @@ function AboutPage() {
         <div className="mt-10 grid grid-cols-1 gap-0 border-t border-white/10 md:grid-cols-3">
           {[
             { n: "I", title: "Slow fashion", body: "Two collections a year. No drops, no hype — just considered design." },
-            { n: "II", title: "Natural craft", body: "Six mills in Italy and Japan. Cut in ateliers we visit ourselves." },
+            { n: "II", title: "Natural craft", body: "Made in Albania. Cut in ateliers we visit ourselves." },
             { n: "III", title: "Transparent", body: "We show our cost of production. No inflated markups." },
           ].map((v, i) => (
             <div key={v.n} className={`py-8 pr-8 md:py-10 md:pr-14 ${i > 0 ? "border-t border-white/10 md:border-t-0 md:border-l md:pl-14 md:pr-0" : ""}`}>

@@ -263,9 +263,19 @@ function StructuredRow({ row }: { row: HomeRowResolved }) {
 function Index() {
   const { wardrobe, wardrobeTotal, sale, homeRows } = Route.useLoaderData();
   const router = useRouter();
-  // Default to "done" (no intro) so SSR and back/forward navigation never show
-  // it; a first-entry check below opts in to playing it once per session.
-  const [introDone, setIntroDone] = useState(true);
+  // Decide synchronously (in the initializer) so the intro overlay is present on the
+  // very first paint — no hero flash before it. SSR assumes first visit (renders the
+  // intro, which fully covers the hero); the client skips it if already played this
+  // session or on back/forward navigation.
+  const [introDone, setIntroDone] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false; // SSR → render intro over hero
+    try {
+      if (sessionStorage.getItem(INTRO_KEY) === "1") return true; // already shown this session
+      const navType = (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined)?.type;
+      if (navType === "back_forward") return true; // don't replay on back/forward
+    } catch { /* storage blocked */ }
+    return false; // genuine first entry → play intro
+  });
   const saleRef = useRef<HTMLDivElement>(null);
   const wardrobeSectionRef = useRef<HTMLElement>(null);
   const [wardrobePage, setWardrobePage] = useState(0);
@@ -282,18 +292,12 @@ function Index() {
     else el.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  // Persist "played" whenever the intro is skipped or finishes, so it shows once/session.
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    let played = false;
-    try { played = sessionStorage.getItem(INTRO_KEY) === "1"; } catch { /* storage blocked */ }
-    const navType = (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined)?.type;
-    // Play only on a genuine first entry this session — not on back/forward.
-    if (!played && navType !== "back_forward") {
-      setIntroDone(false);
-    } else {
+    if (introDone) {
       try { sessionStorage.setItem(INTRO_KEY, "1"); } catch { /* storage blocked */ }
     }
-  }, []);
+  }, [introDone]);
 
   // Refetch when the tab regains focus/visibility (e.g. switching back from admin)
   // so wardrobe/collection order changes appear without a manual refresh.
@@ -686,7 +690,7 @@ function Index() {
             <div className="col-span-12 md:col-span-4">
               <div className="serif text-3xl text-ink">Notteshe<span className="text-clay">.</span></div>
               <p className="mt-4 max-w-xs text-[13px] leading-relaxed text-muted-foreground/70">
-                Quiet clothes for loud lives. Designed in Milan, made across Italy and Japan.
+                Quiet clothes for loud lives. Designed and made in Albania.
               </p>
               <div className="mt-6 flex gap-5">
                 {["Instagram", "Substack"].map((s) => (

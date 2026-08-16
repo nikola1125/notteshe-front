@@ -220,6 +220,8 @@ export const orders = pgTable("orders", {
   paymentFee: real("payment_fee").notNull().default(0),
   discountCode: text("discount_code"),
   discountAmount: real("discount_amount").notNull().default(0),
+  giftCardCode: text("gift_card_code"),
+  giftCardAmountLek: real("gift_card_amount_lek").notNull().default(0),
   total: real("total").notNull(),
   // Currency the order was charged in, and the exact amount sent to POK in that
   // currency. `total`/`subtotal`/etc. stay in EUR base; these capture what POK took.
@@ -402,8 +404,54 @@ export const contactMessage = pgTable("contact_message", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// ─── Gift Card ────────────────────────────────────────────────────────────────
+
+export const giftCard = pgTable("gift_card", {
+  id: text("id").primaryKey(),
+  code: text("code").notNull().unique(),          // NOTT-XXXX-XXXX-XXXX
+  initialAmount: real("initial_amount").notNull(), // Lek face value
+  balance: real("balance").notNull(),              // Lek remaining
+  status: text("status").notNull().default("active"), // active|depleted|disabled|expired
+  purchaserUserId: text("purchaser_user_id").references(() => user.id, { onDelete: "set null" }),
+  purchaserEmail: text("purchaser_email").notNull(),
+  recipientEmail: text("recipient_email").notNull(),
+  recipientName: text("recipient_name").notNull(),
+  message: text("message"),
+  sourceOrderId: text("source_order_id"),          // order that purchased this card
+  issuedByAdminId: text("issued_by_admin_id").references(() => adminUser.id, { onDelete: "set null" }),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastUsedAt: timestamp("last_used_at"),
+}, (t) => [
+  index("gift_card_code_idx").on(t.code),
+  index("gift_card_status_idx").on(t.status),
+  index("gift_card_purchaser_idx").on(t.purchaserUserId),
+]);
+
+// ─── Gift Card Transaction (append-only ledger) ───────────────────────────────
+
+export const giftCardTransaction = pgTable("gift_card_transaction", {
+  id: text("id").primaryKey(),
+  giftCardId: text("gift_card_id").notNull().references(() => giftCard.id, { onDelete: "cascade" }),
+  // issue: +amount (issued), redeem: −amount (spent), refund: +amount (credited back),
+  // adjust: signed (admin manual), expire: −balance (zeroed on expiry)
+  type: text("type").notNull(),
+  amount: real("amount").notNull(),               // signed Lek
+  balanceAfter: real("balance_after").notNull(),  // Lek balance after this tx
+  orderId: text("order_id"),
+  adminId: text("admin_id").references(() => adminUser.id, { onDelete: "set null" }),
+  note: text("note"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  index("gc_tx_gift_card_idx").on(t.giftCardId),
+  index("gc_tx_order_idx").on(t.orderId),
+  index("gc_tx_created_idx").on(t.createdAt),
+]);
+
 // ─── Type exports ─────────────────────────────────────────────────────────────
 
+export type GiftCard = typeof giftCard.$inferSelect;
+export type GiftCardTransaction = typeof giftCardTransaction.$inferSelect;
 export type User = typeof user.$inferSelect;
 export type NewUser = typeof user.$inferInsert;
 export type Session = typeof session.$inferSelect;

@@ -179,3 +179,92 @@ export async function sendOrderConfirmation(data: OrderConfirmationData) {
       ],
     });
 }
+
+// ─── Gift Card Delivery Email ─────────────────────────────────────────────────
+
+interface GiftCardDeliveryData {
+  to: string;
+  recipientName: string;
+  senderName: string | null;    // null = for self
+  code: string;
+  amountLek: number;
+  message: string | null;
+}
+
+export async function sendGiftCardDelivery(data: GiftCardDeliveryData) {
+  const fromEmail = getRuntimeEnv("EMAIL_FROM") ?? "order@notteshe.com";
+  const formattedAmount = `${new Intl.NumberFormat("sq-AL").format(Math.round(data.amountLek))} L`;
+
+  const senderLine = data.senderName
+    ? `<p style="margin:0 0 8px;font-family:${SANS};font-size:13px;line-height:1.7;color:${C.muted};">
+        Sent with love from <strong style="color:${C.ink};">${data.senderName}</strong>.
+      </p>`
+    : "";
+
+  const messageLine = data.message
+    ? `<blockquote style="margin:20px 0;padding:16px 20px;border-left:2px solid ${C.border};font-family:${SERIF};font-style:italic;font-size:16px;color:${C.muted};">"${data.message}"</blockquote>`
+    : "";
+
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
+<body style="margin:0;padding:0;background:${C.bg};">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:${C.bg};padding:40px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="width:600px;max-width:92%;background:${C.card};border:1px solid ${C.border};">
+
+        <!-- Header -->
+        <tr><td align="center" style="padding:40px 44px 28px;border-bottom:1px solid ${C.border};">
+          <div style="font-family:${SERIF};font-size:30px;color:${C.ink};letter-spacing:0.5px;">Notteshe<span style="color:${C.clay};">.</span></div>
+          <div style="margin-top:10px;font-family:${SERIF};font-style:italic;font-size:16px;color:${C.clay};">— Grua e Fortë —</div>
+        </td></tr>
+
+        <!-- Gift card hero -->
+        <tr><td align="center" style="padding:48px 44px 32px;">
+          <p style="margin:0 0 10px;font-family:${SANS};font-size:10px;letter-spacing:0.22em;text-transform:uppercase;color:${C.muted};">You received a gift card</p>
+          <h1 style="margin:0 0 8px;font-family:${SERIF};font-weight:400;font-size:54px;line-height:1;color:${C.ink};">${formattedAmount}</h1>
+          <p style="margin:0;font-family:${SANS};font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:${C.muted};">Gift card · Notteshe</p>
+        </td></tr>
+
+        <!-- Personal message -->
+        <tr><td style="padding:0 44px 32px;">
+          ${senderLine}
+          ${messageLine}
+          <p style="margin:0;font-family:${SANS};font-size:13px;line-height:1.7;color:${C.muted};">
+            Dear ${data.recipientName}, use the code below at checkout on
+            <a href="https://notteshe.com" style="color:${C.clay};">notteshe.com</a> to redeem your gift card.
+          </p>
+        </td></tr>
+
+        <!-- Code block -->
+        <tr><td align="center" style="padding:0 44px 48px;">
+          <div style="border:1px solid ${C.border};padding:28px 32px;text-align:center;">
+            <p style="margin:0 0 12px;font-family:${SANS};font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:${C.muted};">Your gift card code</p>
+            <p style="margin:0;font-family:monospace;font-size:28px;letter-spacing:0.25em;color:${C.ink};">${data.code}</p>
+          </div>
+          <p style="margin:16px 0 0;font-family:${SANS};font-size:11px;color:${C.muted};opacity:0.7;">Enter this code at checkout · No expiry</p>
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td align="center" style="padding:26px 44px;border-top:1px solid ${C.border};">
+          <p style="margin:0 0 6px;font-family:${SANS};font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:${C.muted};">Designed and made in Albania</p>
+          <p style="margin:0;font-family:${SANS};font-size:10px;color:${C.muted};opacity:0.7;">© Notteshe · All rights reserved</p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  await getMailjet()
+    .post("send", { version: "v3.1" })
+    .request({
+      Messages: [
+        {
+          From: { Email: fromEmail, Name: "Notteshe" },
+          To: [{ Email: data.to, Name: data.recipientName }],
+          Subject: `Your ${formattedAmount} Notteshe gift card`,
+          HTMLPart: html,
+        },
+      ],
+    });
+}

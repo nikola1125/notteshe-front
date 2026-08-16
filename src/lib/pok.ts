@@ -36,6 +36,8 @@ const CreatePokOrderSchema = z.object({
   // Currency the shopper selected. EUR is the base price; ALL is converted server-side.
   currency: z.enum(["EUR", "ALL"]).default("EUR"),
   discountCode: z.string().optional(),
+  // Gift card being redeemed (applied as payment reduction, separate from purchase)
+  giftCardCode: z.string().optional(),
   shippingForm: z.object({
     email: z.string().email(),
     phone: z.string(),
@@ -54,8 +56,33 @@ const CreatePokOrderSchema = z.object({
     colour: z.string(),
     quantity: z.number().int().positive(),
     image: z.string(),
+    // Gift card purchase fields
+    isGiftCard: z.boolean().optional(),
+    giftCardAmountLek: z.number().optional(),
+    giftCardRecipientEmail: z.string().optional(),
+    giftCardRecipientName: z.string().optional(),
+    giftCardMessage: z.string().optional(),
+    giftCardForSelf: z.boolean().optional(),
   })),
 });
+
+export type OrderDataItem = {
+  productId: string;
+  name: string;
+  price: number;
+  originalPrice: number | null;
+  image: string;
+  size: string;
+  colour: string;
+  quantity: number;
+  // Gift card purchase metadata
+  isGiftCard?: boolean;
+  giftCardAmountLek?: number;
+  giftCardRecipientEmail?: string;
+  giftCardRecipientName?: string;
+  giftCardMessage?: string;
+  giftCardForSelf?: boolean;
+};
 
 export type OrderDataPayload = {
   email: string;
@@ -69,20 +96,13 @@ export type OrderDataPayload = {
   country: string;
   discountCode: string | null;
   discountAmount: number;
-  items: Array<{
-    productId: string;
-    name: string;
-    price: number;
-    originalPrice: number | null;
-    image: string;
-    size: string;
-    colour: string;
-    quantity: number;
-  }>;
+  giftCardCode: string | null;   // gift card used for redemption (not purchase)
+  giftCardAmountLek: number;     // Lek amount to debit on success
+  items: Array<OrderDataItem>;
   subtotal: number;
   shippingFee: number;
   paymentFee: number;
-  total: number;              // EUR base total (source of truth)
+  total: number;              // EUR base total (source of truth — after gift card reduction)
   currency: "EUR" | "ALL";    // currency charged via POK
   pokAmount: number;          // exact amount sent to POK in `currency`
 };
@@ -96,10 +116,19 @@ export const createPokOrder = createServerFn({ method: "POST" })
       productSize, pendingOrder, product, shippingConfig,
       discountCode: discountCodeTable, auditLog,
     } = await import("@/db/schema");
-    const { inArray, and, eq, gt, gte, count, sql } = await import("drizzle-orm");
+    const { inArray, and, eq, gt, count } = await import("drizzle-orm");
 
     const session = await requireAuth();
     const userId = session.user.id;
+
+    // Separate regular items from gift card purchase items
+    const regularItems = data.items.filter((i) => !i.isGiftCard);
+    const giftCardPurchaseItems = data.items.filter((i) => i.isGiftCard);
+
+    // No gift-card-on-gift-card: can't use a gift card to BUY a gift card
+    if (giftCardPurchaseItems.length > 0 && data.giftCardCode) {
+      throw new Error("Gift cards cannot be purchased using another gift card.");
+    }
 
     // ── Rate limit: max 3 POK order initiations per user per 2 minutes ──────────
     const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
@@ -111,23 +140,27 @@ export const createPokOrder = createServerFn({ method: "POST" })
       throw new Error("Too many payment attempts. Please wait a moment and try again.");
     }
 
-    // ── Fetch authoritative prices from DB ────────────────────────────────────
-    const productIds = [...new Set(data.items.map((i) => i.productId))];
+    // ── Fetch authoritative prices from DB (regular items only) ───────────────
+    const productIds = [...new Set(regularItems.map((i) => i.productId))];
     const [productRows, sizeRows] = await Promise.all([
-      db()
-        .select({ id: product.id, price: product.price, originalPrice: product.originalPrice, isSale: product.isSale })
-        .from(product)
-        .where(inArray(product.id, productIds)),
-      db()
-        .select({ productId: productSize.productId, label: productSize.label, stock: productSize.stock })
-        .from(productSize)
-        .where(inArray(productSize.productId, productIds)),
+      productIds.length > 0
+        ? db()
+            .select({ id: product.id, price: product.price, originalPrice: product.originalPrice, isSale: product.isSale })
+            .from(product)
+            .where(inArray(product.id, productIds))
+        : Promise.resolve([]),
+      productIds.length > 0
+        ? db()
+            .select({ productId: productSize.productId, label: productSize.label, stock: productSize.stock })
+            .from(productSize)
+            .where(inArray(productSize.productId, productIds))
+        : Promise.resolve([]),
     ]);
 
     const priceMap = new Map(productRows.map((p) => [p.id, p]));
 
-    // Build items with server-fetched prices
-    const itemsWithPrices = data.items.map((item) => {
+    // Build regular items with server-fetched prices
+    const regularItemsWithPrices = regularItems.map((item) => {
       const p = priceMap.get(item.productId);
       if (!p) throw new Error(`Product "${item.name}" is no longer available.`);
       return {
@@ -147,14 +180,15 @@ export const createPokOrder = createServerFn({ method: "POST" })
     const reserved = new Map<string, number>();
     for (const row of activePending) {
       if (row.userId === userId) continue;
-      const od = row.orderData as { items?: Array<{ productId: string; size: string; quantity: number }> };
+      const od = row.orderData as { items?: Array<{ productId: string; size: string; quantity: number; isGiftCard?: boolean }> };
       for (const item of od.items ?? []) {
+        if (item.isGiftCard) continue;
         const key = `${item.productId}::${item.size}`;
         reserved.set(key, (reserved.get(key) ?? 0) + item.quantity);
       }
     }
 
-    for (const item of data.items) {
+    for (const item of regularItems) {
       const row = sizeRows.find((s) => s.productId === item.productId && s.label === item.size);
       const reservedQty = reserved.get(`${item.productId}::${item.size}`) ?? 0;
       const available = (row?.stock ?? 0) - reservedQty;
@@ -164,14 +198,16 @@ export const createPokOrder = createServerFn({ method: "POST" })
     }
 
     // ── Compute totals server-side ─────────────────────────────────────────────
-    const subtotal = itemsWithPrices.reduce((s, i) => s + i.price * i.quantity, 0);
+    // Gift card price in EUR = amountLek / rate (rate fetched below)
+    // Build combined item list (prices filled in for gift cards after rate is known)
+    const regularSubtotal = regularItemsWithPrices.reduce((s, i) => s + i.price * i.quantity, 0);
 
     const [cfg] = await db()
       .select({ enabled: shippingConfig.enabled, fee: shippingConfig.fee, freeThreshold: shippingConfig.freeThreshold })
       .from(shippingConfig)
       .limit(1);
 
-    // Payment fee (0003) + currency rate (0005) columns — read separately so order creation works before migration
+    // Payment fee (0003) + currency rate (0005) columns
     let paymentFeeCfg = { paymentFeeEnabled: false, paymentFeePercent: 0, paymentFeeFixed: 0 };
     let eurToLekRate = 100;
     let lekRounding = 100;
@@ -186,12 +222,33 @@ export const createPokOrder = createServerFn({ method: "POST" })
         lekRounding = pf.lekRounding ?? 100;
       }
     } catch { /* columns not yet migrated */ }
-    const shippingFee = cfg?.enabled
-      ? (subtotal >= (cfg.freeThreshold ?? 200) ? 0 : (cfg.fee ?? 12))
-      : 0;
+
+    // Gift card purchase items: price in EUR = amountLek / rate
+    const gcItemsWithPrices = giftCardPurchaseItems.map((item) => {
+      const amountLek = item.giftCardAmountLek ?? 0;
+      if (amountLek <= 0) throw new Error(`Invalid gift card amount for "${item.name}".`);
+      const priceEur = Math.round((amountLek / eurToLekRate) * 100) / 100;
+      return {
+        ...item,
+        price: priceEur,
+        originalPrice: null as null,
+        isGiftCard: true as const,
+        giftCardAmountLek: amountLek,
+      };
+    });
+
+    // Combined item list for order payload
+    const itemsWithPrices: OrderDataItem[] = [
+      ...regularItemsWithPrices,
+      ...gcItemsWithPrices,
+    ];
+
+    // Shipping: free if cart has only gift cards (digital items, no physical shipment)
+    const subtotal = regularSubtotal + gcItemsWithPrices.reduce((s, i) => s + i.price * i.quantity, 0);
+    const shippingFee = regularItemsWithPrices.length === 0 ? 0 :
+      (cfg?.enabled ? (regularSubtotal >= (cfg.freeThreshold ?? 200) ? 0 : (cfg.fee ?? 12)) : 0);
 
     // Validate discount server-side (read-only check — increment happens in placeOrder)
-
     let discountAmount = 0;
     let validatedDiscountCode: string | null = null;
     if (data.discountCode) {
@@ -207,18 +264,31 @@ export const createPokOrder = createServerFn({ method: "POST" })
         code.isActive &&
         (!code.expiresAt || code.expiresAt > nowTs) &&
         (code.maxUses === null || code.usedCount < code.maxUses) &&
-        (code.minOrderAmount === null || subtotal >= code.minOrderAmount)
+        (code.minOrderAmount === null || regularSubtotal >= code.minOrderAmount)
       ) {
         const saleCheck = productRows.filter((p) => p.isSale).map((p) => p.id);
-        const hasSaleItem = data.items.some((i) => saleCheck.includes(i.productId));
+        const hasSaleItem = regularItems.some((i) => saleCheck.includes(i.productId));
         if (!hasSaleItem) {
           discountAmount = code.type === "PERCENT"
-            ? Math.round(subtotal * (code.value / 100) * 100) / 100
-            : Math.min(code.value, subtotal);
+            ? Math.round(regularSubtotal * (code.value / 100) * 100) / 100
+            : Math.min(code.value, regularSubtotal);
           validatedDiscountCode = code.code;
         }
       }
     }
+
+    // Validate gift card redemption (read-only — debit happens in placeOrder)
+    let giftCardAmountLek = 0;
+    let validatedGiftCardCode: string | null = null;
+    if (data.giftCardCode) {
+      const { validateGiftCard } = await import("@/lib/giftCard");
+      const amountDueEur = Math.max(0, subtotal + shippingFee - discountAmount);
+      const gcResult = await validateGiftCard(data.giftCardCode, amountDueEur, eurToLekRate);
+      if (!gcResult.valid) throw new Error(gcResult.error);
+      validatedGiftCardCode = gcResult.code;
+      giftCardAmountLek = gcResult.appliedLek;
+    }
+    const giftCardAppliedEur = giftCardAmountLek / eurToLekRate;
 
     // Payment processing fee charged to customer
     const paymentFee = paymentFeeCfg.paymentFeeEnabled
@@ -228,7 +298,7 @@ export const createPokOrder = createServerFn({ method: "POST" })
         ) / 100
       : 0;
 
-    const total = Math.max(0, subtotal + shippingFee - discountAmount + paymentFee);
+    const total = Math.max(0, subtotal + shippingFee - discountAmount + paymentFee - giftCardAppliedEur);
 
     // ── Convert EUR base amounts into the currency POK will charge ─────────────
     // EUR: keep 2 decimals. ALL: multiply by rate and round to the nearest step.
@@ -260,6 +330,8 @@ export const createPokOrder = createServerFn({ method: "POST" })
       country: data.shippingForm.country,
       discountCode: validatedDiscountCode,
       discountAmount,
+      giftCardCode: validatedGiftCardCode,
+      giftCardAmountLek,
       items: itemsWithPrices,
       subtotal,
       shippingFee,

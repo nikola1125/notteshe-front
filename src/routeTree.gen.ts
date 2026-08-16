@@ -18,6 +18,7 @@ import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as ExchangesRouteImport } from './routes/exchanges'
 import { Route as FaqRouteImport } from './routes/faq'
+import { Route as GiftCardsRouteImport } from './routes/gift-cards'
 import { Route as OrderConfirmedRouteImport } from './routes/order-confirmed'
 import { Route as ShippingRouteImport } from './routes/shipping'
 import { Route as ShopRouteImport } from './routes/shop'
@@ -42,6 +43,8 @@ import { Route as AdminCollectionsIdRouteImport } from './routes/admin/collectio
 import { Route as AdminCollectionsNewRouteImport } from './routes/admin/collections/new'
 import { Route as AdminCustomersIndexRouteImport } from './routes/admin/customers/index'
 import { Route as AdminCustomersIdRouteImport } from './routes/admin/customers/$id'
+import { Route as AdminGiftCardsIndexRouteImport } from './routes/admin/gift-cards/index'
+import { Route as AdminGiftCardsIdRouteImport } from './routes/admin/gift-cards/$id'
 import { Route as AdminNotificationsGeneralRouteImport } from './routes/admin/notifications/general'
 import { Route as AdminNotificationsRequestsRouteImport } from './routes/admin/notifications/requests'
 import { Route as AdminOrdersIndexRouteImport } from './routes/admin/orders/index'
@@ -93,6 +96,11 @@ const ExchangesRoute = ExchangesRouteImport.update({
 const FaqRoute = FaqRouteImport.update({
   id: '/faq',
   path: '/faq',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GiftCardsRoute = GiftCardsRouteImport.update({
+  id: '/gift-cards',
+  path: '/gift-cards',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OrderConfirmedRoute = OrderConfirmedRouteImport.update({
@@ -215,6 +223,16 @@ const AdminCustomersIdRoute = AdminCustomersIdRouteImport.update({
   path: '/customers/$id',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminGiftCardsIndexRoute = AdminGiftCardsIndexRouteImport.update({
+  id: '/gift-cards/',
+  path: '/gift-cards/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminGiftCardsIdRoute = AdminGiftCardsIdRouteImport.update({
+  id: '/gift-cards/$id',
+  path: '/gift-cards/$id',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminNotificationsGeneralRoute =
   AdminNotificationsGeneralRouteImport.update({
     id: '/notifications/general',
@@ -263,6 +281,7 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/exchanges': typeof ExchangesRoute
   '/faq': typeof FaqRoute
+  '/gift-cards': typeof GiftCardsRoute
   '/order-confirmed': typeof OrderConfirmedRoute
   '/shipping': typeof ShippingRoute
   '/shop': typeof ShopRouteWithChildren
@@ -284,6 +303,7 @@ export interface FileRoutesByFullPath {
   '/admin/collections/$id': typeof AdminCollectionsIdRoute
   '/admin/collections/new': typeof AdminCollectionsNewRoute
   '/admin/customers/$id': typeof AdminCustomersIdRoute
+  '/admin/gift-cards/$id': typeof AdminGiftCardsIdRoute
   '/admin/notifications/general': typeof AdminNotificationsGeneralRoute
   '/admin/notifications/requests': typeof AdminNotificationsRequestsRoute
   '/admin/orders/$id': typeof AdminOrdersIdRoute
@@ -292,6 +312,7 @@ export interface FileRoutesByFullPath {
   '/account/orders/': typeof AccountOrdersIndexRoute
   '/admin/collections/': typeof AdminCollectionsIndexRoute
   '/admin/customers/': typeof AdminCustomersIndexRoute
+  '/admin/gift-cards/': typeof AdminGiftCardsIndexRoute
   '/admin/orders/': typeof AdminOrdersIndexRoute
   '/admin/products/': typeof AdminProductsIndexRoute
 }
@@ -304,6 +325,7 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/exchanges': typeof ExchangesRoute
   '/faq': typeof FaqRoute
+  '/gift-cards': typeof GiftCardsRoute
   '/order-confirmed': typeof OrderConfirmedRoute
   '/shipping': typeof ShippingRoute
   '/size-guide': typeof SizeGuideRoute
@@ -324,6 +346,7 @@ export interface FileRoutesByTo {
   '/admin/collections/$id': typeof AdminCollectionsIdRoute
   '/admin/collections/new': typeof AdminCollectionsNewRoute
   '/admin/customers/$id': typeof AdminCustomersIdRoute
+  '/admin/gift-cards/$id': typeof AdminGiftCardsIdRoute
   '/admin/notifications/general': typeof AdminNotificationsGeneralRoute
   '/admin/notifications/requests': typeof AdminNotificationsRequestsRoute
   '/admin/orders/$id': typeof AdminOrdersIdRoute
@@ -332,6 +355,7 @@ export interface FileRoutesByTo {
   '/account/orders': typeof AccountOrdersIndexRoute
   '/admin/collections': typeof AdminCollectionsIndexRoute
   '/admin/customers': typeof AdminCustomersIndexRoute
+  '/admin/gift-cards': typeof AdminGiftCardsIndexRoute
   '/admin/orders': typeof AdminOrdersIndexRoute
   '/admin/products': typeof AdminProductsIndexRoute
 }
@@ -346,6 +370,7 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/exchanges': typeof ExchangesRoute
   '/faq': typeof FaqRoute
+  '/gift-cards': typeof GiftCardsRoute
   '/order-confirmed': typeof OrderConfirmedRoute
   '/shipping': typeof ShippingRoute
   '/shop': typeof ShopRouteWithChildren
@@ -367,6 +392,7 @@ export interface FileRoutesById {
   '/admin/collections/$id': typeof AdminCollectionsIdRoute
   '/admin/collections/new': typeof AdminCollectionsNewRoute
   '/admin/customers/$id': typeof AdminCustomersIdRoute
+  '/admin/gift-cards/$id': typeof AdminGiftCardsIdRoute
   '/admin/notifications/general': typeof AdminNotificationsGeneralRoute
   '/admin/notifications/requests': typeof AdminNotificationsRequestsRoute
   '/admin/orders/$id': typeof AdminOrdersIdRoute
@@ -375,6 +401,7 @@ export interface FileRoutesById {
   '/account/orders/': typeof AccountOrdersIndexRoute
   '/admin/collections/': typeof AdminCollectionsIndexRoute
   '/admin/customers/': typeof AdminCustomersIndexRoute
+  '/admin/gift-cards/': typeof AdminGiftCardsIndexRoute
   '/admin/orders/': typeof AdminOrdersIndexRoute
   '/admin/products/': typeof AdminProductsIndexRoute
 }
@@ -390,6 +417,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/exchanges'
     | '/faq'
+    | '/gift-cards'
     | '/order-confirmed'
     | '/shipping'
     | '/shop'
@@ -411,6 +439,7 @@ export interface FileRouteTypes {
     | '/admin/collections/$id'
     | '/admin/collections/new'
     | '/admin/customers/$id'
+    | '/admin/gift-cards/$id'
     | '/admin/notifications/general'
     | '/admin/notifications/requests'
     | '/admin/orders/$id'
@@ -419,6 +448,7 @@ export interface FileRouteTypes {
     | '/account/orders/'
     | '/admin/collections/'
     | '/admin/customers/'
+    | '/admin/gift-cards/'
     | '/admin/orders/'
     | '/admin/products/'
   fileRoutesByTo: FileRoutesByTo
@@ -431,6 +461,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/exchanges'
     | '/faq'
+    | '/gift-cards'
     | '/order-confirmed'
     | '/shipping'
     | '/size-guide'
@@ -451,6 +482,7 @@ export interface FileRouteTypes {
     | '/admin/collections/$id'
     | '/admin/collections/new'
     | '/admin/customers/$id'
+    | '/admin/gift-cards/$id'
     | '/admin/notifications/general'
     | '/admin/notifications/requests'
     | '/admin/orders/$id'
@@ -459,6 +491,7 @@ export interface FileRouteTypes {
     | '/account/orders'
     | '/admin/collections'
     | '/admin/customers'
+    | '/admin/gift-cards'
     | '/admin/orders'
     | '/admin/products'
   id:
@@ -472,6 +505,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/exchanges'
     | '/faq'
+    | '/gift-cards'
     | '/order-confirmed'
     | '/shipping'
     | '/shop'
@@ -493,6 +527,7 @@ export interface FileRouteTypes {
     | '/admin/collections/$id'
     | '/admin/collections/new'
     | '/admin/customers/$id'
+    | '/admin/gift-cards/$id'
     | '/admin/notifications/general'
     | '/admin/notifications/requests'
     | '/admin/orders/$id'
@@ -501,6 +536,7 @@ export interface FileRouteTypes {
     | '/account/orders/'
     | '/admin/collections/'
     | '/admin/customers/'
+    | '/admin/gift-cards/'
     | '/admin/orders/'
     | '/admin/products/'
   fileRoutesById: FileRoutesById
@@ -515,6 +551,7 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   ExchangesRoute: typeof ExchangesRoute
   FaqRoute: typeof FaqRoute
+  GiftCardsRoute: typeof GiftCardsRoute
   OrderConfirmedRoute: typeof OrderConfirmedRoute
   ShippingRoute: typeof ShippingRoute
   ShopRoute: typeof ShopRouteWithChildren
@@ -587,6 +624,13 @@ declare module '@tanstack/react-router' {
       path: '/faq'
       fullPath: '/faq'
       preLoaderRoute: typeof FaqRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gift-cards': {
+      id: '/gift-cards'
+      path: '/gift-cards'
+      fullPath: '/gift-cards'
+      preLoaderRoute: typeof GiftCardsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/order-confirmed': {
@@ -757,6 +801,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCustomersIdRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/gift-cards/': {
+      id: '/admin/gift-cards/'
+      path: '/gift-cards'
+      fullPath: '/admin/gift-cards/'
+      preLoaderRoute: typeof AdminGiftCardsIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/gift-cards/$id': {
+      id: '/admin/gift-cards/$id'
+      path: '/gift-cards/$id'
+      fullPath: '/admin/gift-cards/$id'
+      preLoaderRoute: typeof AdminGiftCardsIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/notifications/general': {
       id: '/admin/notifications/general'
       path: '/notifications/general'
@@ -834,6 +892,7 @@ interface AdminRouteChildren {
   AdminCollectionsIdRoute: typeof AdminCollectionsIdRoute
   AdminCollectionsNewRoute: typeof AdminCollectionsNewRoute
   AdminCustomersIdRoute: typeof AdminCustomersIdRoute
+  AdminGiftCardsIdRoute: typeof AdminGiftCardsIdRoute
   AdminNotificationsGeneralRoute: typeof AdminNotificationsGeneralRoute
   AdminNotificationsRequestsRoute: typeof AdminNotificationsRequestsRoute
   AdminOrdersIdRoute: typeof AdminOrdersIdRoute
@@ -841,6 +900,7 @@ interface AdminRouteChildren {
   AdminProductsNewRoute: typeof AdminProductsNewRoute
   AdminCollectionsIndexRoute: typeof AdminCollectionsIndexRoute
   AdminCustomersIndexRoute: typeof AdminCustomersIndexRoute
+  AdminGiftCardsIndexRoute: typeof AdminGiftCardsIndexRoute
   AdminOrdersIndexRoute: typeof AdminOrdersIndexRoute
   AdminProductsIndexRoute: typeof AdminProductsIndexRoute
 }
@@ -857,6 +917,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminCollectionsIdRoute: AdminCollectionsIdRoute,
   AdminCollectionsNewRoute: AdminCollectionsNewRoute,
   AdminCustomersIdRoute: AdminCustomersIdRoute,
+  AdminGiftCardsIdRoute: AdminGiftCardsIdRoute,
   AdminNotificationsGeneralRoute: AdminNotificationsGeneralRoute,
   AdminNotificationsRequestsRoute: AdminNotificationsRequestsRoute,
   AdminOrdersIdRoute: AdminOrdersIdRoute,
@@ -864,6 +925,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminProductsNewRoute: AdminProductsNewRoute,
   AdminCollectionsIndexRoute: AdminCollectionsIndexRoute,
   AdminCustomersIndexRoute: AdminCustomersIndexRoute,
+  AdminGiftCardsIndexRoute: AdminGiftCardsIndexRoute,
   AdminOrdersIndexRoute: AdminOrdersIndexRoute,
   AdminProductsIndexRoute: AdminProductsIndexRoute,
 }
@@ -892,6 +954,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   ExchangesRoute: ExchangesRoute,
   FaqRoute: FaqRoute,
+  GiftCardsRoute: GiftCardsRoute,
   OrderConfirmedRoute: OrderConfirmedRoute,
   ShippingRoute: ShippingRoute,
   ShopRoute: ShopRouteWithChildren,

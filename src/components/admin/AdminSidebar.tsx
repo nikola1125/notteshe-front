@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Activity,
   CreditCard,
+  Gift,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -42,6 +43,7 @@ const NAV_ITEMS: Array<{ label: string; href: string; icon: React.ElementType; e
   { label: "Customers", href: "/admin/customers", icon: Users },
   { label: "Shipping", href: "/admin/shipping", icon: Truck },
   { label: "Discounts", href: "/admin/discounts", icon: Tag },
+  { label: "Gift Cards", href: "/admin/gift-cards", icon: Gift },
   { label: "Newsletter", href: "/admin/newsletter", icon: Mail },
 ];
 

@@ -168,4 +168,56 @@ await run("seed home_collections default row", `
   INSERT INTO "home_collections" ("id") VALUES ('default') ON CONFLICT DO NOTHING
 `);
 
+// ── orders: gift card columns ─────────────────────────────────────────────────
+for (const [col, def] of [
+  ["gift_card_code",       "text"],
+  ["gift_card_amount_lek", "real NOT NULL DEFAULT 0"],
+]) {
+  await run(`orders.${col}`, `
+    ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "${col}" ${def}
+  `);
+}
+
+// ── gift_card ─────────────────────────────────────────────────────────────────
+await run("create gift_card", `
+  CREATE TABLE IF NOT EXISTS "gift_card" (
+    "id"                  text PRIMARY KEY NOT NULL,
+    "code"                text NOT NULL UNIQUE,
+    "initial_amount"      real NOT NULL,
+    "balance"             real NOT NULL,
+    "status"              text NOT NULL DEFAULT 'active',
+    "purchaser_user_id"   text REFERENCES "user"("id") ON DELETE SET NULL,
+    "purchaser_email"     text NOT NULL,
+    "recipient_email"     text NOT NULL,
+    "recipient_name"      text NOT NULL,
+    "message"             text,
+    "source_order_id"     text,
+    "issued_by_admin_id"  text REFERENCES "admin_user"("id") ON DELETE SET NULL,
+    "expires_at"          timestamp,
+    "created_at"          timestamp NOT NULL DEFAULT now(),
+    "last_used_at"        timestamp
+  )
+`);
+await run("index gift_card_code_idx",      `CREATE INDEX IF NOT EXISTS "gift_card_code_idx"      ON "gift_card" ("code")`);
+await run("index gift_card_status_idx",    `CREATE INDEX IF NOT EXISTS "gift_card_status_idx"    ON "gift_card" ("status")`);
+await run("index gift_card_purchaser_idx", `CREATE INDEX IF NOT EXISTS "gift_card_purchaser_idx" ON "gift_card" ("purchaser_user_id")`);
+
+// ── gift_card_transaction ─────────────────────────────────────────────────────
+await run("create gift_card_transaction", `
+  CREATE TABLE IF NOT EXISTS "gift_card_transaction" (
+    "id"            text PRIMARY KEY NOT NULL,
+    "gift_card_id"  text NOT NULL REFERENCES "gift_card"("id") ON DELETE CASCADE,
+    "type"          text NOT NULL,
+    "amount"        real NOT NULL,
+    "balance_after" real NOT NULL,
+    "order_id"      text,
+    "admin_id"      text REFERENCES "admin_user"("id") ON DELETE SET NULL,
+    "note"          text,
+    "created_at"    timestamp NOT NULL DEFAULT now()
+  )
+`);
+await run("index gc_tx_gift_card_idx", `CREATE INDEX IF NOT EXISTS "gc_tx_gift_card_idx" ON "gift_card_transaction" ("gift_card_id")`);
+await run("index gc_tx_order_idx",     `CREATE INDEX IF NOT EXISTS "gc_tx_order_idx"     ON "gift_card_transaction" ("order_id")`);
+await run("index gc_tx_created_idx",   `CREATE INDEX IF NOT EXISTS "gc_tx_created_idx"   ON "gift_card_transaction" ("created_at")`);
+
 console.log("\nDone.");

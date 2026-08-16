@@ -2,16 +2,23 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 export interface CartItem {
-  id: string;           // productId-size-colour
+  id: string;           // productId-size-colour or gc-{uuid}
   productId: string;
   name: string;
-  price: number;
+  price: number;        // EUR equivalent (for gift cards: amountLek / rate at add time)
   originalPrice: number | null;
   image: string;
   size: string;
   colour: string;
   quantity: number;
-  stock: number;        // max allowed quantity
+  stock: number;        // max allowed quantity; 999 for gift cards (digital/unlimited)
+  // Gift card fields — present only when isGiftCard === true
+  isGiftCard?: true;
+  giftCardAmountLek?: number;        // Lek face value of the card
+  giftCardRecipientEmail?: string;   // null/absent = for self
+  giftCardRecipientName?: string;
+  giftCardMessage?: string;
+  giftCardForSelf?: boolean;
 }
 
 export interface PendingFly {
@@ -27,6 +34,7 @@ interface CartStore {
   pendingFly: PendingFly | null;
   flyNow: boolean;
   addItem: (payload: Omit<CartItem, "id" | "quantity">) => void;
+  addGiftCard: (payload: Omit<CartItem, "id" | "quantity" | "size" | "colour" | "stock" | "originalPrice">) => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, delta: number) => void;
   clearCart: () => void;
@@ -58,6 +66,25 @@ export const useCart = create<CartStore>()(
             items: [...s.items, { ...payload, id, quantity: 1 }],
           }));
         }
+      },
+
+      // Gift cards are always unique (each is its own line item, never incremented)
+      addGiftCard: (payload) => {
+        const id = `gc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        set((s) => ({
+          items: [
+            ...s.items,
+            {
+              ...payload,
+              id,
+              size: "",
+              colour: "",
+              stock: 999,
+              originalPrice: null,
+              quantity: 1,
+            } as CartItem,
+          ],
+        }));
       },
 
       removeItem: (id) =>

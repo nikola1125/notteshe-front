@@ -84,24 +84,33 @@ async function handleWebhook(body: unknown) {
     return;
   }
 
+  type OrderDataItem = {
+    productId: string; name: string; price: number;
+    originalPrice: number | null; image: string;
+    size: string; colour: string; quantity: number;
+    isGiftCard?: boolean;
+    giftCardAmountLek?: number;
+    giftCardRecipientEmail?: string;
+    giftCardRecipientName?: string;
+    giftCardMessage?: string;
+    giftCardForSelf?: boolean;
+  };
   type OrderData = {
     email: string; phone: string;
     firstName: string; lastName: string;
     address: string; address2?: string;
     city: string; postalCode: string; country: string;
     discountCode: string | null; discountAmount: number;
-    items: Array<{
-      productId: string; name: string; price: number;
-      originalPrice: number | null; image: string;
-      size: string; colour: string; quantity: number;
-    }>;
+    giftCardCode?: string | null; giftCardAmountLek?: number;
+    items: Array<OrderDataItem>;
     subtotal: number; shippingFee: number; paymentFee?: number; total: number;
     currency?: "EUR" | "ALL";
   };
   const orderData = pending.orderData as OrderData;
 
-  // Final stock floor guard before creating the order
+  // Final stock floor guard before creating the order (skip digital gift card items)
   for (const item of orderData.items) {
+    if (item.isGiftCard) continue;
     const updated = await db()
       .update(productSize)
       .set({ stock: sql`stock - ${item.quantity}` })
@@ -135,6 +144,18 @@ async function handleWebhook(body: unknown) {
   }
 
   const orderId = randomUUID();
+
+  // Gift card redemption debit (if order used a gift card as partial payment)
+  const gcCode = orderData.giftCardCode ?? null;
+  const gcAmountLek = orderData.giftCardAmountLek ?? 0;
+  if (gcCode && gcAmountLek > 0) {
+    const { atomicDebitGiftCard } = await import("@/lib/giftCard");
+    try {
+      await atomicDebitGiftCard(gcCode, gcAmountLek, orderId);
+    } catch (err) {
+      console.error("[POK webhook] gift card debit failed during recovery:", err);
+    }
+  }
   const shippingAddress = {
     firstName: orderData.firstName, lastName: orderData.lastName,
     line1: orderData.address, line2: orderData.address2 ?? null,
@@ -151,6 +172,8 @@ async function handleWebhook(body: unknown) {
     shippingFee: orderData.shippingFee,
     discountCode: orderData.discountCode,
     discountAmount: orderData.discountAmount,
+    giftCardCode: gcCode,
+    giftCardAmountLek: gcAmountLek,
     total: orderData.total,
     shippingAddress,
     pokOrderId,
@@ -178,10 +201,18 @@ async function handleWebhook(body: unknown) {
     orderData.items.map((item) => ({
       id: randomUUID(),
       orderId,
-      productId: item.productId,
+      productId: item.isGiftCard ? null : item.productId,
       productSnapshot: {
         name: item.name, image: item.image,
         price: item.price, originalPrice: item.originalPrice,
+        ...(item.isGiftCard ? {
+          isGiftCard: true,
+          giftCardAmountLek: item.giftCardAmountLek,
+          recipientEmail: item.giftCardRecipientEmail,
+          recipientName: item.giftCardRecipientName,
+          message: item.giftCardMessage,
+          forSelf: item.giftCardForSelf,
+        } : {}),
       },
       size: item.size,
       colour: item.colour,
@@ -189,6 +220,28 @@ async function handleWebhook(body: unknown) {
       unitPrice: item.price,
     }))
   );
+
+  // Issue gift cards purchased in this order
+  const gcPurchases = orderData.items.filter((i) => i.isGiftCard);
+  if (gcPurchases.length > 0) {
+    const { issueGiftCard } = await import("@/lib/giftCard");
+    for (const item of gcPurchases) {
+      try {
+        await issueGiftCard({
+          amountLek: item.giftCardAmountLek ?? 0,
+          purchaserUserId: pending.userId,
+          purchaserEmail: orderData.email,
+          recipientEmail: item.giftCardForSelf ? orderData.email : (item.giftCardRecipientEmail ?? orderData.email),
+          recipientName: item.giftCardForSelf ? orderData.firstName : (item.giftCardRecipientName ?? orderData.firstName),
+          message: item.giftCardMessage ?? null,
+          forSelf: item.giftCardForSelf ?? true,
+          sourceOrderId: orderId,
+        });
+      } catch (err) {
+        console.error("[POK webhook] gift card issuance failed:", err);
+      }
+    }
+  }
 
   // Increment discount code usage counter — atomic guard prevents over-redemption
   if (orderData.discountCode) {

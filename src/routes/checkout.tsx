@@ -77,9 +77,25 @@ const logPlaceOrderError = createServerFn({ method: "POST" })
     }).catch(() => {});
   });
 
+const CartItemSchema = z.object({
+  productId: z.string(),
+  name: z.string(),
+  size: z.string(),
+  colour: z.string(),
+  quantity: z.number().int().positive(),
+  image: z.string(),
+  isGiftCard: z.boolean().optional(),
+  giftCardAmountLek: z.number().optional(),
+  giftCardRecipientEmail: z.string().optional(),
+  giftCardRecipientName: z.string().optional(),
+  giftCardMessage: z.string().optional(),
+  giftCardForSelf: z.boolean().optional(),
+});
+
 const CodOrderSchema = z.object({
   currency: z.enum(["EUR", "ALL"]).default("EUR"),
   discountCode: z.string().optional(),
+  giftCardCode: z.string().optional(),
   shippingForm: z.object({
     email: z.string().email(),
     phone: z.string(),
@@ -91,14 +107,26 @@ const CodOrderSchema = z.object({
     postalCode: z.string().min(1),
     country: z.string().min(1),
   }),
-  items: z.array(z.object({
-    productId: z.string(),
-    name: z.string(),
-    size: z.string(),
-    colour: z.string(),
-    quantity: z.number().int().positive(),
-    image: z.string(),
-  })),
+  items: z.array(CartItemSchema),
+});
+
+// Schema for zero-total orders (gift card covers the full amount, no payment gateway)
+const ZeroTotalOrderSchema = z.object({
+  currency: z.enum(["EUR", "ALL"]).default("EUR"),
+  discountCode: z.string().optional(),
+  giftCardCode: z.string(),
+  shippingForm: z.object({
+    email: z.string().email(),
+    phone: z.string(),
+    firstName: z.string().min(1),
+    lastName: z.string().min(1),
+    address: z.string().min(1),
+    address2: z.string().optional(),
+    city: z.string().min(1),
+    postalCode: z.string().min(1),
+    country: z.string().min(1),
+  }),
+  items: z.array(CartItemSchema),
 });
 
 const placeCodOrder = createServerFn({ method: "POST" })
@@ -115,6 +143,11 @@ const placeCodOrder = createServerFn({ method: "POST" })
 
     const session = await requireAuth();
     const userId = session.user.id;
+
+    // Gift cards cannot be purchased with COD
+    if (data.items.some((i) => i.isGiftCard)) {
+      throw new Error("Gift card purchases require online (card) payment.");
+    }
 
     const productIds = [...new Set(data.items.map((i) => i.productId))];
     const [productRows, sizeRows] = await Promise.all([
@@ -144,7 +177,7 @@ const placeCodOrder = createServerFn({ method: "POST" })
       .from(shippingConfig).limit(1);
     const shippingFee = cfg?.enabled ? (subtotal >= (cfg.freeThreshold ?? 200) ? 0 : (cfg.fee ?? 12)) : 0;
 
-    // EUR→Lek rate for computing the amount the courier collects (read-only; defaults if unmigrated)
+    // EUR→Lek rate
     let eurToLekRate = 100;
     let lekRounding = 100;
     try {
@@ -171,8 +204,20 @@ const placeCodOrder = createServerFn({ method: "POST" })
       }
     }
 
-    const total = Math.max(0, subtotal + shippingFee - discountAmount);
-    // Amount to collect on delivery, in the shopper's currency.
+    // Gift card redemption
+    let gcAmountLek = 0;
+    let validatedGiftCardCode: string | null = null;
+    if (data.giftCardCode) {
+      const { validateGiftCard } = await import("@/lib/giftCard");
+      const amountDueEur = Math.max(0, subtotal + shippingFee - discountAmount);
+      const gcResult = await validateGiftCard(data.giftCardCode, amountDueEur, eurToLekRate);
+      if (!gcResult.valid) throw new Error(gcResult.error);
+      validatedGiftCardCode = gcResult.code;
+      gcAmountLek = gcResult.appliedLek;
+    }
+    const gcAppliedEur = gcAmountLek / eurToLekRate;
+
+    const total = Math.max(0, subtotal + shippingFee - discountAmount - gcAppliedEur);
     const codCurrency = data.currency;
     const codCollect = codCurrency === "ALL"
       ? Math.round((total * eurToLekRate) / (lekRounding > 0 ? lekRounding : 1)) * (lekRounding > 0 ? lekRounding : 1)
@@ -193,6 +238,65 @@ const placeCodOrder = createServerFn({ method: "POST" })
       }
     }
 
+    // Atomically debit gift card now that stock is reserved
+    if (validatedGiftCardCode && gcAmountLek > 0) {
+      const orderId = randomUUID(); // pre-generate so we can pass it to the debit
+      const { atomicDebitGiftCard } = await import("@/lib/giftCard");
+      try {
+        await atomicDebitGiftCard(validatedGiftCardCode, gcAmountLek, orderId);
+      } catch (err) {
+        // Roll back stock? We can't in neon-http without transactions. Log for manual review.
+        console.error("[placeCodOrder] gift card debit failed:", err);
+        throw new Error("Gift card could not be applied. Please try again or remove the gift card.");
+      }
+
+      const shippingAddress = {
+        firstName: data.shippingForm.firstName, lastName: data.shippingForm.lastName,
+        line1: data.shippingForm.address, line2: data.shippingForm.address2 ?? null,
+        city: data.shippingForm.city, postalCode: data.shippingForm.postalCode,
+        country: data.shippingForm.country, phone: data.shippingForm.phone, email: data.shippingForm.email,
+      };
+
+      await db().insert(orders).values({
+        id: orderId,
+        userId,
+        status: "PENDING" as const,
+        subtotal,
+        shippingFee,
+        paymentFee: 0,
+        discountCode: validatedDiscountCode,
+        discountAmount,
+        giftCardCode: validatedGiftCardCode,
+        giftCardAmountLek: gcAmountLek,
+        total,
+        currency: codCurrency,
+        pokAmount: codCollect,
+        shippingAddress,
+        pokOrderId: null,
+      });
+
+      await db().insert(orderItem).values(
+        itemsWithPrices.map((item) => ({
+          id: randomUUID(), orderId, productId: item.productId,
+          productSnapshot: { name: item.name, image: item.image, price: item.price, originalPrice: item.originalPrice },
+          size: item.size, colour: item.colour, quantity: item.quantity, unitPrice: item.price,
+        }))
+      );
+
+      if (validatedDiscountCode) {
+        await db().update(discountCodeTable).set({ usedCount: sql`used_count + 1` })
+          .where(and(eq(discountCodeTable.code, validatedDiscountCode), sql`(max_uses IS NULL OR used_count < max_uses)`)).catch(() => {});
+      }
+
+      await db().insert(auditLog).values({ id: randomUUID(), adminId: null, action: "payment.success", entityType: "order", entityId: orderId, diff: { after: { orderId, userId, email: data.shippingForm.email, total, itemCount: data.items.length, method: "cod+giftcard" } } });
+      const { notifyAdmins } = await import("@/lib/admin/sse");
+      await notifyAdmins("new_order", { ref: orderId.slice(0, 8).toUpperCase(), total });
+      const { sendOrderConfirmation } = await import("@/lib/resend");
+      sendOrderConfirmation({ to: data.shippingForm.email, firstName: data.shippingForm.firstName, orderId, currency: codCurrency, items: itemsWithPrices.map((i) => ({ name: i.name, size: i.size, colour: i.colour, quantity: i.quantity, unitPrice: i.price, image: i.image })), subtotal, shippingFee, discountAmount, total, paymentMethod: "Cash on Delivery + Gift Card", shippingAddress: { firstName: data.shippingForm.firstName, lastName: data.shippingForm.lastName, line1: data.shippingForm.address, line2: data.shippingForm.address2 ?? null, city: data.shippingForm.city, postalCode: data.shippingForm.postalCode, country: data.shippingForm.country, phone: data.shippingForm.phone } }).catch((err) => console.error("[resend] COD+GC confirmation failed:", err));
+      return { orderId };
+    }
+
+    // Normal COD (no gift card)
     const orderId = randomUUID();
     const shippingAddress = {
       firstName: data.shippingForm.firstName, lastName: data.shippingForm.lastName,
@@ -210,6 +314,8 @@ const placeCodOrder = createServerFn({ method: "POST" })
       paymentFee: 0,
       discountCode: validatedDiscountCode,
       discountAmount,
+      giftCardCode: null,
+      giftCardAmountLek: 0,
       total,
       currency: codCurrency,
       pokAmount: codCollect,
@@ -272,6 +378,189 @@ const placeCodOrder = createServerFn({ method: "POST" })
         country: data.shippingForm.country, phone: data.shippingForm.phone,
       },
     }).catch((err) => console.error("[resend] COD confirmation failed:", err));
+
+    return { orderId };
+  });
+
+const applyGiftCard = createServerFn({ method: "POST" })
+  .validator((d: unknown) =>
+    z.object({ code: z.string(), amountDueEur: z.number() }).parse(d)
+  )
+  .handler(async ({ data }) => {
+    const { db } = await import("@/db");
+    const { shippingConfig } = await import("@/db/schema");
+    const { validateGiftCard } = await import("@/lib/giftCard");
+
+    let eurToLekRate = 100;
+    try {
+      const [cfg] = await db().select({ eurToLekRate: shippingConfig.eurToLekRate }).from(shippingConfig).limit(1);
+      if (cfg) eurToLekRate = cfg.eurToLekRate ?? 100;
+    } catch { /* not migrated */ }
+
+    const result = await validateGiftCard(data.code, data.amountDueEur, eurToLekRate);
+    return result;
+  });
+
+const placeZeroTotalOrder = createServerFn({ method: "POST" })
+  .validator((d: unknown) => ZeroTotalOrderSchema.parse(d))
+  .handler(async ({ data }) => {
+    const { requireAuth } = await import("@/lib/auth/session");
+    const { db } = await import("@/db");
+    const {
+      orders, orderItem, productSize, product, shippingConfig,
+      discountCode: discountCodeTable, auditLog,
+    } = await import("@/db/schema");
+    const { inArray, and, eq, sql } = await import("drizzle-orm");
+    const { randomUUID } = await import("node:crypto");
+
+    const session = await requireAuth();
+    const userId = session.user.id;
+
+    // Gift cards cannot be purchased via zero-total path (no-gc-on-gc)
+    if (data.items.some((i) => i.isGiftCard)) {
+      throw new Error("Gift card purchases require card payment — gift cards cannot be used to buy gift cards.");
+    }
+
+    const productIds = [...new Set(data.items.map((i) => i.productId))];
+    const [productRows, sizeRows] = await Promise.all([
+      db().select({ id: product.id, price: product.price, originalPrice: product.originalPrice, isSale: product.isSale })
+        .from(product).where(inArray(product.id, productIds)),
+      db().select({ productId: productSize.productId, label: productSize.label, stock: productSize.stock })
+        .from(productSize).where(inArray(productSize.productId, productIds)),
+    ]);
+
+    const priceMap = new Map(productRows.map((p) => [p.id, p]));
+    const itemsWithPrices = data.items.map((item) => {
+      const p = priceMap.get(item.productId);
+      if (!p) throw new Error(`Product "${item.name}" is no longer available.`);
+      return { ...item, price: p.price, originalPrice: p.isSale ? (p.originalPrice ?? null) : null };
+    });
+
+    for (const item of data.items) {
+      const row = sizeRows.find((s) => s.productId === item.productId && s.label === item.size);
+      if (!row || row.stock < item.quantity) {
+        throw new Error(`"${item.name}" size ${item.size} is no longer available.`);
+      }
+    }
+
+    const subtotal = itemsWithPrices.reduce((s, i) => s + i.price * i.quantity, 0);
+    const [cfg] = await db()
+      .select({ enabled: shippingConfig.enabled, fee: shippingConfig.fee, freeThreshold: shippingConfig.freeThreshold })
+      .from(shippingConfig).limit(1);
+    const shippingFee = cfg?.enabled ? (subtotal >= (cfg.freeThreshold ?? 200) ? 0 : (cfg.fee ?? 12)) : 0;
+
+    let eurToLekRate = 100;
+    let lekRounding = 100;
+    try {
+      const [rc] = await db().select({ eurToLekRate: shippingConfig.eurToLekRate, lekRounding: shippingConfig.lekRounding }).from(shippingConfig).limit(1);
+      if (rc) { eurToLekRate = rc.eurToLekRate ?? 100; lekRounding = rc.lekRounding ?? 100; }
+    } catch { /* not migrated */ }
+
+    let discountAmount = 0;
+    let validatedDiscountCode: string | null = null;
+    if (data.discountCode) {
+      const [code] = await db().select().from(discountCodeTable)
+        .where(eq(discountCodeTable.code, data.discountCode.toUpperCase().trim())).limit(1);
+      const now = new Date();
+      if (code && code.isActive && (!code.expiresAt || code.expiresAt > now) &&
+          (code.maxUses === null || code.usedCount < code.maxUses) &&
+          (code.minOrderAmount === null || subtotal >= code.minOrderAmount)) {
+        const saleIds = new Set(productRows.filter((p) => p.isSale).map((p) => p.id));
+        if (!data.items.some((i) => saleIds.has(i.productId))) {
+          discountAmount = code.type === "PERCENT"
+            ? Math.round(subtotal * (code.value / 100) * 100) / 100
+            : Math.min(code.value, subtotal);
+          validatedDiscountCode = code.code;
+        }
+      }
+    }
+
+    const amountDueEur = Math.max(0, subtotal + shippingFee - discountAmount);
+
+    // Validate gift card
+    const { validateGiftCard, atomicDebitGiftCard } = await import("@/lib/giftCard");
+    const gcResult = await validateGiftCard(data.giftCardCode, amountDueEur, eurToLekRate);
+    if (!gcResult.valid) throw new Error(gcResult.error);
+    if (gcResult.appliedEur < amountDueEur - 0.01) {
+      // Gift card doesn't cover the full amount — can't use zero-total path
+      throw new Error("Gift card balance is insufficient to cover the full order.");
+    }
+
+    const gcAmountLek = gcResult.appliedLek;
+    const total = 0; // covered by gift card
+
+    // Decrement stock first
+    const orderId = randomUUID();
+    for (const item of itemsWithPrices) {
+      const updated = await db()
+        .update(productSize)
+        .set({ stock: sql`stock - ${item.quantity}` })
+        .where(and(
+          eq(productSize.productId, item.productId),
+          eq(productSize.label, item.size),
+          sql`stock >= ${item.quantity}`,
+        ))
+        .returning({ id: productSize.id });
+      if (updated.length === 0) {
+        throw new Error(`"${item.name}" size ${item.size} went out of stock before your order was finalised.`);
+      }
+    }
+
+    // Atomic gift card debit — must succeed before creating the order
+    await atomicDebitGiftCard(gcResult.code, gcAmountLek, orderId);
+
+    const shippingAddress = {
+      firstName: data.shippingForm.firstName, lastName: data.shippingForm.lastName,
+      line1: data.shippingForm.address, line2: data.shippingForm.address2 ?? null,
+      city: data.shippingForm.city, postalCode: data.shippingForm.postalCode,
+      country: data.shippingForm.country, phone: data.shippingForm.phone, email: data.shippingForm.email,
+    };
+
+    await db().insert(orders).values({
+      id: orderId,
+      userId,
+      status: "CONFIRMED" as const,  // fully paid by gift card
+      subtotal,
+      shippingFee,
+      paymentFee: 0,
+      discountCode: validatedDiscountCode,
+      discountAmount,
+      giftCardCode: gcResult.code,
+      giftCardAmountLek: gcAmountLek,
+      total,
+      currency: data.currency,
+      pokAmount: 0,
+      shippingAddress,
+      pokOrderId: null,
+    });
+
+    await db().insert(orderItem).values(
+      itemsWithPrices.map((item) => ({
+        id: randomUUID(), orderId,
+        productId: item.productId,
+        productSnapshot: { name: item.name, image: item.image, price: item.price, originalPrice: item.originalPrice },
+        size: item.size, colour: item.colour, quantity: item.quantity, unitPrice: item.price,
+      }))
+    );
+
+    if (validatedDiscountCode) {
+      await db().update(discountCodeTable).set({ usedCount: sql`used_count + 1` })
+        .where(and(eq(discountCodeTable.code, validatedDiscountCode), sql`(max_uses IS NULL OR used_count < max_uses)`)).catch(() => {});
+    }
+
+    await db().insert(auditLog).values({ id: randomUUID(), adminId: null, action: "payment.success", entityType: "order", entityId: orderId, diff: { after: { orderId, userId, email: data.shippingForm.email, total, itemCount: data.items.length, method: "gift_card_full" } } });
+    const { notifyAdmins } = await import("@/lib/admin/sse");
+    await notifyAdmins("new_order", { ref: orderId.slice(0, 8).toUpperCase(), total: subtotal });
+
+    const codCurrency = data.currency;
+    const { sendOrderConfirmation } = await import("@/lib/resend");
+    sendOrderConfirmation({
+      to: data.shippingForm.email, firstName: data.shippingForm.firstName, orderId, currency: codCurrency,
+      items: itemsWithPrices.map((i) => ({ name: i.name, size: i.size, colour: i.colour, quantity: i.quantity, unitPrice: i.price, image: i.image })),
+      subtotal, shippingFee, discountAmount, total,
+      paymentMethod: "Gift Card",
+      shippingAddress: { firstName: data.shippingForm.firstName, lastName: data.shippingForm.lastName, line1: data.shippingForm.address, line2: data.shippingForm.address2 ?? null, city: data.shippingForm.city, postalCode: data.shippingForm.postalCode, country: data.shippingForm.country, phone: data.shippingForm.phone },
+    }).catch((err) => console.error("[resend] zero-total confirmation failed:", err));
 
     return { orderId };
   });
@@ -524,6 +813,14 @@ function CheckoutPage() {
   const [appliedDiscount, setAppliedDiscount] = useState<{
     code: string; type: string; value: number; discountAmount: number;
   } | null>(null);
+
+  const [giftCardInput, setGiftCardInput] = useState("");
+  const [giftCardApplying, setGiftCardApplying] = useState(false);
+  const [giftCardError, setGiftCardError] = useState<string | null>(null);
+  const [appliedGiftCard, setAppliedGiftCard] = useState<{
+    code: string; balanceLek: number; appliedLek: number; appliedEur: number;
+  } | null>(null);
+
   const [priceWarning, setPriceWarning] = useState(false);
 
   // Save-card-prompt state (shown after a new card payment succeeds)
@@ -594,15 +891,23 @@ function CheckoutPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, payerAuth, pokOrderId, mounted]);
 
+  const hasGiftCardInCart = items.some((i) => i.isGiftCard);
+  const regularItems = items.filter((i) => !i.isGiftCard);
+  const regularSubtotal = regularItems.reduce((s, i) => s + i.price * i.quantity, 0);
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
-  const shipping = !shippingCfg.enabled ? 0
-    : subtotal >= shippingCfg.freeThreshold ? 0
+  // No shipping if cart is only gift cards (digital items)
+  const shipping = hasGiftCardInCart && regularItems.length === 0 ? 0
+    : !shippingCfg.enabled ? 0
+    : regularSubtotal >= shippingCfg.freeThreshold ? 0
     : shippingCfg.fee;
   const discount = appliedDiscount?.discountAmount ?? 0;
+  const gcApplied = appliedGiftCard?.appliedEur ?? 0;
   const paymentFee = (paymentMethod === "new-card" || paymentMethod === "saved-card") && shippingCfg.paymentFeeEnabled
     ? Math.round(((subtotal + shipping - discount) * (shippingCfg.paymentFeePercent / 100) + shippingCfg.paymentFeeFixed) * 100) / 100
     : 0;
-  const total = Math.max(0, subtotal + shipping - discount + paymentFee);
+  const amountDue = Math.max(0, subtotal + shipping - discount + paymentFee);
+  const total = Math.max(0, amountDue - gcApplied);
+  const isZeroTotal = total === 0 && appliedGiftCard !== null;
 
   async function handleApplyCoupon() {
     const code = couponInput.trim();
@@ -619,6 +924,26 @@ function CheckoutPage() {
       setCouponError("Something went wrong. Try again.");
     } finally {
       setCouponApplying(false);
+    }
+  }
+
+  async function handleApplyGiftCard() {
+    const code = giftCardInput.trim().toUpperCase();
+    if (!code) return;
+    setGiftCardApplying(true);
+    setGiftCardError(null);
+    try {
+      const result = await applyGiftCard({ data: { code, amountDueEur: amountDue } });
+      if (result.valid) {
+        setAppliedGiftCard({ code: result.code, balanceLek: result.balanceLek, appliedLek: result.appliedLek, appliedEur: result.appliedEur });
+        setGiftCardInput("");
+      } else {
+        setGiftCardError(result.error);
+      }
+    } catch {
+      setGiftCardError("Something went wrong. Try again.");
+    } finally {
+      setGiftCardApplying(false);
     }
   }
 
@@ -641,7 +966,22 @@ function CheckoutPage() {
   }
 
   function buildOrderItems() {
-    return items.map((i) => ({ productId: i.productId, name: i.name, size: i.size, colour: i.colour, quantity: i.quantity, image: i.image }));
+    return items.map((i) => ({
+      productId: i.productId,
+      name: i.name,
+      size: i.size,
+      colour: i.colour,
+      quantity: i.quantity,
+      image: i.image,
+      ...(i.isGiftCard ? {
+        isGiftCard: true,
+        giftCardAmountLek: i.giftCardAmountLek,
+        giftCardRecipientEmail: i.giftCardRecipientEmail,
+        giftCardRecipientName: i.giftCardRecipientName,
+        giftCardMessage: i.giftCardMessage,
+        giftCardForSelf: i.giftCardForSelf,
+      } : {}),
+    }));
   }
 
   function buildShippingForm() {
@@ -653,19 +993,21 @@ function CheckoutPage() {
     };
   }
 
-  // ── COD path ──────────────────────────────────────────────────────────────────
+  // ── Zero-total path (gift card covers everything) ─────────────────────────────
 
-  const handlePlaceCodOrder = useCallback(async () => {
+  const handlePlaceZeroTotalOrder = useCallback(async () => {
     if (initiatingRef.current) return;
     if (!validateShipping()) return;
+    if (!appliedGiftCard) return;
     initiatingRef.current = true;
     setPlacing(true);
     setPlaceError(null);
     try {
-      await placeCodOrder({
+      await placeZeroTotalOrder({
         data: {
           currency,
           discountCode: appliedDiscount?.code,
+          giftCardCode: appliedGiftCard.code,
           shippingForm: buildShippingForm(),
           items: buildOrderItems(),
         },
@@ -680,7 +1022,37 @@ function CheckoutPage() {
       initiatingRef.current = false;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form, items, appliedDiscount]);
+  }, [form, items, appliedDiscount, appliedGiftCard]);
+
+  // ── COD path ──────────────────────────────────────────────────────────────────
+
+  const handlePlaceCodOrder = useCallback(async () => {
+    if (initiatingRef.current) return;
+    if (!validateShipping()) return;
+    initiatingRef.current = true;
+    setPlacing(true);
+    setPlaceError(null);
+    try {
+      await placeCodOrder({
+        data: {
+          currency,
+          discountCode: appliedDiscount?.code,
+          giftCardCode: appliedGiftCard?.code,
+          shippingForm: buildShippingForm(),
+          items: buildOrderItems(),
+        },
+      });
+      clearCart();
+      void navigate({ to: "/order-confirmed" });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : null;
+      setPlaceError(msg ?? "Could not place your order. Please try again.");
+    } finally {
+      setPlacing(false);
+      initiatingRef.current = false;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, items, appliedDiscount, appliedGiftCard]);
 
   // ── New card path ─────────────────────────────────────────────────────────────
 
@@ -698,6 +1070,7 @@ function CheckoutPage() {
           merchantReference: ref,
           currency,
           discountCode: appliedDiscount?.code,
+          giftCardCode: appliedGiftCard?.code,
           shippingForm: buildShippingForm(),
           items: buildOrderItems(),
         },
@@ -712,7 +1085,7 @@ function CheckoutPage() {
       initiatingRef.current = false;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form, items, appliedDiscount]);
+  }, [form, items, appliedDiscount, appliedGiftCard]);
 
   const handlePokSuccess = useCallback(async () => {
     if (successFiredRef.current) return;
@@ -754,6 +1127,7 @@ function CheckoutPage() {
           merchantReference: ref,
           currency,
           discountCode: appliedDiscount?.code,
+          giftCardCode: appliedGiftCard?.code,
           shippingForm: buildShippingForm(),
           items: buildOrderItems(),
         },
@@ -776,7 +1150,7 @@ function CheckoutPage() {
       initiatingRef.current = false;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form, items, appliedDiscount, selectedSavedCardId]);
+  }, [form, items, appliedDiscount, appliedGiftCard, selectedSavedCardId]);
 
   const handleSavedCardPokSuccess = useCallback(async () => {
     if (successFiredRef.current) return;
@@ -974,6 +1348,14 @@ function CheckoutPage() {
                     <span>{formatMoney(paymentFee, currency, rate)}</span>
                   </div>
                 )}
+                {appliedGiftCard && gcApplied > 0 && (
+                  <div className="flex justify-between font-mono text-[11px] text-green-400">
+                    <span>Gift card</span>
+                    <span>−{currency === "ALL"
+                      ? `${appliedGiftCard.appliedLek.toLocaleString()} L`
+                      : formatMoney(gcApplied, currency, rate)}</span>
+                  </div>
+                )}
                 {shippingCfg.enabled && shipping > 0 && (
                   <p className="font-mono text-[9px] text-muted-foreground/40">Free shipping on orders over {formatMoney(shippingCfg.freeThreshold, currency, rate)}</p>
                 )}
@@ -1008,6 +1390,59 @@ function CheckoutPage() {
                     <p className="font-mono text-[9px] uppercase tracking-widest text-green-400">
                       Code <span className="font-bold">{appliedDiscount.code}</span> applied —{" "}
                       {appliedDiscount.type === "PERCENT" ? `${appliedDiscount.value}% off` : `${formatMoney(appliedDiscount.value, currency, rate)} off`}
+                    </p>
+                  </div>
+                )
+              )}
+
+              {/* Gift card input / applied state */}
+              {!formDisabled && !hasGiftCardInCart && (
+                !appliedGiftCard ? (
+                  <div className="mt-5 border-t border-border pt-5">
+                    <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Gift card</p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={giftCardInput}
+                        onChange={(e) => { setGiftCardInput(e.target.value.toUpperCase()); setGiftCardError(null); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleApplyGiftCard(); }}
+                        placeholder="NOTT-XXXX-XXXX-XXXX"
+                        style={{ fontSize: '16px' }}
+                        className="flex-1 border-b border-border bg-transparent pb-2 font-mono uppercase tracking-widest text-ink outline-none placeholder:text-muted-foreground/30 focus:border-ink/60"
+                      />
+                      <button
+                        onClick={handleApplyGiftCard}
+                        disabled={giftCardApplying || !giftCardInput.trim()}
+                        className="font-mono text-[10px] uppercase tracking-widest text-ink/70 transition-colors hover:text-ink disabled:opacity-40"
+                      >
+                        {giftCardApplying ? "…" : "Apply"}
+                      </button>
+                    </div>
+                    {giftCardError && <p className="mt-1.5 font-mono text-[9px] uppercase tracking-widest text-clay">{giftCardError}</p>}
+                  </div>
+                ) : (
+                  <div className="mt-5 border-t border-border pt-5 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <p className="font-mono text-[9px] uppercase tracking-widest text-green-400">
+                        Gift card applied
+                      </p>
+                      <button
+                        onClick={() => setAppliedGiftCard(null)}
+                        className="font-mono text-[9px] text-muted-foreground/50 hover:text-clay transition-colors"
+                        title="Remove gift card"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <p className="font-mono text-[9px] text-muted-foreground/60">{appliedGiftCard.code}</p>
+                    <p className="font-mono text-[9px] text-green-400">
+                      −{currency === "ALL"
+                        ? `${appliedGiftCard.appliedLek.toLocaleString()} L`
+                        : formatMoney(appliedGiftCard.appliedEur, currency, rate)}
+                      {" "}
+                      <span className="text-muted-foreground/50">
+                        (remaining: {(appliedGiftCard.balanceLek - appliedGiftCard.appliedLek).toLocaleString()} L)
+                      </span>
                     </p>
                   </div>
                 )
@@ -1134,25 +1569,27 @@ function CheckoutPage() {
               <p className="mb-4 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Payment method</p>
               <div className="space-y-2">
 
-                {/* Cash on delivery — first */}
-                <button
-                  type="button"
-                  disabled={formDisabled}
-                  onClick={() => { setPaymentMethod("cod"); setPlaceError(null); }}
-                  className={`w-full flex items-center gap-4 border px-5 py-4 text-left transition-colors duration-150 disabled:cursor-default ${
-                    paymentMethod === "cod"
-                      ? "border-foreground/40 bg-muted"
-                      : "border-border bg-transparent hover:border-border/70"
-                  }`}
-                >
-                  <span className={`h-4 w-4 rounded-full border flex items-center justify-center shrink-0 ${paymentMethod === "cod" ? "border-foreground" : "border-muted-foreground/40"}`}>
-                    {paymentMethod === "cod" && <span className="h-2 w-2 rounded-full bg-foreground" />}
-                  </span>
-                  <div>
-                    <p className="font-mono text-[11px] uppercase tracking-widest text-ink">Cash on delivery</p>
-                    <p className="mt-0.5 font-mono text-[9px] text-muted-foreground/50">Pay when your order arrives</p>
-                  </div>
-                </button>
+                {/* Cash on delivery — first (hidden when cart has gift card purchases) */}
+                {!hasGiftCardInCart && (
+                  <button
+                    type="button"
+                    disabled={formDisabled}
+                    onClick={() => { setPaymentMethod("cod"); setPlaceError(null); }}
+                    className={`w-full flex items-center gap-4 border px-5 py-4 text-left transition-colors duration-150 disabled:cursor-default ${
+                      paymentMethod === "cod"
+                        ? "border-foreground/40 bg-muted"
+                        : "border-border bg-transparent hover:border-border/70"
+                    }`}
+                  >
+                    <span className={`h-4 w-4 rounded-full border flex items-center justify-center shrink-0 ${paymentMethod === "cod" ? "border-foreground" : "border-muted-foreground/40"}`}>
+                      {paymentMethod === "cod" && <span className="h-2 w-2 rounded-full bg-foreground" />}
+                    </span>
+                    <div>
+                      <p className="font-mono text-[11px] uppercase tracking-widest text-ink">Cash on delivery</p>
+                      <p className="mt-0.5 font-mono text-[9px] text-muted-foreground/50">Pay when your order arrives</p>
+                    </div>
+                  </button>
+                )}
 
                 {/* Saved cards */}
                 {localSavedCards.map((card) => {
@@ -1238,35 +1675,50 @@ function CheckoutPage() {
             {/* CTA */}
             {step === "details" && (
               <div className="space-y-4">
-                {paymentMethod === "cod" && (
+                {/* Zero-total: gift card covers the full order — skip payment gateway */}
+                {isZeroTotal ? (
                   <button
-                    onClick={handlePlaceCodOrder}
+                    onClick={handlePlaceZeroTotalOrder}
                     disabled={placing}
                     className="w-full bg-foreground py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-opacity hover:opacity-80 disabled:opacity-50"
                   >
                     {placing
                       ? <span className="flex items-center justify-center gap-3"><Spinner />Placing order…</span>
-                      : `Place order — ${formatMoney(total, currency, rate)}`}
+                      : "Place order — fully covered by gift card"}
                   </button>
-                )}
+                ) : (
+                  <>
+                    {paymentMethod === "cod" && (
+                      <button
+                        onClick={handlePlaceCodOrder}
+                        disabled={placing}
+                        className="w-full bg-foreground py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-opacity hover:opacity-80 disabled:opacity-50"
+                      >
+                        {placing
+                          ? <span className="flex items-center justify-center gap-3"><Spinner />Placing order…</span>
+                          : `Place order — ${formatMoney(total, currency, rate)}`}
+                      </button>
+                    )}
 
-                {paymentMethod === "new-card" && (
-                  <button
-                    onClick={handleInitiateCardPayment}
-                    className="w-full bg-foreground py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-opacity hover:opacity-80"
-                  >
-                    {`Continue to card payment — ${formatMoney(total, currency, rate)}`}
-                  </button>
-                )}
+                    {paymentMethod === "new-card" && (
+                      <button
+                        onClick={handleInitiateCardPayment}
+                        className="w-full bg-foreground py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-opacity hover:opacity-80"
+                      >
+                        {`Continue to card payment — ${formatMoney(total, currency, rate)}`}
+                      </button>
+                    )}
 
-                {paymentMethod === "saved-card" && (
-                  <button
-                    onClick={handleInitiateSavedCardPayment}
-                    disabled={!selectedSavedCardId}
-                    className="w-full bg-foreground py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-opacity hover:opacity-80 disabled:opacity-50"
-                  >
-                    {`Pay with saved card — ${formatMoney(total, currency, rate)}`}
-                  </button>
+                    {paymentMethod === "saved-card" && (
+                      <button
+                        onClick={handleInitiateSavedCardPayment}
+                        disabled={!selectedSavedCardId}
+                        className="w-full bg-foreground py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-opacity hover:opacity-80 disabled:opacity-50"
+                      >
+                        {`Pay with saved card — ${formatMoney(total, currency, rate)}`}
+                      </button>
+                    )}
+                  </>
                 )}
 
                 <p className="text-center font-mono text-[9px] uppercase tracking-widest text-muted-foreground/40">

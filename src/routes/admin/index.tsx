@@ -11,14 +11,15 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { eq, desc, count, sum, sql, and, gte } from "drizzle-orm";
+import { eq, desc, count, sum, sql, and, gte, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, orderItem, user } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
 
 interface DashboardData {
   totalOrders: number;
-  totalRevenue: number;
+  revenueEur: number;
+  revenueLek: number;
   todayOrders: number;
   todayRevenue: number;
   pendingOrders: number;
@@ -26,10 +27,13 @@ interface DashboardData {
   thisWeekRevenue: number;
   avgOrderValue: number;
   cancelledOrders: number;
+  refundedValue: number;
   recentOrders: Array<{
     id: string;
     email: string;
     total: number;
+    currency: "EUR" | "ALL";
+    pokAmount: number | null;
     status: string;
     createdAt: string;
   }>;
@@ -51,8 +55,13 @@ const getDashboardData = createServerFn({ method: "GET" }).handler(
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
+    // Revenue counts only confirmed orders (captured, not cancelled/refunded/pending).
+    const CONFIRMED = ["CONFIRMED", "SHIPPED", "DELIVERED"] as const;
+    const confirmedFilter = inArray(orders.status, [...CONFIRMED]);
+
     const [
       totalOrdersResult,
+      revByCurrencyResult,
       todayOrdersResult,
       pendingResult,
       customerCountResult,
@@ -62,22 +71,29 @@ const getDashboardData = createServerFn({ method: "GET" }).handler(
       thisWeekResult,
       cancelledResult,
     ] = await Promise.all([
-      // Total orders + revenue
+      // Total order count (all statuses)
+      database.select({ count: count() }).from(orders),
+
+      // Confirmed revenue split by currency (EUR uses base total, Lek uses charged amount)
       database
         .select({
-          count: count(),
-          revenue: sum(orders.total),
+          currency: orders.currency,
+          cnt: count(),
+          eurBase: sum(orders.total),
+          lek: sum(orders.pokAmount),
         })
-        .from(orders),
+        .from(orders)
+        .where(confirmedFilter)
+        .groupBy(orders.currency),
 
-      // Today
+      // Today (confirmed, EUR-equivalent)
       database
         .select({
           count: count(),
           revenue: sum(orders.total),
         })
         .from(orders)
-        .where(gte(orders.createdAt, todayStart)),
+        .where(and(confirmedFilter, gte(orders.createdAt, todayStart))),
 
       // Pending
       database
@@ -94,6 +110,8 @@ const getDashboardData = createServerFn({ method: "GET" }).handler(
           id: orders.id,
           email: user.email,
           total: orders.total,
+          currency: orders.currency,
+          pokAmount: orders.pokAmount,
           status: orders.status,
           createdAt: orders.createdAt,
         })
@@ -125,40 +143,57 @@ const getDashboardData = createServerFn({ method: "GET" }).handler(
           revenue: sum(orders.total),
         })
         .from(orders)
-        .where(gte(orders.createdAt, ninetyDaysAgo))
+        .where(and(confirmedFilter, gte(orders.createdAt, ninetyDaysAgo)))
         .groupBy(sql`DATE(${orders.createdAt})`)
         .orderBy(sql`DATE(${orders.createdAt})`),
 
-      // This week revenue
+      // This week revenue (confirmed)
       database
         .select({ revenue: sum(orders.total) })
         .from(orders)
-        .where(gte(orders.createdAt, sevenDaysAgo)),
+        .where(and(confirmedFilter, gte(orders.createdAt, sevenDaysAgo))),
 
-      // Cancelled orders
+      // Cancelled + refunded orders (deducted from revenue) — count + EUR-base value
       database
-        .select({ count: count() })
+        .select({ count: count(), value: sum(orders.total) })
         .from(orders)
-        .where(eq(orders.status, "CANCELLED")),
+        .where(inArray(orders.status, ["CANCELLED", "REFUNDED"])),
     ]);
 
     const totalOrders = Number(totalOrdersResult[0]?.count ?? 0);
-    const totalRevenue = Number(totalOrdersResult[0]?.revenue ?? 0);
+
+    // Split confirmed revenue: euros from EUR orders, lek from ALL orders.
+    let revenueEur = 0;
+    let revenueLek = 0;
+    let confirmedCount = 0;
+    let confirmedEurBase = 0;
+    for (const r of revByCurrencyResult) {
+      const cnt = Number(r.cnt ?? 0);
+      const eurBase = Number(r.eurBase ?? 0);
+      confirmedCount += cnt;
+      confirmedEurBase += eurBase;
+      if (r.currency === "ALL") revenueLek += Number(r.lek ?? 0);
+      else revenueEur += eurBase;
+    }
 
     return {
       totalOrders,
-      totalRevenue,
+      revenueEur,
+      revenueLek,
       todayOrders: Number(todayOrdersResult[0]?.count ?? 0),
       todayRevenue: Number(todayOrdersResult[0]?.revenue ?? 0),
       pendingOrders: Number(pendingResult[0]?.count ?? 0),
       totalCustomers: Number(customerCountResult[0]?.count ?? 0),
       thisWeekRevenue: Number(thisWeekResult[0]?.revenue ?? 0),
-      avgOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
+      avgOrderValue: confirmedCount > 0 ? confirmedEurBase / confirmedCount : 0,
       cancelledOrders: Number(cancelledResult[0]?.count ?? 0),
+      refundedValue: Number(cancelledResult[0]?.value ?? 0),
       recentOrders: recentOrdersResult.map((r) => ({
         id: r.id,
         email: r.email,
         total: Number(r.total),
+        currency: (r.currency ?? "EUR") as "EUR" | "ALL",
+        pokAmount: r.pokAmount != null ? Number(r.pokAmount) : null,
         status: r.status,
         createdAt: r.createdAt.toISOString(),
       })),
@@ -196,6 +231,15 @@ function fmt(n: number) {
   return `${n.toLocaleString("en", { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €`;
 }
 
+function fmtLek(n: number) {
+  return `${new Intl.NumberFormat("sq-AL", { maximumFractionDigits: 0 }).format(n)} L`;
+}
+
+// Format an order in the currency it was purchased in.
+function fmtOrder(o: { currency: "EUR" | "ALL"; total: number; pokAmount: number | null }) {
+  return o.currency === "ALL" ? fmtLek(o.pokAmount ?? 0) : fmt(o.total);
+}
+
 function fmtDate(dateStr: string) {
   const d = new Date(dateStr);
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
@@ -219,21 +263,21 @@ function AdminDashboard() {
 
   const statCards = [
     {
-      label: "Total Revenue",
-      value: fmt(data.totalRevenue),
-      sub: `${data.totalOrders} orders`,
+      label: "Revenue · EUR",
+      value: fmt(data.revenueEur),
+      sub: "confirmed orders",
+      href: "/admin/orders",
+    },
+    {
+      label: "Revenue · Lek",
+      value: fmtLek(data.revenueLek),
+      sub: "confirmed orders",
       href: "/admin/orders",
     },
     {
       label: "Pending Orders",
       value: String(data.pendingOrders),
       sub: "awaiting action",
-      href: "/admin/orders?status=PENDING",
-    },
-    {
-      label: "Today's Revenue",
-      value: fmt(data.todayRevenue),
-      sub: `${data.todayOrders} orders today`,
       href: "/admin/orders?status=PENDING",
     },
     {
@@ -294,6 +338,10 @@ function AdminDashboard() {
       {/* Secondary stats strip */}
       <div className="mb-8 flex flex-wrap gap-6 border border-[var(--color-border)] bg-[var(--color-muted)]/20 px-5 py-3">
         <p className="font-mono text-[10px] text-[var(--color-muted-foreground)]">
+          <span className="mr-1 opacity-50">Today</span>
+          {fmt(data.todayRevenue)} · {data.todayOrders} orders
+        </p>
+        <p className="font-mono text-[10px] text-[var(--color-muted-foreground)]">
           <span className="mr-1 opacity-50">Avg order</span>
           {fmt(data.avgOrderValue)}
         </p>
@@ -302,8 +350,8 @@ function AdminDashboard() {
           {fmt(data.thisWeekRevenue)}
         </p>
         <p className="font-mono text-[10px] text-[var(--color-muted-foreground)]">
-          <span className="mr-1 opacity-50">Cancelled</span>
-          {data.cancelledOrders}
+          <span className="mr-1 opacity-50">Cancelled / refunded</span>
+          {data.cancelledOrders} · −{fmt(data.refundedValue)}
         </p>
       </div>
 
@@ -458,7 +506,7 @@ function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border)]">
-                  {data.recentOrders.map((o: { id: string; email: string; total: number; status: string; createdAt: string }) => (
+                  {data.recentOrders.map((o: { id: string; email: string; total: number; currency: "EUR" | "ALL"; pokAmount: number | null; status: string; createdAt: string }) => (
                     <tr
                       key={o.id}
                       className="cursor-pointer transition-colors hover:bg-[var(--color-muted)]/20"
@@ -482,7 +530,7 @@ function AdminDashboard() {
                       </td>
                       <td className="px-5 py-3 text-right">
                         <span className="font-mono text-[11px] text-[var(--color-foreground)]">
-                          {fmt(o.total)}
+                          {fmtOrder(o)}
                         </span>
                       </td>
                       <td className="px-5 py-3 text-right">

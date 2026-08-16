@@ -47,24 +47,33 @@ export const placeOrder = createServerFn({ method: "POST" })
       throw new Error("Unauthorized.");
     }
 
+    type OrderDataItem = {
+      productId: string; name: string; price: number;
+      originalPrice: number | null; image: string;
+      size: string; colour: string; quantity: number;
+      isGiftCard?: boolean;
+      giftCardAmountLek?: number;
+      giftCardRecipientEmail?: string;
+      giftCardRecipientName?: string;
+      giftCardMessage?: string;
+      giftCardForSelf?: boolean;
+    };
     type OrderData = {
       email: string; phone: string;
       firstName: string; lastName: string;
       address: string; address2?: string;
       city: string; postalCode: string; country: string;
       discountCode: string | null; discountAmount: number;
-      items: Array<{
-        productId: string; name: string; price: number;
-        originalPrice: number | null; image: string;
-        size: string; colour: string; quantity: number;
-      }>;
+      giftCardCode?: string | null; giftCardAmountLek?: number;
+      items: Array<OrderDataItem>;
       subtotal: number; shippingFee: number; paymentFee?: number; total: number;
       currency?: "EUR" | "ALL"; pokAmount?: number;
     };
     const orderData = pending.orderData as OrderData;
 
-    // Stock floor guard: decrement only if sufficient stock remains
+    // Stock floor guard: decrement only if sufficient stock remains (skip digital gift card items)
     for (const item of orderData.items) {
+      if (item.isGiftCard) continue;
       const updated = await db()
         .update(productSize)
         .set({ stock: sql`stock - ${item.quantity}` })
@@ -92,6 +101,22 @@ export const placeOrder = createServerFn({ method: "POST" })
       country: orderData.country, phone: orderData.phone, email: orderData.email,
     };
 
+    // ── Gift card redemption debit (atomic) ───────────────────────────────────
+    // Debit must succeed before we create the order. If it fails, the payment was
+    // processed but the gift card couldn't be debited — we still create the order
+    // and log the error (the admin can adjust manually).
+    const gcCode = orderData.giftCardCode ?? null;
+    const gcAmountLek = orderData.giftCardAmountLek ?? 0;
+    if (gcCode && gcAmountLek > 0) {
+      const { atomicDebitGiftCard } = await import("@/lib/giftCard");
+      try {
+        await atomicDebitGiftCard(gcCode, gcAmountLek, orderId);
+      } catch (err) {
+        console.error("[placeOrder] gift card debit failed:", err);
+        // Don't throw — payment already went through via POK. Log for manual review.
+      }
+    }
+
     // Insert order — catch unique constraint if webhook raced the browser callback
     const orderValues = {
       id: orderId,
@@ -101,6 +126,8 @@ export const placeOrder = createServerFn({ method: "POST" })
       shippingFee: orderData.shippingFee,
       discountCode: orderData.discountCode,
       discountAmount: orderData.discountAmount,
+      giftCardCode: gcCode,
+      giftCardAmountLek: gcAmountLek,
       total: orderData.total,
       currency: orderData.currency ?? "EUR",
       pokAmount: orderData.pokAmount ?? null,
@@ -130,10 +157,18 @@ export const placeOrder = createServerFn({ method: "POST" })
       orderData.items.map((item) => ({
         id: randomUUID(),
         orderId,
-        productId: item.productId,
+        productId: item.isGiftCard ? null : item.productId,
         productSnapshot: {
           name: item.name, image: item.image,
           price: item.price, originalPrice: item.originalPrice,
+          ...(item.isGiftCard ? {
+            isGiftCard: true,
+            giftCardAmountLek: item.giftCardAmountLek,
+            recipientEmail: item.giftCardRecipientEmail,
+            recipientName: item.giftCardRecipientName,
+            message: item.giftCardMessage,
+            forSelf: item.giftCardForSelf,
+          } : {}),
         },
         size: item.size,
         colour: item.colour,
@@ -141,6 +176,28 @@ export const placeOrder = createServerFn({ method: "POST" })
         unitPrice: item.price,
       }))
     );
+
+    // ── Issue gift cards purchased in this order ────────────────────────────────
+    const gcPurchases = orderData.items.filter((i) => i.isGiftCard);
+    if (gcPurchases.length > 0) {
+      const { issueGiftCard } = await import("@/lib/giftCard");
+      for (const item of gcPurchases) {
+        try {
+          await issueGiftCard({
+            amountLek: item.giftCardAmountLek ?? 0,
+            purchaserUserId: userId,
+            purchaserEmail: orderData.email,
+            recipientEmail: item.giftCardForSelf ? orderData.email : (item.giftCardRecipientEmail ?? orderData.email),
+            recipientName: item.giftCardForSelf ? orderData.firstName : (item.giftCardRecipientName ?? orderData.firstName),
+            message: item.giftCardMessage ?? null,
+            forSelf: item.giftCardForSelf ?? true,
+            sourceOrderId: orderId,
+          });
+        } catch (err) {
+          console.error("[placeOrder] gift card issuance failed:", err);
+        }
+      }
+    }
 
     // Increment discount code usage counter — atomic guard prevents over-redemption
     if (orderData.discountCode) {

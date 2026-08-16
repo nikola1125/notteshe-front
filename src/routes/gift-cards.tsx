@@ -188,7 +188,7 @@ const createGiftCardPokOrder = createServerFn({ method: "POST" })
       throw new Error(`POK order creation failed (${orderRes.status}): ${body}`);
     }
     const orderJson = await orderRes.json();
-    const pokOrderId = (orderJson?.data?.id ?? orderJson?.id) as string | undefined;
+    const pokOrderId = (orderJson?.data?.sdkOrder?.id ?? orderJson?.data?.id ?? orderJson?.id) as string | undefined;
     if (!pokOrderId) throw new Error("POK did not return an order ID");
 
     // Store in pendingOrder so webhook recovery + placeOrder can finalise

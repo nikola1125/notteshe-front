@@ -69,25 +69,7 @@ const getShopData = createServerFn({ method: "GET" }).handler(
         .from(productColour),
     ]);
 
-    const CATEGORY_ORDER = [
-      "coats & jackets",
-      "coats and jackets",
-      "dresses",
-      "tops",
-      "shorts & skirts",
-      "shorts and skirts",
-      "lingerie",
-      "swimwear",
-      "hats",
-    ];
-    cats.sort((a, b) => {
-      const ai = CATEGORY_ORDER.indexOf(a.name.toLowerCase());
-      const bi = CATEGORY_ORDER.indexOf(b.name.toLowerCase());
-      const aRank = ai === -1 ? CATEGORY_ORDER.length : ai;
-      const bRank = bi === -1 ? CATEGORY_ORDER.length : bi;
-      return aRank - bRank;
-    });
-
+    // Order comes from the DB query (category.sortOrder) — no hardcoded list.
     const coverMap = new Map(coverImages.map((img) => [img.productId, img.url]));
     const catMap = new Map(cats.map((c) => [c.id, c.name]));
 

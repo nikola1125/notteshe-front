@@ -1,15 +1,17 @@
-import { Resend } from "resend";
+import Mailjet from "node-mailjet";
 import { getRuntimeEnv } from "./runtime-env";
 
-let _resend: Resend | undefined;
+let _mailjet: Mailjet | undefined;
 
-export function getResend(): Resend {
-  if (!_resend) {
-    const key = getRuntimeEnv("RESEND_API_KEY");
-    if (!key) throw new Error("RESEND_API_KEY is not set");
-    _resend = new Resend(key);
+export function getMailjet(): Mailjet {
+  if (!_mailjet) {
+    const apiKey = getRuntimeEnv("MAILJET_API_KEY");
+    const secretKey = getRuntimeEnv("MAILJET_SECRET_KEY");
+    if (!apiKey) throw new Error("MAILJET_API_KEY is not set");
+    if (!secretKey) throw new Error("MAILJET_SECRET_KEY is not set");
+    _mailjet = new Mailjet({ apiKey, apiSecret: secretKey });
   }
-  return _resend;
+  return _mailjet;
 }
 
 interface OrderConfirmationData {
@@ -83,10 +85,18 @@ export async function sendOrderConfirmation(data: OrderConfirmationData) {
 </body>
 </html>`;
 
-  await getResend().emails.send({
-    from: getRuntimeEnv("EMAIL_FROM") ?? "orders@notteshe.com",
-    to: data.to,
-    subject: `Order confirmed — #${data.orderId.slice(0, 8).toUpperCase()}`,
-    html,
-  });
+  const fromEmail = getRuntimeEnv("EMAIL_FROM") ?? "orders@notteshe.com";
+
+  await getMailjet()
+    .post("send", { version: "v3.1" })
+    .request({
+      Messages: [
+        {
+          From: { Email: fromEmail, Name: "Notteshe" },
+          To: [{ Email: data.to, Name: data.firstName }],
+          Subject: `Order confirmed — #${data.orderId.slice(0, 8).toUpperCase()}`,
+          HTMLPart: html,
+        },
+      ],
+    });
 }

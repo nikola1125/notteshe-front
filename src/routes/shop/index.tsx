@@ -56,7 +56,8 @@ const getShopData = createServerFn({ method: "GET" }).handler(
 
       database
         .select({ id: category.id, name: category.name, slug: category.slug })
-        .from(category),
+        .from(category)
+        .orderBy(category.name),
 
       database
         .select({ productId: productImage.productId, url: productImage.url })

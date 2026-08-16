@@ -3,7 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { useEffect, useState, useRef } from "react";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { Intro } from "@/components/Intro";
-import { cellSpanClass, cellAspectClass, isStructured, type RowType } from "@/lib/homeLayout";
+import { cellSpanClass, cellAspectClass, rowDef, isStructured, type RowType } from "@/lib/homeLayout";
 import { getLenis } from "@/hooks/useSmoothScroll";
 import { WishlistButton } from "@/components/WishlistButton";
 import { cldImg, cldSrcSet } from "@/lib/cldImage";
@@ -214,18 +214,15 @@ function CollectionTile({ cell, imgClass, className, compact }: { cell: Collecti
         />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-background/85 via-background/15 to-transparent p-4 pt-14 md:p-5 md:pt-20">
           <div className="min-w-0">
-            <p className={`serif leading-none text-ink ${compact ? "text-base md:text-lg" : "text-xl md:text-2xl"}`}>{cell.caption}</p>
-            {cell.captionMeta && !compact && (
-              <p className="mt-1.5 font-mono text-[9px] uppercase tracking-[0.25em] text-ink/55">{cell.captionMeta}</p>
+            <p className={`serif leading-none text-ink ${compact ? "text-base md:text-2xl" : "text-xl md:text-2xl"}`}>{cell.caption}</p>
+            {cell.captionMeta && (
+              <p className={`mt-1.5 font-mono text-[9px] uppercase tracking-[0.25em] text-ink/55 ${compact ? "hidden md:block" : ""}`}>{cell.captionMeta}</p>
             )}
           </div>
-          {compact ? (
-            <span aria-hidden className="shrink-0 text-lg leading-none text-ink transition-transform duration-200 group-hover:translate-x-0.5">→</span>
-          ) : (
-            <span className="shrink-0 inline-flex items-center gap-1.5 whitespace-nowrap font-mono text-[9px] uppercase tracking-widest text-ink transition-opacity duration-200 group-hover:opacity-70 md:text-[10px]">
-              Shop collection <span aria-hidden className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
-            </span>
-          )}
+          {/* Narrow cards (compact) show name only on mobile; full button on desktop. */}
+          <span className={`shrink-0 items-center gap-1.5 whitespace-nowrap font-mono text-[9px] uppercase tracking-widest text-ink transition-opacity duration-200 group-hover:opacity-70 md:text-[10px] ${compact ? "hidden md:inline-flex" : "inline-flex"}`}>
+            Shop collection <span aria-hidden className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
+          </span>
         </div>
       </div>
     </Link>
@@ -534,12 +531,20 @@ function Index() {
           <div className="mx-auto mt-8 max-w-[1600px] space-y-4 px-5 md:mt-10 md:space-y-5 md:px-12">
             {homeRows.map((row, ri) => {
               if (isStructured(row.type)) return <StructuredRow key={ri} row={row} />;
-              const filled = row.cells.filter((c): c is CollectionCell => Boolean(c));
+              const def = rowDef(row.type);
               return (
                 <div key={ri} className="grid grid-cols-12 gap-4 md:gap-5">
-                  {filled.map((cell, ci) => (
-                    <CollectionTile key={cell.id} cell={cell} imgClass={cellAspectClass(row.type, ci)} className={cellSpanClass(row.type, ci)} />
-                  ))}
+                  {row.cells.map((cell, ci) =>
+                    cell ? (
+                      <CollectionTile
+                        key={cell.id}
+                        cell={cell}
+                        imgClass={cellAspectClass(row.type, ci)}
+                        className={cellSpanClass(row.type, ci)}
+                        compact={(def.mobile[ci] ?? 12) <= 4}
+                      />
+                    ) : null
+                  )}
                 </div>
               );
             })}

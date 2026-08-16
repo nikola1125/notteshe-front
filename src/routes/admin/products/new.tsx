@@ -26,7 +26,7 @@ const getFormOptions = createServerFn({ method: "GET" }).handler(
     await requireAdmin();
     const database = db();
     const [cats, cols] = await Promise.all([
-      database.select({ id: category.id, name: category.name }).from(category),
+      database.select({ id: category.id, name: category.name }).from(category).orderBy(category.name),
       database
         .select({ id: collection.id, name: collection.name })
         .from(collection),

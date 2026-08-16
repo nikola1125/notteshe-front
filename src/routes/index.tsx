@@ -701,7 +701,7 @@ function Index() {
               </div>
             </div>
             {([
-              { title: "Shop",  links: [{ label: "Shop all", to: "/shop" }, { label: "Sale", to: "/shop", search: { sale: "1" } }, { label: "Collections", to: "/collections" }] },
+              { title: "Shop",  links: [{ label: "Shop all", to: "/shop" }, { label: "Sale", to: "/shop", search: { sale: "1" } }, { label: "Collections", to: "/collections" }, { label: "Gift Cards", to: "/gift-cards" }] },
               { title: "House", links: [{ label: "Our Story", to: "/about" }, { label: "Contact", to: "/contact" }, { label: "FAQ", to: "/faq" }] },
               { title: "Help",  links: [{ label: "Shipping", to: "/shipping" }, { label: "Exchanges", to: "/exchanges" }, { label: "Size Guide", to: "/size-guide" }] },
             ] as const).map((c) => (

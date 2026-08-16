@@ -99,6 +99,7 @@ export const category = pgTable("category", {
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   parentId: text("parent_id"), // self-referential, no FK to allow null
+  sortOrder: integer("sort_order").notNull().default(0), // manual display order
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -147,6 +148,7 @@ export const product = pgTable("product", {
   isNew: boolean("is_new").notNull().default(false),
   isSale: boolean("is_sale").notNull().default(false),
   isPermanentWardrobe: boolean("is_permanent_wardrobe").notNull().default(false),
+  wardrobeOrder: integer("wardrobe_order").notNull().default(0), // manual order on homepage wardrobe
   isVisible: boolean("is_visible").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

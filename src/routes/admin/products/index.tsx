@@ -331,7 +331,7 @@ function ProductList() {
           <div className="w-full max-w-sm rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-6 shadow-xl">
             <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">Delete product</p>
             <p className="mb-6 text-sm text-[var(--color-foreground)]">
-              Delete <strong>{confirm.name}</strong>? This will remove all images from Cloudinary and cannot be undone.
+              Delete <strong>{confirm.name}</strong>? This will remove all images from the database and cannot be undone.
             </p>
             <div className="flex justify-end gap-3">
               <button

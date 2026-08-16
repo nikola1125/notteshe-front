@@ -64,6 +64,7 @@ const getHomeData = createServerFn({ method: "GET" }).handler(async (): Promise<
         isNew: product.isNew,
         isSale: product.isSale,
         isPermanentWardrobe: product.isPermanentWardrobe,
+        wardrobeOrder: product.wardrobeOrder,
       })
       .from(product)
       .where(and(eq(product.isVisible, true), eq(product.inStock, true)))
@@ -93,7 +94,7 @@ const getHomeData = createServerFn({ method: "GET" }).handler(async (): Promise<
 
   const wardrobeAll = prods
     .filter((p) => p.isPermanentWardrobe)
-    .sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0));
+    .sort((a, b) => (a.wardrobeOrder - b.wardrobeOrder) || ((b.isNew ? 1 : 0) - (a.isNew ? 1 : 0)));
 
   // Landing collections composition — admin-controlled rows (falls back to the
   // legacy 3 slots). Wrapped defensively so the homepage renders pre-migration.
@@ -155,6 +156,7 @@ const getHomeData = createServerFn({ method: "GET" }).handler(async (): Promise<
 
 export const Route = createFileRoute("/")({
   loader: () => getHomeData(),
+  staleTime: 0,
   component: Index,
 });
 
@@ -293,13 +295,20 @@ function Index() {
     }
   }, []);
 
-  // Refetch when the tab becomes visible (e.g. switching back from admin)
+  // Refetch when the tab regains focus/visibility (e.g. switching back from admin)
+  // so wardrobe/collection order changes appear without a manual refresh.
   useEffect(() => {
-    function onVisibility() {
+    function refetch() {
       if (document.visibilityState === "visible") router.invalidate();
     }
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
+    document.addEventListener("visibilitychange", refetch);
+    window.addEventListener("focus", refetch);
+    window.addEventListener("pageshow", refetch);
+    return () => {
+      document.removeEventListener("visibilitychange", refetch);
+      window.removeEventListener("focus", refetch);
+      window.removeEventListener("pageshow", refetch);
+    };
   }, [router]);
 
   useEffect(() => {

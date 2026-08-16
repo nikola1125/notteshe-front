@@ -3,9 +3,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { BackButton } from "@/components/admin/BackButton";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Plus, X, Search } from "lucide-react";
+import { Plus, X, Search, GripVertical } from "lucide-react";
 import { db } from "@/db";
 import { product, productImage } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
@@ -27,6 +27,7 @@ const getWardrobeData = createServerFn({ method: "GET" }).handler(async () => {
     inStock: boolean;
     isVisible: boolean;
     isPermanentWardrobe: boolean;
+    wardrobeOrder: number;
   }> = [];
 
   try {
@@ -41,6 +42,7 @@ const getWardrobeData = createServerFn({ method: "GET" }).handler(async () => {
           inStock: product.inStock,
           isVisible: product.isVisible,
           isPermanentWardrobe: product.isPermanentWardrobe,
+          wardrobeOrder: product.wardrobeOrder,
         })
         .from(product)
         .orderBy(desc(product.createdAt)),
@@ -57,7 +59,7 @@ const getWardrobeData = createServerFn({ method: "GET" }).handler(async () => {
 
   const wardrobe = all
     .filter((p) => p.isPermanentWardrobe)
-    .sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0));
+    .sort((a, b) => (a.wardrobeOrder - b.wardrobeOrder) || ((b.isNew ? 1 : 0) - (a.isNew ? 1 : 0)));
 
   const available = all.filter((p) => !p.isPermanentWardrobe && p.isVisible !== false);
 
@@ -73,6 +75,20 @@ const toggleWardrobe = createServerFn({ method: "POST" })
       .set({ isPermanentWardrobe: data.include })
       .where(eq(product.id, data.productId));
     await logAudit(admin.id, "wardrobe.update", "product", data.productId, { after: data });
+    return { success: true };
+  });
+
+const saveWardrobeOrder = createServerFn({ method: "POST" })
+  .validator((d: unknown) => z.object({ ids: z.array(z.string()) }).parse(d))
+  .handler(async ({ data }) => {
+    const admin = await requireAdmin();
+    // Persist the new order — position in the array becomes wardrobe_order.
+    await Promise.all(
+      data.ids.map((id, i) =>
+        db().update(product).set({ wardrobeOrder: i }).where(eq(product.id, id))
+      )
+    );
+    await logAudit(admin.id, "wardrobe.reorder", "product", "—", { after: { count: data.ids.length } });
     return { success: true };
   });
 
@@ -96,6 +112,7 @@ type ProductItem = {
   inStock: boolean;
   isVisible: boolean;
   isPermanentWardrobe: boolean;
+  wardrobeOrder: number;
 };
 
 function PermanentWardrobePage() {
@@ -104,6 +121,56 @@ function PermanentWardrobePage() {
   const [available, setAvailable] = useState<ProductItem[]>(data?.available ?? []);
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState<string | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+
+  // Drag-to-reorder (works with mouse + touch via Pointer Events, no library).
+  const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const dragIdxRef = useRef<number | null>(null);
+  const wardrobeRef = useRef(wardrobe);
+  wardrobeRef.current = wardrobe;
+
+  function onDragMove(e: PointerEvent) {
+    const from = dragIdxRef.current;
+    if (from == null) return;
+    const y = e.clientY;
+    const rows = rowRefs.current;
+    let target = rows.length - 1;
+    for (let i = 0; i < rows.length; i++) {
+      const el = rows[i];
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      if (y < r.top + r.height / 2) { target = i; break; }
+    }
+    if (target !== from) {
+      setWardrobe((prev) => {
+        const next = [...prev];
+        const [moved] = next.splice(from, 1);
+        next.splice(target, 0, moved);
+        wardrobeRef.current = next;
+        return next;
+      });
+      dragIdxRef.current = target;
+      setDragIndex(target);
+    }
+  }
+  function endDrag() {
+    window.removeEventListener("pointermove", onDragMove);
+    window.removeEventListener("pointerup", endDrag);
+    const wasDragging = dragIdxRef.current != null;
+    dragIdxRef.current = null;
+    setDragIndex(null);
+    if (wasDragging) {
+      saveWardrobeOrder({ data: { ids: wardrobeRef.current.map((w) => w.id) } })
+        .catch(() => toast.error("Failed to save order"));
+    }
+  }
+  function startDrag(e: React.PointerEvent, index: number) {
+    e.preventDefault();
+    dragIdxRef.current = index;
+    setDragIndex(index);
+    window.addEventListener("pointermove", onDragMove);
+    window.addEventListener("pointerup", endDrag);
+  }
 
   const filteredAvailable = search.trim()
     ? available.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
@@ -115,10 +182,10 @@ function PermanentWardrobePage() {
       await toggleWardrobe({ data: { productId: p.id, include: true } });
       const updated = { ...p, isPermanentWardrobe: true };
       setAvailable((prev) => prev.filter((x) => x.id !== p.id));
-      setWardrobe((prev) => {
-        const next = [...prev, updated];
-        return next.sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0));
-      });
+      const next = [...wardrobeRef.current, updated];
+      wardrobeRef.current = next;
+      setWardrobe(next);
+      await saveWardrobeOrder({ data: { ids: next.map((w) => w.id) } }).catch(() => {});
       toast.success(`${p.name} added`);
     } catch {
       toast.error("Failed to add");
@@ -148,7 +215,7 @@ function PermanentWardrobePage() {
         <div>
           <h1 className="font-serif text-2xl italic text-[var(--color-foreground)]">Permanent Wardrobe</h1>
           <p className="mt-1 font-mono text-[10px] text-[var(--color-muted-foreground)]">
-            New arrivals rank first automatically
+            Drag the handle to reorder — saved instantly, live on the homepage
           </p>
         </div>
         <Link
@@ -173,10 +240,13 @@ function PermanentWardrobePage() {
                 No products yet — add from inventory
               </p>
             )}
-            {wardrobe.map((p) => (
+            {wardrobe.map((p, i) => (
               <div
                 key={p.id}
-                className="flex items-center gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] px-3 py-2.5"
+                ref={(el) => { rowRefs.current[i] = el; }}
+                className={`flex items-center gap-3 rounded-lg border bg-[var(--color-paper)] px-3 py-2.5 transition-shadow ${
+                  dragIndex === i ? "border-[var(--color-clay)] opacity-70 shadow-lg" : "border-[var(--color-border)]"
+                }`}
               >
                 {p.coverImageUrl ? (
                   <img src={cldImg(p.coverImageUrl, 80)} alt={p.name} className="h-10 w-8 rounded object-cover shrink-0" />
@@ -207,8 +277,16 @@ function PermanentWardrobePage() {
                   onClick={() => handleRemove(p)}
                   disabled={saving === p.id}
                   className="shrink-0 rounded p-1.5 text-[var(--color-muted-foreground)] transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:opacity-40"
+                  aria-label="Remove from wardrobe"
                 >
                   <X size={14} />
+                </button>
+                <button
+                  onPointerDown={(e) => startDrag(e, i)}
+                  className="shrink-0 cursor-grab touch-none rounded p-1.5 text-[var(--color-muted-foreground)] transition-colors hover:text-[var(--color-foreground)] active:cursor-grabbing"
+                  aria-label="Drag to reorder"
+                >
+                  <GripVertical size={16} />
                 </button>
               </div>
             ))}

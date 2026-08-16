@@ -37,7 +37,7 @@ const getProductEdit = createServerFn({ method: "GET" })
         .from(product)
         .where(eq(product.id, data.id))
         .limit(1),
-      database.select({ id: category.id, name: category.name }).from(category).orderBy(category.name),
+      database.select({ id: category.id, name: category.name }).from(category).orderBy(category.sortOrder),
       database
         .select({ id: collection.id, name: collection.name })
         .from(collection),

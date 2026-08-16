@@ -266,6 +266,7 @@ export function Header() {
           <Link to="/shop" // eslint-disable-next-line @typescript-eslint/no-explicit-any
             search={(() => ({ sale: "1" })) as any} onClick={() => setMenuOpen(false)} className="border-b border-border/30 py-4 font-mono text-[11px] uppercase tracking-[0.25em] text-clay transition-colors">Sale</Link>
           <Link to="/collections" onClick={() => setMenuOpen(false)} className="border-b border-border/30 py-4 font-mono text-[11px] uppercase tracking-[0.25em] text-ink/70 transition-colors hover:text-ink">Collections</Link>
+          <Link to="/gift-cards" onClick={() => setMenuOpen(false)} className="border-b border-border/30 py-4 font-mono text-[11px] uppercase tracking-[0.25em] text-ink/70 transition-colors hover:text-ink">Gift Cards</Link>
           <Link to="/about" onClick={() => setMenuOpen(false)} className="border-b border-border/30 py-4 font-mono text-[11px] uppercase tracking-[0.25em] text-ink/70 transition-colors hover:text-ink">Story</Link>
           <Link to="/contact" onClick={() => setMenuOpen(false)} className="border-b border-border/30 py-4 font-mono text-[11px] uppercase tracking-[0.25em] text-ink/70 transition-colors hover:text-ink">Contact</Link>
           <button onClick={() => { openRegionPicker(); setMenuOpen(false); }} className="flex items-center justify-between border-b border-border/30 py-4 text-left font-mono text-[11px] uppercase tracking-[0.25em] text-ink/70 transition-colors hover:text-ink">

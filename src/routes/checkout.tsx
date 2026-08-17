@@ -1112,11 +1112,19 @@ function CheckoutPage() {
                     {couponError && <p className="mt-1.5 font-mono text-[9px] uppercase tracking-widest text-clay">{couponError}</p>}
                   </div>
                 ) : (
-                  <div className="mt-5 border-t border-border pt-5">
+                  <div className="mt-5 flex items-center justify-between gap-2 border-t border-border pt-5">
                     <p className="font-mono text-[9px] uppercase tracking-widest text-green-400">
                       Code <span className="font-bold">{appliedDiscount.code}</span> applied —{" "}
                       {appliedDiscount.type === "PERCENT" ? `${appliedDiscount.value}% off` : `${formatMoney(appliedDiscount.value, currency, rate)} off`}
                     </p>
+                    <button
+                      onClick={() => { setAppliedDiscount(null); setCouponInput(""); }}
+                      className="shrink-0 font-mono text-[11px] leading-none text-muted-foreground/50 transition-colors hover:text-clay"
+                      title="Remove discount"
+                      aria-label="Remove discount code"
+                    >
+                      ✕
+                    </button>
                   </div>
                 )
               )}
@@ -1153,9 +1161,10 @@ function CheckoutPage() {
                         Gift card applied
                       </p>
                       <button
-                        onClick={() => setAppliedGiftCard(null)}
-                        className="font-mono text-[9px] text-muted-foreground/50 hover:text-clay transition-colors"
+                        onClick={() => { setAppliedGiftCard(null); setGiftCardInput(""); }}
+                        className="shrink-0 font-mono text-[11px] leading-none text-muted-foreground/50 transition-colors hover:text-clay"
                         title="Remove gift card"
+                        aria-label="Remove gift card"
                       >
                         ✕
                       </button>

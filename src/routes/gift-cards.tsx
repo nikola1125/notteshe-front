@@ -246,7 +246,7 @@ function GiftCardsPage() {
   const initiatingRef = useRef(false);
 
   const [selectedLek, setSelectedLek] = useState<number | null>(5000);
-  const [customLek, setCustomLek] = useState("");
+  const [customInput, setCustomInput] = useState("");
   const [forSelf, setForSelf] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState("");
   const [recipientName, setRecipientName] = useState("");
@@ -255,21 +255,31 @@ function GiftCardsPage() {
 
   useEffect(() => setMounted(true), []);
 
-  const amountLek = selectedLek !== null ? selectedLek : (parseInt(customLek.replace(/\D/g, ""), 10) || 0);
+  const amountLek = selectedLek !== null
+    ? selectedLek
+    : currency === "ALL"
+      ? (parseInt(customInput.replace(/\D/g, ""), 10) || 0)
+      : Math.round((parseFloat(customInput) || 0) * eurToLekRate);
   const amountEur = amountLek / eurToLekRate;
   const paymentFee = paymentFeeEnabled
     ? Math.round((amountEur * (paymentFeePercent / 100) + paymentFeeFixed) * 100) / 100
     : 0;
   const totalEur = Math.round((amountEur + paymentFee) * 100) / 100;
 
-  function formatLek(amount: number) {
-    return `ALL ${amount.toLocaleString()}`;
+  // Show amounts in the selected currency; hint shows the other currency below
+  function displayAmount(lek: number) {
+    if (currency === "ALL") return `ALL ${lek.toLocaleString()}`;
+    return formatMoney(lek / eurToLekRate, "EUR", 1);
+  }
+  function hintAmount(lek: number) {
+    if (currency === "ALL") return formatMoney(lek / eurToLekRate, "EUR", 1);
+    return `ALL ${lek.toLocaleString()}`;
   }
 
   function validate(): boolean {
     const next: Record<string, string> = {};
     if (amountLek <= 0) next.amount = "Select or enter an amount";
-    if (amountLek > 100000) next.amount = "Maximum amount is 100,000 L";
+    if (amountLek > 100000) next.amount = `Maximum amount is ${displayAmount(100000)}`;
     if (!forSelf) {
       if (!recipientEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail))
         next.recipientEmail = "Enter a valid email address";
@@ -393,7 +403,7 @@ function GiftCardsPage() {
                 <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                   {forSelf ? "Gift card for yourself" : `Gift card for ${recipientName}`}
                 </p>
-                <p className="serif text-2xl text-ink">{formatLek(amountLek)}</p>
+                <p className="serif text-2xl text-ink">{displayAmount(amountLek)}</p>
               </div>
               {paymentFee > 0 && (
                 <p className="mt-1 font-mono text-[9px] text-muted-foreground/50">
@@ -475,26 +485,28 @@ function GiftCardsPage() {
                         : "border-border bg-transparent text-ink hover:border-ink/50"
                     }`}
                   >
-                    {formatLek(amount)}
+                    {displayAmount(amount)}
                   </button>
                 ))}
               </div>
 
               <div className="mt-3">
                 <label className="block font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  Custom amount (Lek)
+                  Custom amount ({currency === "ALL" ? "Lek" : "EUR"})
                 </label>
                 <input
                   type="text"
-                  inputMode="numeric"
-                  value={customLek}
+                  inputMode="decimal"
+                  value={customInput}
                   onChange={(e) => {
-                    const v = e.target.value.replace(/\D/g, "");
-                    setCustomLek(v);
+                    const v = currency === "ALL"
+                      ? e.target.value.replace(/\D/g, "")
+                      : e.target.value.replace(/[^\d.]/g, "");
+                    setCustomInput(v);
                     setSelectedLek(null);
                     setFieldErrors((er) => ({ ...er, amount: "" }));
                   }}
-                  placeholder="e.g. 7500"
+                  placeholder={currency === "ALL" ? "e.g. 7500" : "e.g. 75"}
                   style={{ fontSize: "16px" }}
                   className="mt-2 w-full border-b border-border bg-transparent pb-2.5 font-mono text-ink outline-none placeholder:text-muted-foreground/30 focus:border-ink/60"
                 />
@@ -503,7 +515,7 @@ function GiftCardsPage() {
 
               {amountLek > 0 && (
                 <p className="mt-3 font-mono text-[11px] text-muted-foreground/60">
-                  ≈ {formatMoney(amountEur, currency, rate)}
+                  ≈ {hintAmount(amountLek)}
                   {paymentFee > 0 && <span className="ml-2 text-muted-foreground/40">+ {formatMoney(paymentFee, currency, rate)} payment fee</span>}
                 </p>
               )}
@@ -593,7 +605,7 @@ function GiftCardsPage() {
               {initiating
                 ? <span className="flex items-center justify-center gap-3"><Spinner />Preparing payment…</span>
                 : amountLek > 0
-                  ? `Buy gift card — ${formatLek(amountLek)}`
+                  ? `Buy gift card — ${displayAmount(amountLek)}`
                   : "Select an amount"}
             </button>
 

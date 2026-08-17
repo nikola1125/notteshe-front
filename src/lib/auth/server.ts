@@ -35,13 +35,16 @@ function getAuth() {
         session: {
           create: {
             before: async (session) => {
+              const { APIError } = await import("better-auth");
               const rows = await db()
                 .select({ blocked: schema.user.blocked })
                 .from(schema.user)
                 .where(eq(schema.user.id, session.userId))
                 .limit(1);
               if (rows[0]?.blocked) {
-                throw new Error("Your account has been suspended. Please contact support.");
+                throw new APIError("FORBIDDEN", {
+                  message: "Your account has been suspended. Please contact support.",
+                });
               }
               return { data: session };
             },

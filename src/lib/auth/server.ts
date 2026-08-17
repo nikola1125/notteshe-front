@@ -30,21 +30,29 @@ function getAuth() {
         requireEmailVerification: false,
       },
 
-      // Block enforcement: reject session creation for blocked users.
+      // Block enforcement: checked at session update (re-login), not at create.
+      // Checking at create interfered with brand-new signups — the hook fires
+      // for both signup and login, and any DB hiccup would wrongly block new users.
       databaseHooks: {
         session: {
-          create: {
+          update: {
             before: async (session) => {
-              const { APIError } = await import("better-auth");
-              const rows = await db()
-                .select({ blocked: schema.user.blocked })
-                .from(schema.user)
-                .where(eq(schema.user.id, session.userId))
-                .limit(1);
-              if (rows[0]?.blocked) {
-                throw new APIError("FORBIDDEN", {
-                  message: "Your account has been suspended. Please contact support.",
-                });
+              try {
+                const { APIError } = await import("better-auth");
+                const rows = await db()
+                  .select({ blocked: schema.user.blocked })
+                  .from(schema.user)
+                  .where(eq(schema.user.id, session.userId))
+                  .limit(1);
+                if (rows[0]?.blocked === true) {
+                  throw new APIError("FORBIDDEN", {
+                    message: "Your account has been suspended. Please contact support.",
+                  });
+                }
+              } catch (err: unknown) {
+                // Re-throw only our own APIError; swallow unexpected DB errors
+                // so a transient Neon hiccup never blocks legitimate users.
+                if ((err as { status?: number })?.status === 403) throw err;
               }
               return { data: session };
             },

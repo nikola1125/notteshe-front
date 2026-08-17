@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { signIn, signUp, authClient } from "@/lib/auth/client";
+import { signIn, signUp, authClient, getSession } from "@/lib/auth/client";
 
 interface AuthModalProps {
   onClose: () => void;
@@ -52,6 +52,8 @@ export function AuthModal({ onClose, onSuccess, defaultMode = "login" }: AuthMod
           return;
         }
       }
+      // Force session refetch so any page using useSession() updates immediately
+      await getSession({ fetchOptions: { cache: "no-store" } }).catch(() => {});
       onSuccess?.();
       onClose();
     } catch {

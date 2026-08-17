@@ -912,7 +912,7 @@ function CheckoutPage() {
 
   // ─── Guards ──────────────────────────────────────────────────────────────────
 
-  if (sessionLoading) {
+  if (sessionLoading || (!session?.user && !mounted)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Spinner />

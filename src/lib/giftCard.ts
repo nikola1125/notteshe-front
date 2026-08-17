@@ -27,7 +27,9 @@ export async function atomicDebitGiftCard(
   const { eq, sql } = await import("drizzle-orm");
   const { randomUUID } = await import("node:crypto");
 
-  if (amountLek <= 0) throw new Error("Gift card debit amount must be positive.");
+  // Whole Lek only — keeps balances integer-valued (no fractional float drift).
+  const amt = Math.round(amountLek);
+  if (amt <= 0) throw new Error("Gift card debit amount must be positive.");
 
   const normalizedCode = code.toUpperCase().trim();
 
@@ -37,12 +39,12 @@ export async function atomicDebitGiftCard(
   const updated = await db()
     .update(giftCard)
     .set({
-      balance: sql`balance - ${amountLek}`,
+      balance: sql`balance - ${amt}`,
       lastUsedAt: new Date(),
       // Mark depleted if the remaining balance after this debit would be 0
-      status: sql`CASE WHEN balance - ${amountLek} <= 0 THEN 'depleted' ELSE status END`,
+      status: sql`CASE WHEN balance - ${amt} <= 0 THEN 'depleted' ELSE status END`,
     })
-    .where(sql`code = ${normalizedCode} AND status = 'active' AND balance >= ${amountLek}`)
+    .where(sql`code = ${normalizedCode} AND status = 'active' AND balance >= ${amt}`)
     .returning({ id: giftCard.id, balance: giftCard.balance });
 
   if (updated.length === 0) {
@@ -65,7 +67,7 @@ export async function atomicDebitGiftCard(
     id: randomUUID(),
     giftCardId,
     type: "redeem",
-    amount: -amountLek,
+    amount: -amt,
     balanceAfter: balanceAfter ?? 0,
     orderId,
   });
@@ -94,6 +96,9 @@ export async function issueGiftCard(params: IssueGiftCardParams): Promise<string
   const { randomUUID } = await import("node:crypto");
 
   const id = randomUUID();
+  // Store whole Lek only — keeps balances integer-valued so fractional float
+  // drift can't accumulate across partial redemptions.
+  const amountLek = Math.round(params.amountLek);
   // Retry on rare code collision (32^12 space makes collision astronomically unlikely)
   let code = generateGiftCardCode();
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -101,8 +106,8 @@ export async function issueGiftCard(params: IssueGiftCardParams): Promise<string
       await db().insert(giftCard).values({
         id,
         code,
-        initialAmount: params.amountLek,
-        balance: params.amountLek,
+        initialAmount: amountLek,
+        balance: amountLek,
         status: "active",
         purchaserUserId: params.purchaserUserId,
         purchaserEmail: params.purchaserEmail,

@@ -21,6 +21,7 @@ import { getStorefrontConfig } from "@/lib/storefront";
 import { DEFAULT_RATE } from "@/lib/currency";
 import { useAuthStore } from "@/store/authStore";
 import { useSmoothScroll } from "@/hooks/useSmoothScroll";
+import { CookieBanner } from "@/components/CookieBanner";
 
 
 
@@ -116,11 +117,6 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="en">
       <head>
         <HeadContent />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script","y3svsr7kjm");`,
-          }}
-        />
       </head>
       <body>
         {children}
@@ -155,6 +151,7 @@ function RootComponent() {
           />
         )}
         <Outlet />
+        {!isAdmin && <CookieBanner />}
       </CurrencyRateProvider>
     </QueryClientProvider>
   );

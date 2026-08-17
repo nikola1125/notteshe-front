@@ -59,7 +59,7 @@ const getMyOrders = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 const requestCancellation = createServerFn({ method: "POST" })
-  .validator(z.object({ orderId: z.string() }))
+  .validator(z.object({ orderId: z.string(), message: z.string().optional() }))
   .handler(async ({ data }) => {
     const session = await requireAuth();
     const userName = session.user.name ?? session.user.email;
@@ -69,6 +69,7 @@ const requestCancellation = createServerFn({ method: "POST" })
       userId: session.user.id,
       userName,
       userEmail: session.user.email,
+      message: data.message || null,
     });
     const { notifyAdmins } = await import("@/lib/admin/sse");
     await notifyAdmins("new_cancellation", { name: userName, orderRef: data.orderId.slice(0, 8).toUpperCase() });
@@ -100,6 +101,82 @@ const STATUS_COLOR: Record<string, string> = {
 
 const CANCELLABLE = new Set(["PENDING", "CONFIRMED"]);
 
+function CancellationModal({
+  orderId,
+  onClose,
+  onSuccess,
+}: {
+  orderId: string;
+  onClose: () => void;
+  onSuccess: (orderId: string) => void;
+}) {
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await requestCancellation({ data: { orderId, message: message.trim() || undefined } });
+      onSuccess(orderId);
+      onClose();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="w-full max-w-md border border-border bg-background p-7">
+        <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+          Request cancellation
+        </p>
+        <p className="serif mt-2 text-xl text-ink">
+          Order #{orderId.slice(0, 8).toUpperCase()}
+        </p>
+        <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+          <div>
+            <label
+              htmlFor="cancel-message"
+              className="mb-2 block font-mono text-[10px] uppercase tracking-widest text-muted-foreground"
+            >
+              Reason <span className="text-muted-foreground/40">(optional)</span>
+            </label>
+            <textarea
+              id="cancel-message"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Let us know why you'd like to cancel this order…"
+              rows={4}
+              className="w-full resize-none border border-border bg-transparent px-4 py-3 font-mono text-[12px] text-ink placeholder:text-muted-foreground/40 focus:border-ink/50 focus:outline-none"
+            />
+          </div>
+          <div className="flex gap-3">
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 border border-clay bg-clay/10 py-2.5 font-mono text-[10px] uppercase tracking-widest text-clay transition-colors hover:bg-clay/20 disabled:opacity-50"
+            >
+              {loading ? "Sending…" : "Send request"}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="flex-1 border border-border py-2.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:border-ink/30 hover:text-ink disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function OrdersPage() {
   const rows = Route.useLoaderData();
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -107,7 +184,7 @@ function OrdersPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     () => new Set((rows as any[]).filter((r) => r.cancellationRequested).map((r) => r.id))
   );
-  const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [modalOrderId, setModalOrderId] = useState<string | null>(null);
   const currency = useCurrency();
   const rate = useRate();
 
@@ -119,21 +196,22 @@ function OrdersPage() {
     setTimeout(() => setCopiedId(null), 1500);
   }
 
-  async function handleCancelRequest(e: React.MouseEvent, orderId: string) {
+  function openCancelModal(e: React.MouseEvent, orderId: string) {
     e.preventDefault();
     e.stopPropagation();
-    if (loadingId || requestedIds.has(orderId)) return;
-    setLoadingId(orderId);
-    try {
-      await requestCancellation({ data: { orderId } });
-      setRequestedIds((prev) => new Set([...prev, orderId]));
-    } finally {
-      setLoadingId(null);
-    }
+    if (requestedIds.has(orderId)) return;
+    setModalOrderId(orderId);
   }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {modalOrderId && (
+        <CancellationModal
+          orderId={modalOrderId}
+          onClose={() => setModalOrderId(null)}
+          onSuccess={(id) => setRequestedIds((prev) => new Set([...prev, id]))}
+        />
+      )}
       <div className="border-b border-border pt-20 pb-10 md:pt-28 md:pb-14">
         <div className="mx-auto max-w-[1600px] px-5 md:px-12">
           <button
@@ -230,15 +308,15 @@ function OrdersPage() {
                   <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
                     {canCancel ? (
                       <button
-                        onClick={(e) => handleCancelRequest(e, order.id)}
-                        disabled={alreadyRequested || loadingId === order.id}
+                        onClick={(e) => openCancelModal(e, order.id)}
+                        disabled={alreadyRequested}
                         className={`font-mono text-[10px] uppercase tracking-widest transition-colors ${
                           alreadyRequested
                             ? "cursor-default text-muted-foreground/40"
                             : "text-clay/70 hover:text-clay"
                         }`}
                       >
-                        {loadingId === order.id ? "Requesting…" : alreadyRequested ? "Cancellation requested" : "Request cancellation"}
+                        {alreadyRequested ? "Cancellation requested" : "Request cancellation"}
                       </button>
                     ) : (
                       <span />

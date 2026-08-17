@@ -24,6 +24,7 @@ interface CancellationItem {
   orderRef: string;
   userName: string;
   userEmail: string;
+  message: string | null;
   status: string;
   isRead: boolean;
   createdAt: string;
@@ -69,6 +70,7 @@ const getRequests = createServerFn({ method: "GET" }).handler(async (): Promise<
       orderRef: c.orderId.slice(0, 8).toUpperCase(),
       userName: c.userName,
       userEmail: c.userEmail,
+      message: c.message ?? null,
       status: c.status,
       isRead: c.isRead,
       createdAt: String(c.createdAt),
@@ -156,6 +158,11 @@ function RequestsPage() {
                       <p className="shrink-0 font-mono text-[10px] text-[var(--color-muted-foreground)]/60">{timeAgo(req.createdAt)}</p>
                     </div>
                     <p className="mt-1.5 font-mono text-[10px] text-[var(--color-muted-foreground)]">{req.userEmail}</p>
+                    {req.message && (
+                      <p className="mt-3 border-l-2 border-[var(--color-clay)]/30 pl-3 font-mono text-[11px] leading-relaxed text-[var(--color-foreground)]/70 italic">
+                        {req.message}
+                      </p>
+                    )}
                   </Link>
                 );
               }

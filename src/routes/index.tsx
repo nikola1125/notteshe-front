@@ -204,7 +204,7 @@ function CarouselArrows({ trackRef }: { trackRef: React.RefObject<HTMLDivElement
 
 // A single collection card. The name sits INSIDE the image (gradient overlay).
 // `compact` scales the label down for small cells (e.g. the stacked pair).
-function CollectionTile({ cell, imgClass, className, compact }: { cell: CollectionCell; imgClass: string; className?: string; compact?: boolean }) {
+function CollectionTile({ cell, imgClass, className, compact, priority }: { cell: CollectionCell; imgClass: string; className?: string; compact?: boolean; priority?: boolean }) {
   return (
     <Link to="/collections/$slug" params={{ slug: cell.slug }} className={`reveal group block ${className ?? ""}`}>
       <div className={`relative overflow-hidden bg-muted ${imgClass}`}>
@@ -212,7 +212,8 @@ function CollectionTile({ cell, imgClass, className, compact }: { cell: Collecti
           src={cldImg(cell.coverImage, 900)}
           srcSet={cldSrcSet(cell.coverImage, 900)}
           alt={cell.name}
-          loading="lazy"
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : "auto"}
           className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
         />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-background/85 via-background/15 to-transparent p-4 pt-14 md:p-5 md:pt-20">
@@ -249,6 +250,7 @@ function StructuredRow({ row }: { row: HomeRowResolved }) {
           cell={wide}
           imgClass="flex-1 min-h-0"
           className={`col-span-8 row-span-2 row-start-1 ${wideCol} flex flex-col`}
+          priority
         />
       )}
       {top && (

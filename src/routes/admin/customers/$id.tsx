@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { BackButton } from "@/components/admin/BackButton";
 import { eq, desc } from "drizzle-orm";
@@ -54,6 +54,7 @@ interface CustomerDetail {
   name: string;
   email: string;
   phone: string | null;
+  blocked: boolean;
   createdAt: string;
   orders: OrderRow[];
 }
@@ -95,6 +96,7 @@ const getCustomerDetail = createServerFn({ method: "GET" })
       name: u.name,
       email: u.email,
       phone: u.phone ?? null,
+      blocked: u.blocked,
       createdAt: u.createdAt.toISOString(),
       orders: orderRows.map((o, i) => ({
         id: o.id,
@@ -134,6 +136,57 @@ const updateCustomer = createServerFn({ method: "POST" })
     return { success: true };
   });
 
+const setBlockedCustomer = createServerFn({ method: "POST" })
+  .validator((input: unknown) =>
+    z.object({ id: z.string(), blocked: z.boolean() }).parse(input)
+  )
+  .handler(async ({ data }) => {
+    const admin = await requireAdmin();
+    await db()
+      .update(user)
+      .set({ blocked: data.blocked, updatedAt: new Date() })
+      .where(eq(user.id, data.id));
+    await logAudit(
+      admin.id,
+      data.blocked ? "customer.block" : "customer.unblock",
+      "user",
+      data.id,
+      { after: { blocked: data.blocked } }
+    );
+    return { success: true };
+  });
+
+const deleteCustomer = createServerFn({ method: "POST" })
+  .validator((input: unknown) =>
+    z.object({ id: z.string() }).parse(input)
+  )
+  .handler(async ({ data }) => {
+    const admin = await requireAdmin();
+    const database = db();
+
+    // Delete orders manually first — orders.userId has onDelete: "restrict"
+    // so we must remove the orders before removing the user.
+    // orderItem rows cascade from orders automatically.
+    const userOrders = await database
+      .select({ id: orders.id })
+      .from(orders)
+      .where(eq(orders.userId, data.id));
+
+    for (const o of userOrders) {
+      await database.delete(orderItem).where(eq(orderItem.orderId, o.id));
+    }
+    if (userOrders.length > 0) {
+      await database.delete(orders).where(eq(orders.userId, data.id));
+    }
+
+    // All other FK refs to user.id use onDelete: "cascade" — they'll be
+    // handled automatically by Postgres when the user row is deleted.
+    await database.delete(user).where(eq(user.id, data.id));
+
+    await logAudit(admin.id, "customer.delete", "user", data.id);
+    return { success: true };
+  });
+
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 function CustomerDetailError({ error }: { error: Error }) {
@@ -170,11 +223,15 @@ function fmtDate(iso: string) {
 
 function CustomerDetail() {
   const initial = Route.useLoaderData() as CustomerDetail;
+  const router = useRouter();
   const [customer, setCustomer] = useState<CustomerDetail>(initial);
   const [tab, setTab] = useState<"profile" | "orders">("profile");
   const [name, setName] = useState(initial.name);
   const [phone, setPhone] = useState(initial.phone ?? "");
   const [saving, setSaving] = useState(false);
+  const [blocking, setBlocking] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
 
   function toggleOrder(id: string) {
@@ -198,7 +255,32 @@ function CustomerDetail() {
     }
   }
 
-  const shortId = customer.id.slice(0, 8).toUpperCase();
+  async function handleToggleBlock() {
+    setBlocking(true);
+    const nextBlocked = !customer.blocked;
+    try {
+      await setBlockedCustomer({ data: { id: customer.id, blocked: nextBlocked } });
+      setCustomer((prev) => ({ ...prev, blocked: nextBlocked }));
+      toast.success(nextBlocked ? "Customer blocked" : "Customer unblocked");
+    } catch {
+      toast.error("Failed to update block status");
+    } finally {
+      setBlocking(false);
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      await deleteCustomer({ data: { id: customer.id } });
+      toast.success("Customer deleted");
+      await router.navigate({ to: "/admin/customers" });
+    } catch {
+      toast.error("Failed to delete customer");
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  }
 
   return (
     <div className="p-6 lg:p-8">
@@ -209,7 +291,14 @@ function CustomerDetail() {
         <p className="font-mono text-[10px] tracking-widest text-[var(--color-muted-foreground)]">
           {customer.id}
         </p>
-        <h1 className="mt-1 font-serif text-3xl italic text-[var(--color-foreground)]">{customer.name}</h1>
+        <div className="mt-1 flex flex-wrap items-center gap-3">
+          <h1 className="font-serif text-3xl italic text-[var(--color-foreground)]">{customer.name}</h1>
+          {customer.blocked && (
+            <span className="rounded bg-red-500/20 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-red-400">
+              Blocked
+            </span>
+          )}
+        </div>
         <div className="mt-2 flex flex-wrap items-center gap-4">
           <span className="font-mono text-[11px] text-[var(--color-muted-foreground)]">{customer.email}</span>
           <span className="font-mono text-[11px] text-[var(--color-muted-foreground)]">
@@ -240,54 +329,129 @@ function CustomerDetail() {
 
       {/* ── Profile tab ── */}
       {tab === "profile" && (
-        <div className="max-w-xl rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-6">
-          <p className="mb-5 font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
-            Profile Information
-          </p>
-          <div className="space-y-4">
-            <div>
-              <label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
-                Name
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full rounded border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] outline-none focus:border-[var(--color-clay)]"
-              />
+        <div className="max-w-xl space-y-4">
+          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-6">
+            <p className="mb-5 font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
+              Profile Information
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full rounded border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] outline-none focus:border-[var(--color-clay)]"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={customer.email}
+                  disabled
+                  className="w-full rounded border border-[var(--color-border)] bg-[var(--color-muted)]/10 px-3 py-2 text-sm text-[var(--color-muted-foreground)] outline-none cursor-not-allowed"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
+                  Phone
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="—"
+                  className="w-full rounded border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] outline-none focus:border-[var(--color-clay)] placeholder:text-[var(--color-muted-foreground)]"
+                />
+              </div>
             </div>
-            <div>
-              <label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
-                Email
-              </label>
-              <input
-                type="email"
-                value={customer.email}
-                disabled
-                className="w-full rounded border border-[var(--color-border)] bg-[var(--color-muted)]/10 px-3 py-2 text-sm text-[var(--color-muted-foreground)] outline-none cursor-not-allowed"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
-                Phone
-              </label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="—"
-                className="w-full rounded border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] outline-none focus:border-[var(--color-clay)] placeholder:text-[var(--color-muted-foreground)]"
-              />
+            <div className="mt-6">
+              <button
+                onClick={() => void handleSaveProfile()}
+                disabled={saving}
+                className="rounded bg-[var(--color-clay)] px-5 py-2 font-mono text-[10px] uppercase tracking-widest text-white transition-opacity hover:opacity-80 disabled:opacity-40"
+              >
+                {saving ? "Saving…" : "Save Changes"}
+              </button>
             </div>
           </div>
-          <div className="mt-6">
-            <button
-              onClick={() => void handleSaveProfile()}
-              disabled={saving}
-              className="rounded bg-[var(--color-clay)] px-5 py-2 font-mono text-[10px] uppercase tracking-widest text-white transition-opacity hover:opacity-80 disabled:opacity-40"
-            >
-              {saving ? "Saving…" : "Save Changes"}
-            </button>
+
+          {/* ── Danger zone ── */}
+          <div className="rounded-lg border border-red-500/30 bg-[var(--color-paper)] p-6">
+            <p className="mb-5 font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
+              Account Actions
+            </p>
+            <div className="space-y-4">
+
+              {/* Block / Unblock */}
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-sm text-[var(--color-foreground)]">
+                    {customer.blocked ? "Unblock customer" : "Block customer"}
+                  </p>
+                  <p className="mt-0.5 font-mono text-[10px] text-[var(--color-muted-foreground)]">
+                    {customer.blocked
+                      ? "Allow this customer to sign in again."
+                      : "Prevent this customer from signing in."}
+                  </p>
+                </div>
+                <button
+                  onClick={() => void handleToggleBlock()}
+                  disabled={blocking}
+                  className={`shrink-0 rounded border px-4 py-1.5 font-mono text-[10px] uppercase tracking-widest transition-opacity hover:opacity-80 disabled:opacity-40 ${
+                    customer.blocked
+                      ? "border-[var(--color-border)] text-[var(--color-foreground)]"
+                      : "border-red-500/50 text-red-400"
+                  }`}
+                >
+                  {blocking ? "…" : customer.blocked ? "Unblock" : "Block"}
+                </button>
+              </div>
+
+              <div className="border-t border-[var(--color-border)]" />
+
+              {/* Delete */}
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-sm text-[var(--color-foreground)]">Delete customer</p>
+                  <p className="mt-0.5 font-mono text-[10px] text-[var(--color-muted-foreground)]">
+                    Permanently remove this account and all its data. Cannot be undone.
+                  </p>
+                </div>
+                {!confirmDelete ? (
+                  <button
+                    onClick={() => setConfirmDelete(true)}
+                    className="shrink-0 rounded border border-red-500/50 px-4 py-1.5 font-mono text-[10px] uppercase tracking-widest text-red-400 transition-opacity hover:opacity-80"
+                  >
+                    Delete
+                  </button>
+                ) : (
+                  <div className="flex shrink-0 items-center gap-3">
+                    <span className="font-mono text-[10px] text-[var(--color-muted-foreground)]">Sure?</span>
+                    <button
+                      onClick={() => void handleDelete()}
+                      disabled={deleting}
+                      className="font-mono text-[10px] uppercase tracking-widest text-red-400 transition-opacity hover:opacity-80 disabled:opacity-40"
+                    >
+                      {deleting ? "Deleting…" : "Yes, delete"}
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete(false)}
+                      disabled={deleting}
+                      className="font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)] transition-opacity hover:opacity-80 disabled:opacity-40"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+
+            </div>
           </div>
         </div>
       )}

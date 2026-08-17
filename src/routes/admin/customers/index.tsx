@@ -11,6 +11,7 @@ interface CustomerRow {
   id: string;
   name: string;
   email: string;
+  blocked: boolean;
   totalOrders: number;
   totalSpent: number;
   joinedAt: string;
@@ -25,6 +26,7 @@ const getCustomers = createServerFn({ method: "GET" }).handler(
         id: user.id,
         name: user.name,
         email: user.email,
+        blocked: user.blocked,
         createdAt: user.createdAt,
         totalOrders: count(orders.id),
         totalSpent: sum(orders.total),
@@ -38,6 +40,7 @@ const getCustomers = createServerFn({ method: "GET" }).handler(
       id: r.id,
       name: r.name,
       email: r.email,
+      blocked: r.blocked,
       totalOrders: Number(r.totalOrders),
       totalSpent: Number(r.totalSpent ?? 0),
       joinedAt: r.createdAt.toISOString(),
@@ -108,7 +111,14 @@ function Customers() {
             className="flex w-full items-center gap-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] px-4 py-3 text-left transition-colors hover:bg-[var(--color-muted)]/20 active:opacity-60"
           >
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-[var(--color-foreground)]">{c.name}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="truncate text-sm font-medium text-[var(--color-foreground)]">{c.name}</p>
+                {c.blocked && (
+                  <span className="rounded bg-red-500/20 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-red-400">
+                    Blocked
+                  </span>
+                )}
+              </div>
               <p className="truncate font-mono text-[10px] text-[var(--color-muted-foreground)]">{c.email}</p>
             </div>
             <div className="hidden shrink-0 text-right sm:block">

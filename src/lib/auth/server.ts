@@ -2,11 +2,15 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { getRuntimeEnv } from "@/lib/runtime-env";
 
 // Lazy singleton — not initialized at module load time so process.env is
 // populated from Cloudflare bindings before db() reads DATABASE_URL
-let _auth: ReturnType<typeof betterAuth> | undefined;
+// typed as the betterAuth return so the singleton is usable; the options
+// shape is inferred from the call below.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _auth: ReturnType<typeof betterAuth<any>> | undefined;
 
 function getAuth() {
   if (!_auth) {
@@ -24,6 +28,25 @@ function getAuth() {
       emailAndPassword: {
         enabled: true,
         requireEmailVerification: false,
+      },
+
+      // Block enforcement: reject session creation for blocked users.
+      databaseHooks: {
+        session: {
+          create: {
+            before: async (session) => {
+              const rows = await db()
+                .select({ blocked: schema.user.blocked })
+                .from(schema.user)
+                .where(eq(schema.user.id, session.userId))
+                .limit(1);
+              if (rows[0]?.blocked) {
+                throw new Error("Your account has been suspended. Please contact support.");
+              }
+              return { data: session };
+            },
+          },
+        },
       },
 
       socialProviders: {
@@ -47,7 +70,8 @@ function getAuth() {
       ],
     });
   }
-  return _auth;
+  // _auth is always set by the branch above
+  return _auth!;
 }
 
 export const auth = {

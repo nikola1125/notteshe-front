@@ -203,9 +203,22 @@ export const createPokOrder = createServerFn({ method: "POST" })
       .where(gt(pendingOrder.expiresAt, now));
 
     const reserved = new Map<string, number>();
+    let reservedGiftCardLek = 0;
+    const targetGcCode = data.giftCardCode?.toUpperCase().trim();
     for (const row of activePending) {
+      const od = row.orderData as {
+        items?: Array<{ productId: string; size: string; quantity: number; isGiftCard?: boolean }>;
+        giftCardCode?: string | null; giftCardAmountLek?: number;
+      };
+      // Gift-card balance committed by any active pending order (INCLUDING this
+      // user's other in-flight orders) is reserved — this is what stops the
+      // same account double-spending a card across two concurrent tabs.
+      if (targetGcCode && od.giftCardCode && od.giftCardCode.toUpperCase().trim() === targetGcCode) {
+        reservedGiftCardLek += od.giftCardAmountLek ?? 0;
+      }
+      // Stock reservations skip the current user (their own pending order
+      // shouldn't block them from re-initiating checkout).
       if (row.userId === userId) continue;
-      const od = row.orderData as { items?: Array<{ productId: string; size: string; quantity: number; isGiftCard?: boolean }> };
       for (const item of od.items ?? []) {
         if (item.isGiftCard) continue;
         const key = `${item.productId}::${item.size}`;
@@ -308,7 +321,7 @@ export const createPokOrder = createServerFn({ method: "POST" })
     if (data.giftCardCode) {
       const { validateGiftCard } = await import("@/lib/giftCard");
       const amountDueEur = Math.max(0, subtotal + shippingFee - discountAmount);
-      const gcResult = await validateGiftCard(data.giftCardCode, amountDueEur, eurToLekRate);
+      const gcResult = await validateGiftCard(data.giftCardCode, amountDueEur, eurToLekRate, reservedGiftCardLek);
       if (!gcResult.valid) throw new Error(gcResult.error);
       validatedGiftCardCode = gcResult.code;
       giftCardAmountLek = gcResult.appliedLek;

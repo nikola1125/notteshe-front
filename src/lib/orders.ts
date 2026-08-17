@@ -147,8 +147,27 @@ export const placeOrder = createServerFn({ method: "POST" })
       try {
         await atomicDebitGiftCard(gcCode, gcAmountLek, orderId);
       } catch (err) {
+        // The customer already paid the (reduced) amount via POK, so we can't
+        // reject the order. Reservation accounting in createPokOrder makes this
+        // path extremely rare (near-simultaneous checkouts of the same card).
+        // Flag it loudly so an admin can reconcile the shortfall.
         console.error("[placeOrder] gift card debit failed:", err);
-        // Don't throw — payment already went through via POK. Log for manual review.
+        await db().insert(auditLog).values({
+          id: randomUUID(),
+          adminId: null,
+          action: "payment.giftcard_debit_failed",
+          entityType: "order",
+          entityId: orderId,
+          diff: {
+            after: {
+              orderId,
+              giftCardCode: gcCode,
+              attemptedLek: gcAmountLek,
+              email: orderData.email,
+              note: "Order was charged the gift-card-reduced total but the card could NOT be debited (likely spent concurrently). Reconcile manually.",
+            },
+          },
+        }).catch((e) => console.error("[placeOrder] failed to record debit-failure audit:", e));
       }
     }
 

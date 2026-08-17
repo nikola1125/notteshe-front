@@ -321,7 +321,7 @@ const applyDiscountCode = createServerFn({ method: "POST" })
     z.object({
       code: z.string(),
       subtotal: z.number(),
-      items: z.array(z.object({ productId: z.string(), price: z.number(), quantity: z.number() })),
+      items: z.array(z.object({ productId: z.string(), price: z.number(), quantity: z.number(), isGiftCard: z.boolean().optional() })),
     }).parse(d)
   )
   .handler(async ({ data }) => {
@@ -337,7 +337,15 @@ const applyDiscountCode = createServerFn({ method: "POST" })
     if (!code.isActive) return { valid: false as const, error: "This code is no longer active" };
     if (code.expiresAt && code.expiresAt < new Date()) return { valid: false as const, error: "This code has expired" };
     if (code.maxUses !== null && code.usedCount >= code.maxUses) return { valid: false as const, error: "This code has reached its usage limit" };
-    if (code.minOrderAmount !== null && data.subtotal < code.minOrderAmount) return { valid: false as const, error: `Minimum order of ${code.minOrderAmount} € required` };
+
+    // Discounts apply to regular products only — never to gift-card purchases
+    // (a gift card is cash-equivalent; discounting it sells value at a loss).
+    // This mirrors the authoritative charge in createPokOrder (regularSubtotal).
+    const eligibleSubtotal = data.items
+      .filter((i) => !i.isGiftCard)
+      .reduce((s, i) => s + i.price * i.quantity, 0);
+
+    if (code.minOrderAmount !== null && eligibleSubtotal < code.minOrderAmount) return { valid: false as const, error: `Minimum order of ${code.minOrderAmount} € required` };
 
     const productIds = [...new Set(data.items.map((i) => i.productId))];
     const productRows = await db().select({ id: product.id, isSale: product.isSale })
@@ -348,8 +356,8 @@ const applyDiscountCode = createServerFn({ method: "POST" })
       return { valid: false as const, error: "Discount codes cannot be applied to sale items" };
 
     const discountAmount = code.type === "PERCENT"
-      ? Math.round(data.subtotal * (code.value / 100) * 100) / 100
-      : Math.min(code.value, data.subtotal);
+      ? Math.round(eligibleSubtotal * (code.value / 100) * 100) / 100
+      : Math.min(code.value, eligibleSubtotal);
 
     return { valid: true as const, code: code.code, type: code.type, value: code.value, discountAmount };
   });
@@ -667,7 +675,7 @@ function CheckoutPage() {
     setCouponError(null);
     try {
       const result = await applyDiscountCode({
-        data: { code, subtotal, items: items.map((i) => ({ productId: i.productId, price: i.price, quantity: i.quantity })) },
+        data: { code, subtotal, items: items.map((i) => ({ productId: i.productId, price: i.price, quantity: i.quantity, isGiftCard: i.isGiftCard })) },
       });
       if (result.valid) { setAppliedDiscount(result); setCouponInput(""); }
       else setCouponError(result.error);

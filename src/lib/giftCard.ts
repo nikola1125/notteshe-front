@@ -29,7 +29,11 @@ export async function atomicDebitGiftCard(
 
   if (amountLek <= 0) throw new Error("Gift card debit amount must be positive.");
 
+  const normalizedCode = code.toUpperCase().trim();
+
   // Conditional update: only succeeds if balance is sufficient and card is active.
+  // The atomic `balance >= amount` guard means two concurrent debits can never
+  // drive the balance negative — at most one of them succeeds.
   const updated = await db()
     .update(giftCard)
     .set({
@@ -38,7 +42,7 @@ export async function atomicDebitGiftCard(
       // Mark depleted if the remaining balance after this debit would be 0
       status: sql`CASE WHEN balance - ${amountLek} <= 0 THEN 'depleted' ELSE status END`,
     })
-    .where(sql`code = ${code} AND status = 'active' AND balance >= ${amountLek}`)
+    .where(sql`code = ${normalizedCode} AND status = 'active' AND balance >= ${amountLek}`)
     .returning({ id: giftCard.id, balance: giftCard.balance });
 
   if (updated.length === 0) {
@@ -148,6 +152,10 @@ export async function validateGiftCard(
   code: string,
   amountDueEur: number,
   eurToLekRate: number,
+  // Balance already committed by other in-flight (unpaid) orders using this card.
+  // Subtracted from the real balance so two concurrent checkouts can't each
+  // reserve the full amount and double-spend it.
+  reservedLek = 0,
 ): Promise<{
   valid: true;
   code: string;
@@ -174,8 +182,12 @@ export async function validateGiftCard(
   if ((card.balance ?? 0) <= 0) return { valid: false, error: "This gift card has no remaining balance." };
 
   const balanceLek = card.balance ?? 0;
+  const availableLek = Math.max(0, balanceLek - Math.max(0, reservedLek));
+  if (availableLek <= 0) {
+    return { valid: false, error: "This gift card's balance is committed to another pending order. Please complete it or try again shortly." };
+  }
   const amountDueLek = amountDueEur * eurToLekRate;
-  const appliedLek = Math.min(balanceLek, amountDueLek);
+  const appliedLek = Math.min(availableLek, amountDueLek);
   const appliedEur = appliedLek / eurToLekRate;
 
   return { valid: true, code: card.code, balanceLek, appliedLek, appliedEur };

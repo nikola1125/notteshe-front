@@ -490,14 +490,26 @@ export interface PokOrderData {
   finalAmount: number;
   createdAt: string;
   expiresAt: string | null;
-  // Raw payment/order state as reported by POK (field name varies across POK
-  // payloads, so we probe the common ones). Used for observability + gating.
-  status: string | null;
+  // Authoritative payment state per POK's "Get Order" API:
+  //   isCompleted  — true once the order is completed/captured successfully
+  //   isRefunded   — true once the merchant has refunded it
+  //   transactionId — the payment transaction; null until the customer pays
+  isCompleted: boolean;
+  isRefunded: boolean;
+  transactionId: string | null;
   commissions: {
     netAmount: number;
     totalCommissionAmount: number;
     grossAmount: number;
   } | null;
+}
+
+// Whether POK's authoritative order record shows the customer actually paid.
+// A completed/captured order, or an authorised order with a transaction, both
+// count as paid. Refunded orders and orders with no transaction do not.
+export function pokOrderShowsPayment(o: PokOrderData): boolean {
+  if (o.isRefunded) return false;
+  return o.isCompleted === true || !!o.transactionId;
 }
 
 export async function pokGetOrder(pokOrderId: string): Promise<PokOrderData | null> {
@@ -521,7 +533,9 @@ export async function pokGetOrder(pokOrderId: string): Promise<PokOrderData | nu
       finalAmount: o.finalAmount,
       createdAt: o.createdAt,
       expiresAt: o.expiresAt ?? null,
-      status: (o.status ?? o.state ?? o.paymentStatus ?? o.orderStatus ?? null) as string | null,
+      isCompleted: o.isCompleted === true,
+      isRefunded: o.isRefunded === true,
+      transactionId: (o.transactionId ?? null) as string | null,
       commissions: json?.data?.commissions ?? null,
     };
   } catch {

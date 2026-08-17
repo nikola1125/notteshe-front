@@ -71,6 +71,40 @@ export const placeOrder = createServerFn({ method: "POST" })
     };
     const orderData = pending.orderData as OrderData;
 
+    // ── Verify the payment actually happened with POK ──────────────────────────
+    // A pendingOrder row is only a reservation — it is NOT proof of payment. We
+    // ask POK's authoritative API whether this order is paid before creating the
+    // order or issuing any gift card. Without this, a user could call createPokOrder
+    // then placeOrder WITHOUT paying and receive goods / a free gift card.
+    const hasGiftCardPurchase = orderData.items.some((i) => i.isGiftCard);
+    {
+      const { pokGetOrder, pokOrderShowsPayment } = await import("@/lib/pok");
+      let pokData = await pokGetOrder(data.pokOrderId);
+      // The browser calls placeOrder immediately after POK's success callback;
+      // POK's order record can lag by a moment. Retry once before rejecting so we
+      // never turn away a customer who genuinely paid.
+      if (pokData && !pokOrderShowsPayment(pokData)) {
+        await new Promise((r) => setTimeout(r, 1500));
+        pokData = await pokGetOrder(data.pokOrderId);
+      }
+      if (pokData) {
+        if (!pokOrderShowsPayment(pokData)) {
+          throw new Error(
+            "Payment not confirmed yet. If you were charged, your order will appear automatically within a minute — otherwise contact hello@notteshe.com."
+          );
+        }
+      } else if (hasGiftCardPurchase) {
+        // Can't reach POK to confirm and this order would issue a gift card —
+        // refuse to issue value on faith. The webhook (which also verifies) will
+        // finalise it once POK is reachable.
+        throw new Error(
+          "We couldn't confirm your payment just now. If you were charged, your gift card will arrive shortly — otherwise contact hello@notteshe.com."
+        );
+      }
+      // product-only order + POK momentarily unreachable → allow: it's created
+      // PENDING, admin capture re-verifies with POK, and the webhook backstops it.
+    }
+
     // Stock floor guard: decrement only if sufficient stock remains (skip digital gift card items)
     for (const item of orderData.items) {
       if (item.isGiftCard) continue;

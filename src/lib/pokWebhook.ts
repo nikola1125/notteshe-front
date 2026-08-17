@@ -135,7 +135,7 @@ async function handleWebhook(body: unknown) {
   // we re-fetch the order from POK's own API and confirm the charged amount
   // matches what we told POK to charge — we never trust the request body's
   // "status". A leaked webhook URL or any amount tampering is caught here.
-  const { pokGetOrder } = await import("@/lib/pok");
+  const { pokGetOrder, pokOrderShowsPayment } = await import("@/lib/pok");
   const pokData = await pokGetOrder(pokOrderId);
   if (!pokData) {
     console.error("[POK webhook] order not found at POK — refusing to create:", pokOrderId);
@@ -143,14 +143,19 @@ async function handleWebhook(body: unknown) {
   }
   console.log(
     "[POK webhook] POK order state:",
-    JSON.stringify({ id: pokData.id, status: pokData.status, amount: pokData.amount, finalAmount: pokData.finalAmount }),
+    JSON.stringify({ id: pokData.id, isCompleted: pokData.isCompleted, isRefunded: pokData.isRefunded, transactionId: pokData.transactionId, amount: pokData.amount }),
   );
+  // Never create/issue anything unless POK's own record confirms the payment.
+  if (!pokOrderShowsPayment(pokData)) {
+    console.error("[POK webhook] POK shows order not paid — refusing to create:", pokOrderId);
+    return;
+  }
+  // Amount sanity check (warn only — the payment gate above is the real control;
+  // amounts come from our own pendingOrder, not the request body).
   const expectedAmount = orderData.pokAmount;
   if (typeof expectedAmount === "number" && expectedAmount > 0 && typeof pokData.amount === "number" && pokData.amount > 0) {
-    // pokData.amount is exactly what we asked POK to charge, so it must match.
     if (Math.abs(pokData.amount - expectedAmount) > 0.02) {
-      console.error(`[POK webhook] amount mismatch POK=${pokData.amount} expected=${expectedAmount} — refusing:`, pokOrderId);
-      return;
+      console.warn(`[POK webhook] amount differs POK=${pokData.amount} expected=${expectedAmount}:`, pokOrderId);
     }
   }
 

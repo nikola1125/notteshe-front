@@ -362,13 +362,24 @@
   cursor: pointer !important;
 }
 
+#pok-payment-container .pok-payment-checkbox-input {
+  width: 14px !important;
+  height: 14px !important;
+  min-width: 14px !important;
+  max-width: 14px !important;
+  max-height: 14px !important;
+}
+
 /* Hide native checkbox */
 .pok-payment-checkbox-input {
   appearance: none !important;
   -webkit-appearance: none !important;
-  width: 16px !important;
-  height: 16px !important;
-  min-width: 16px !important;
+  width: 14px !important;
+  height: 14px !important;
+  min-width: 14px !important;
+  max-width: 14px !important;
+  max-height: 14px !important;
+  flex-shrink: 0 !important;
   border: 1px solid #503a50 !important;
   background: transparent !important;
   cursor: pointer !important;
@@ -376,8 +387,9 @@
   margin: 0 !important;
   padding: 0 !important;
   border-radius: 0 !important;
-  font-size: 16px !important; /* prevent iOS zoom override */
-  height: 16px !important;
+  box-sizing: content-box !important;
+  line-height: 1 !important;
+  vertical-align: middle !important;
 }
 
 /* Checked state */

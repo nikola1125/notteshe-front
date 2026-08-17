@@ -65,6 +65,13 @@ export default {
         return auth.handler(request);
       }
 
+      // POK payment webhook — routed here explicitly because literal-path API
+      // file routes are not served by the server entry in this build.
+      if (url.pathname === "/api/pokpay/webhook" && request.method === "POST") {
+        const { handlePokWebhook } = await import("./lib/pokWebhook");
+        return handlePokWebhook(request);
+      }
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);

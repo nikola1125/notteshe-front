@@ -362,24 +362,19 @@
   cursor: pointer !important;
 }
 
-#pok-payment-container .pok-payment-checkbox-input {
-  width: 14px !important;
-  height: 14px !important;
-  min-width: 14px !important;
-  max-width: 14px !important;
-  max-height: 14px !important;
-}
-
-/* Hide native checkbox */
+/* Checkbox — nuclear reset so SDK styles can't win */
+#pok-payment-container input[type="checkbox"],
+#pok-payment-container .pok-payment-checkbox-input,
 .pok-payment-checkbox-input {
   appearance: none !important;
   -webkit-appearance: none !important;
+  display: inline-block !important;
   width: 14px !important;
   height: 14px !important;
   min-width: 14px !important;
+  min-height: 14px !important;
   max-width: 14px !important;
   max-height: 14px !important;
-  flex-shrink: 0 !important;
   border: 1px solid #503a50 !important;
   background: transparent !important;
   cursor: pointer !important;
@@ -387,27 +382,35 @@
   margin: 0 !important;
   padding: 0 !important;
   border-radius: 0 !important;
-  box-sizing: content-box !important;
-  line-height: 1 !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+  aspect-ratio: 1 / 1 !important;
+  line-height: 14px !important;
   vertical-align: middle !important;
+  font-size: 0 !important;
 }
 
-/* Checked state */
+#pok-payment-container input[type="checkbox"]:checked,
+#pok-payment-container .pok-payment-checkbox-input:checked,
 .pok-payment-checkbox-input:checked {
   background: #b85c3a !important;
   border-color: #b85c3a !important;
 }
 
-/* Checkmark via pseudo-element */
+#pok-payment-container input[type="checkbox"]:checked::after,
+#pok-payment-container .pok-payment-checkbox-input:checked::after,
 .pok-payment-checkbox-input:checked::after {
   content: "" !important;
   display: block !important;
+  position: absolute !important;
+  left: 3px !important;
+  top: 1px !important;
   width: 4px !important;
   height: 8px !important;
-  border: 1px solid #f2eaf0 !important;
+  border: 1.5px solid #f2eaf0 !important;
   border-top: none !important;
   border-left: none !important;
-  transform: rotate(45deg) translate(4px, 1px) !important;
+  transform: rotate(45deg) !important;
 }
 
 /* Checkbox label */

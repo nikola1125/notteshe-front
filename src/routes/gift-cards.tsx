@@ -212,6 +212,7 @@ export const Route = createFileRoute("/gift-cards")({
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PRESET_AMOUNTS_LEK = [2000, 5000, 10000, 20000];
+const PRESET_AMOUNTS_EUR = [20, 50, 100, 200];
 const POK_ENV = (typeof import.meta !== "undefined" && import.meta.env?.VITE_POK_ENV as "production" | "staging") || "staging";
 
 function safeUUID(): string {
@@ -245,7 +246,7 @@ function GiftCardsPage() {
   const successFiredRef = useRef(false);
   const initiatingRef = useRef(false);
 
-  const [selectedLek, setSelectedLek] = useState<number | null>(5000);
+  const [presetIdx, setPresetIdx] = useState<number | null>(1); // index into PRESET_AMOUNTS_LEK / EUR
   const [customInput, setCustomInput] = useState("");
   const [forSelf, setForSelf] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState("");
@@ -255,8 +256,10 @@ function GiftCardsPage() {
 
   useEffect(() => setMounted(true), []);
 
-  const amountLek = selectedLek !== null
-    ? selectedLek
+  const amountLek = presetIdx !== null
+    ? (currency === "ALL"
+        ? PRESET_AMOUNTS_LEK[presetIdx]
+        : Math.round(PRESET_AMOUNTS_EUR[presetIdx] * eurToLekRate))
     : currency === "ALL"
       ? (parseInt(customInput.replace(/\D/g, ""), 10) || 0)
       : Math.round((parseFloat(customInput) || 0) * eurToLekRate);
@@ -474,18 +477,18 @@ function GiftCardsPage() {
             <div>
               <p className="mb-4 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Amount</p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {PRESET_AMOUNTS_LEK.map((amount) => (
+                {PRESET_AMOUNTS_LEK.map((lek, idx) => (
                   <button
-                    key={amount}
+                    key={idx}
                     type="button"
-                    onClick={() => { setSelectedLek(amount); setCustomLek(""); setFieldErrors((e) => ({ ...e, amount: "" })); }}
+                    onClick={() => { setPresetIdx(idx); setCustomInput(""); setFieldErrors((e) => ({ ...e, amount: "" })); }}
                     className={`border py-3 font-mono text-[11px] uppercase tracking-widest transition-colors ${
-                      selectedLek === amount
+                      presetIdx === idx
                         ? "border-foreground bg-foreground text-background"
                         : "border-border bg-transparent text-ink hover:border-ink/50"
                     }`}
                   >
-                    {displayAmount(amount)}
+                    {currency === "ALL" ? displayAmount(lek) : formatMoney(PRESET_AMOUNTS_EUR[idx], "EUR", 1)}
                   </button>
                 ))}
               </div>
@@ -503,7 +506,7 @@ function GiftCardsPage() {
                       ? e.target.value.replace(/\D/g, "")
                       : e.target.value.replace(/[^\d.]/g, "");
                     setCustomInput(v);
-                    setSelectedLek(null);
+                    setPresetIdx(null);
                     setFieldErrors((er) => ({ ...er, amount: "" }));
                   }}
                   placeholder={currency === "ALL" ? "e.g. 7500" : "e.g. 75"}

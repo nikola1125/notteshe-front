@@ -271,7 +271,7 @@ const updateOrderStatus = createServerFn({ method: "POST" })
       .set(updateData)
       .where(eq(orders.id, data.id));
 
-    // Restore stock when an order is cancelled or refunded
+    // Restore stock and disable any issued gift cards when an order is cancelled or refunded
     if (data.status === "CANCELLED" || data.status === "REFUNDED") {
       if (prevStatus !== "CANCELLED" && prevStatus !== "REFUNDED") {
         const items = await database
@@ -285,6 +285,13 @@ const updateOrderStatus = createServerFn({ method: "POST" })
             .set({ stock: sql`stock + ${item.quantity}` })
             .where(and(eq(productSize.productId, item.productId), eq(productSize.label, item.size)));
         }
+
+        // Disable any gift cards that were issued by this order
+        const { giftCard } = await import("@/db/schema");
+        await database
+          .update(giftCard)
+          .set({ status: "disabled", balance: 0 })
+          .where(eq(giftCard.sourceOrderId, data.id));
       }
     }
 

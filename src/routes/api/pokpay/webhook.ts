@@ -2,6 +2,18 @@ import { createAPIFileRoute } from "@tanstack/react-start/api";
 
 export const APIRoute = createAPIFileRoute("/api/pokpay/webhook")({
   POST: async ({ request }) => {
+    // ── Authenticate the webhook ────────────────────────────────────────────────
+    // The URL we registered with POK carries a secret token. Only POK ever
+    // received that URL, so a request without the matching token is a forgery.
+    // We return 200 either way so an attacker gets no signal (and POK won't
+    // retry-storm), but a bad/missing token does no work.
+    const { verifyPokWebhookToken } = await import("@/lib/pok");
+    const token = new URL(request.url).searchParams.get("token");
+    if (!verifyPokWebhookToken(token)) {
+      console.warn("[POK webhook] rejected — missing/invalid token");
+      return new Response("OK", { status: 200 });
+    }
+
     let body: unknown;
     try {
       body = await request.json();
@@ -9,7 +21,7 @@ export const APIRoute = createAPIFileRoute("/api/pokpay/webhook")({
       return new Response("OK", { status: 200 });
     }
 
-    console.log("[POK webhook]", JSON.stringify(body));
+    console.log("[POK webhook] authenticated event received");
 
     try {
       await handleWebhook(body);
@@ -105,8 +117,33 @@ async function handleWebhook(body: unknown) {
     items: Array<OrderDataItem>;
     subtotal: number; shippingFee: number; paymentFee?: number; total: number;
     currency?: "EUR" | "ALL";
+    pokAmount?: number;
   };
   const orderData = pending.orderData as OrderData;
+
+  // ── Authoritatively verify with POK before creating anything ─────────────────
+  // The token gate already proved this request came from POK. As a second layer,
+  // we re-fetch the order from POK's own API and confirm the charged amount
+  // matches what we told POK to charge — we never trust the request body's
+  // "status". A leaked webhook URL or any amount tampering is caught here.
+  const { pokGetOrder } = await import("@/lib/pok");
+  const pokData = await pokGetOrder(pokOrderId);
+  if (!pokData) {
+    console.error("[POK webhook] order not found at POK — refusing to create:", pokOrderId);
+    return;
+  }
+  console.log(
+    "[POK webhook] POK order state:",
+    JSON.stringify({ id: pokData.id, status: pokData.status, amount: pokData.amount, finalAmount: pokData.finalAmount }),
+  );
+  const expectedAmount = orderData.pokAmount;
+  if (typeof expectedAmount === "number" && expectedAmount > 0 && typeof pokData.amount === "number" && pokData.amount > 0) {
+    // pokData.amount is exactly what we asked POK to charge, so it must match.
+    if (Math.abs(pokData.amount - expectedAmount) > 0.02) {
+      console.error(`[POK webhook] amount mismatch POK=${pokData.amount} expected=${expectedAmount} — refusing:`, pokOrderId);
+      return;
+    }
+  }
 
   // Final stock floor guard before creating the order (skip digital gift card items)
   for (const item of orderData.items) {

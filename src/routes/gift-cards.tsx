@@ -170,8 +170,9 @@ const createGiftCardPokOrder = createServerFn({ method: "POST" })
       merchantCustomReference: data.merchantReference,
       expiresAfterMinutes: 30,
     };
-    const appUrl = process.env.APP_URL;
-    if (appUrl) pokBody.webhookUrl = `${appUrl}/api/pokpay/webhook`;
+    const { pokWebhookUrl } = await import("@/lib/pok");
+    const webhookUrl = pokWebhookUrl();
+    if (webhookUrl) pokBody.webhookUrl = webhookUrl;
 
     const orderRes = await fetch(
       `${POK_BASE}merchants/${process.env.POK_MERCHANT_ID}/sdk-orders`,

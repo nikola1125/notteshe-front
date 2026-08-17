@@ -30,6 +30,31 @@ async function pokAuth(): Promise<string> {
   return token;
 }
 
+// The webhook URL we register with POK carries a secret token. POK is the only
+// party that ever receives this URL, so an inbound /api/pokpay/webhook request
+// whose token doesn't match POK_WEBHOOK_SECRET is a forgery and is rejected.
+export function pokWebhookUrl(): string | null {
+  const appUrl = process.env.APP_URL;
+  if (!appUrl) return null;
+  const secret = process.env.POK_WEBHOOK_SECRET;
+  const base = `${appUrl}/api/pokpay/webhook`;
+  return secret ? `${base}?token=${encodeURIComponent(secret)}` : base;
+}
+
+// Constant-time comparison of a webhook's token against the configured secret.
+// Returns false when no secret is configured (fail closed — never trust an
+// unauthenticated webhook once this protection is deployed). Pure JS so this
+// module stays safe to include in the client bundle (checkout imports it).
+export function verifyPokWebhookToken(token: string | null | undefined): boolean {
+  const secret = process.env.POK_WEBHOOK_SECRET;
+  if (!secret || !token || token.length !== secret.length) return false;
+  let diff = 0;
+  for (let i = 0; i < token.length; i++) {
+    diff |= token.charCodeAt(i) ^ secret.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
 // Client sends structural cart data only — no prices (fetched from DB server-side)
 const CreatePokOrderSchema = z.object({
   merchantReference: z.string().uuid(),
@@ -358,10 +383,11 @@ export const createPokOrder = createServerFn({ method: "POST" })
       expiresAfterMinutes: 30,
     };
 
-    // Add webhook URL so POK can notify us for recovery if browser closes
-    const appUrl = process.env.APP_URL;
-    if (appUrl) {
-      pokBody.webhookUrl = `${appUrl}/api/pokpay/webhook`;
+    // Add webhook URL (with secret token) so POK can notify us for recovery if
+    // the browser closes before the success callback fires.
+    const webhookUrl = pokWebhookUrl();
+    if (webhookUrl) {
+      pokBody.webhookUrl = webhookUrl;
     }
 
     const res = await fetch(
@@ -464,6 +490,9 @@ export interface PokOrderData {
   finalAmount: number;
   createdAt: string;
   expiresAt: string | null;
+  // Raw payment/order state as reported by POK (field name varies across POK
+  // payloads, so we probe the common ones). Used for observability + gating.
+  status: string | null;
   commissions: {
     netAmount: number;
     totalCommissionAmount: number;
@@ -492,6 +521,7 @@ export async function pokGetOrder(pokOrderId: string): Promise<PokOrderData | nu
       finalAmount: o.finalAmount,
       createdAt: o.createdAt,
       expiresAt: o.expiresAt ?? null,
+      status: (o.status ?? o.state ?? o.paymentStatus ?? o.orderStatus ?? null) as string | null,
       commissions: json?.data?.commissions ?? null,
     };
   } catch {

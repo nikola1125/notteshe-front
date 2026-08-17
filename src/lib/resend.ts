@@ -69,6 +69,25 @@ const C = {
 const SERIF = "'Cormorant Garamond',Georgia,'Times New Roman',serif";
 const SANS = "'Helvetica Neue',Helvetica,Arial,sans-serif";
 
+// Escape user-controlled values before interpolating into email HTML. Without
+// this, a gift-card sender name / message (or shipping address) could inject
+// arbitrary HTML — turning our own mail server into a phishing delivery channel.
+function esc(v: unknown): string {
+  if (v == null) return "";
+  return String(v)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Strip line breaks/control chars from values used in email Subject headers.
+function escHeader(v: unknown): string {
+  if (v == null) return "";
+  return String(v).replace(/\s+/g, " ").trim();
+}
+
 export async function sendOrderConfirmation(data: OrderConfirmationData) {
   const currency: Currency = data.currency ?? "EUR";
   const rate = await getRate();
@@ -78,13 +97,13 @@ export async function sendOrderConfirmation(data: OrderConfirmationData) {
   const itemRows = data.items
     .map((i) => {
       const thumb = i.image
-        ? `<img src="${cldImg(i.image, 120)}" width="48" height="60" alt="" style="display:block;width:48px;height:60px;object-fit:cover;border:1px solid ${C.border};" />`
+        ? `<img src="${esc(cldImg(i.image, 120))}" width="48" height="60" alt="" style="display:block;width:48px;height:60px;object-fit:cover;border:1px solid ${C.border};" />`
         : `<div style="width:48px;height:60px;background:${C.border};"></div>`;
       return `<tr>
         <td width="56" valign="top" style="padding:14px 0;">${thumb}</td>
         <td valign="top" style="padding:14px 14px;font-family:${SANS};">
-          <div style="font-size:14px;color:${C.ink};">${i.name}</div>
-          <div style="margin-top:4px;font-size:11px;letter-spacing:0.05em;color:${C.muted};">${i.size} · ${i.colour} · ×${i.quantity}</div>
+          <div style="font-size:14px;color:${C.ink};">${esc(i.name)}</div>
+          <div style="margin-top:4px;font-size:11px;letter-spacing:0.05em;color:${C.muted};">${esc(i.size)} · ${esc(i.colour)} · ×${i.quantity}</div>
         </td>
         <td valign="top" align="right" style="padding:14px 0;font-family:${SANS};font-size:14px;color:${C.ink};white-space:nowrap;">${money(i.unitPrice * i.quantity)}</td>
       </tr>`;
@@ -102,11 +121,11 @@ export async function sendOrderConfirmation(data: OrderConfirmationData) {
     ? `<tr><td style="padding:0 44px 32px;">
         <p style="margin:0 0 10px;font-family:${SANS};font-size:10px;letter-spacing:0.22em;text-transform:uppercase;color:${C.muted};">Shipping to</p>
         <p style="margin:0;font-family:${SANS};font-size:13px;line-height:1.7;color:${C.ink};">
-          ${addr.firstName} ${addr.lastName}<br/>
-          ${addr.line1}${addr.line2 ? `, ${addr.line2}` : ""}<br/>
-          ${addr.city}, ${addr.postalCode}<br/>
-          ${addr.country}<br/>
-          <span style="color:${C.muted};">${addr.phone}</span>
+          ${esc(addr.firstName)} ${esc(addr.lastName)}<br/>
+          ${esc(addr.line1)}${addr.line2 ? `, ${esc(addr.line2)}` : ""}<br/>
+          ${esc(addr.city)}, ${esc(addr.postalCode)}<br/>
+          ${esc(addr.country)}<br/>
+          <span style="color:${C.muted};">${esc(addr.phone)}</span>
         </p>
       </td></tr>`
     : "";
@@ -127,7 +146,7 @@ export async function sendOrderConfirmation(data: OrderConfirmationData) {
         <!-- Intro -->
         <tr><td style="padding:36px 44px 8px;">
           <p style="margin:0 0 10px;font-family:${SANS};font-size:10px;letter-spacing:0.22em;text-transform:uppercase;color:${C.muted};">Order confirmed</p>
-          <h1 style="margin:0 0 14px;font-family:${SERIF};font-weight:400;font-size:30px;line-height:1.1;color:${C.ink};">Thank you, ${data.firstName}.</h1>
+          <h1 style="margin:0 0 14px;font-family:${SERIF};font-weight:400;font-size:30px;line-height:1.1;color:${C.ink};">Thank you, ${esc(data.firstName)}.</h1>
           <p style="margin:0 0 8px;font-family:${SANS};font-size:13px;line-height:1.7;color:${C.muted};">
             Your order <strong style="color:${C.ink};">#${ref}</strong> is confirmed. We'll be in touch when it ships.
           </p>
@@ -146,7 +165,7 @@ export async function sendOrderConfirmation(data: OrderConfirmationData) {
             ${row("Subtotal", money(data.subtotal))}
             ${row("Shipping", money(data.shippingFee))}
             ${data.discountAmount && data.discountAmount > 0 ? row("Discount", `−${money(data.discountAmount)}`) : ""}
-            ${data.paymentMethod ? row("Payment", data.paymentMethod) : ""}
+            ${data.paymentMethod ? row("Payment", esc(data.paymentMethod)) : ""}
             ${row("Total", money(data.total), true)}
           </table>
         </td></tr>
@@ -196,7 +215,7 @@ export async function sendGiftCardDelivery(data: GiftCardDeliveryData) {
   const formattedAmount = `ALL ${new Intl.NumberFormat("sq-AL").format(Math.round(data.amountLek))}`;
   const isGift = !!data.senderName;
   const subject = isGift
-    ? `${data.senderName} has something for you — Notteshe`
+    ? `${escHeader(data.senderName)} has something for you — Notteshe`
     : `Your Notteshe code is ready`;
 
   // "From" banner — shown only when sent as a gift
@@ -204,7 +223,7 @@ export async function sendGiftCardDelivery(data: GiftCardDeliveryData) {
     ? `<tr><td align="center" style="padding:32px 44px 0;">
         <div style="background:${C.border};padding:24px 32px;text-align:center;">
           <div style="font-family:${SANS};font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:${C.muted};margin-bottom:10px;">A gift from</div>
-          <div style="font-family:${SERIF};font-size:28px;font-weight:400;color:${C.ink};">${data.senderName}</div>
+          <div style="font-family:${SERIF};font-size:28px;font-weight:400;color:${C.ink};">${esc(data.senderName)}</div>
         </div>
       </td></tr>`
     : "";
@@ -214,7 +233,7 @@ export async function sendGiftCardDelivery(data: GiftCardDeliveryData) {
     ? `<tr><td style="padding:28px 44px 0;">
         <div style="border-left:2px solid ${C.clay};padding:16px 20px;">
           <div style="font-family:${SANS};font-size:9px;letter-spacing:0.25em;text-transform:uppercase;color:${C.muted};margin-bottom:10px;">Personal message</div>
-          <div style="font-family:${SERIF};font-style:italic;font-size:18px;line-height:1.6;color:${C.ink};">&ldquo;${data.message}&rdquo;</div>
+          <div style="font-family:${SERIF};font-style:italic;font-size:18px;line-height:1.6;color:${C.ink};">&ldquo;${esc(data.message)}&rdquo;</div>
         </div>
       </td></tr>`
     : "";
@@ -228,7 +247,7 @@ export async function sendGiftCardDelivery(data: GiftCardDeliveryData) {
 
   const html = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>${subject}</title></head>
+<title>${esc(subject)}</title></head>
 <body style="margin:0;padding:0;background:${C.bg};">
 <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:${C.bg};padding:40px 0;">
 <tr><td align="center">
@@ -254,9 +273,9 @@ export async function sendGiftCardDelivery(data: GiftCardDeliveryData) {
   <!-- Greeting -->
   <tr><td style="padding:32px 44px 0;">
     <p style="margin:0;font-family:${SANS};font-size:13px;line-height:1.8;color:${C.muted};">
-      Dear <strong style="color:${C.ink};">${data.recipientName}</strong>,<br/>
+      Dear <strong style="color:${C.ink};">${esc(data.recipientName)}</strong>,<br/>
       ${isGift
-        ? `You have received a gift card from <strong style="color:${C.ink};">${data.senderName}</strong>. Use the code below at checkout on <a href="https://notteshe.com" style="color:${C.clay};text-decoration:none;">notteshe.com</a> to redeem your balance.`
+        ? `You have received a gift card from <strong style="color:${C.ink};">${esc(data.senderName)}</strong>. Use the code below at checkout on <a href="https://notteshe.com" style="color:${C.clay};text-decoration:none;">notteshe.com</a> to redeem your balance.`
         : `Your gift card is ready. Use the code below at checkout on <a href="https://notteshe.com" style="color:${C.clay};text-decoration:none;">notteshe.com</a> to redeem your balance.`
       }
     </p>
@@ -266,7 +285,7 @@ export async function sendGiftCardDelivery(data: GiftCardDeliveryData) {
   <tr><td align="center" style="padding:32px 44px;">
     <div style="border:1px solid ${C.border};background:#0f0a14;padding:36px 40px;text-align:center;">
       <div style="font-family:${SANS};font-size:8px;letter-spacing:0.35em;text-transform:uppercase;color:${C.muted};margin-bottom:16px;">Your gift card code</div>
-      <div style="font-family:monospace;font-size:26px;letter-spacing:8px;color:${C.ink};font-weight:600;">${data.code}</div>
+      <div style="font-family:monospace;font-size:26px;letter-spacing:8px;color:${C.ink};font-weight:600;">${esc(data.code)}</div>
       <div style="margin-top:20px;border-top:1px solid ${C.border};padding-top:16px;">
         <span style="display:inline-block;font-family:${SANS};font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:${C.muted};opacity:0.7;">No expiry &nbsp;·&nbsp; Redeemable online</span>
       </div>

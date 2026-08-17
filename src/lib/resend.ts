@@ -196,8 +196,8 @@ export async function sendGiftCardDelivery(data: GiftCardDeliveryData) {
   const formattedAmount = `ALL ${new Intl.NumberFormat("sq-AL").format(Math.round(data.amountLek))}`;
   const isGift = !!data.senderName;
   const subject = isGift
-    ? `${data.senderName} sent you a ${formattedAmount} gift card`
-    : `Your ${formattedAmount} Notteshe gift card`;
+    ? `${data.senderName} has something for you — Notteshe`
+    : `Your Notteshe code is ready`;
 
   // "From" banner — shown only when sent as a gift
   const fromBanner = isGift
@@ -281,9 +281,6 @@ export async function sendGiftCardDelivery(data: GiftCardDeliveryData) {
       ${step("02", "At checkout, enter the code above in the <em>Gift card</em> field")}
       ${step("03", "The balance applies instantly at checkout")}
     </table>
-    <div style="margin-top:28px;text-align:center;">
-      <a href="https://notteshe.com/shop" style="display:inline-block;padding:14px 44px;background:${C.clay};font-family:${SANS};font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:#ffffff;text-decoration:none;">Start Shopping</a>
-    </div>
   </td></tr>
 
   <!-- Footer -->
@@ -301,6 +298,12 @@ export async function sendGiftCardDelivery(data: GiftCardDeliveryData) {
 </table>
 </body></html>`;
 
+  const giftIntro = isGift
+    ? `${data.senderName} sent you a gift card.\n\n${data.message ? `"${data.message}"\n\n` : ""}`
+    : `Your gift card is ready.\n\n`;
+
+  const plainText = `NOTTESHE\n\nDear ${data.recipientName},\n\n${giftIntro}Your code: ${data.code}\nBalance: ${formattedAmount}\n\nTo redeem:\n1. Visit notteshe.com/shop\n2. At checkout, enter the code above in the Gift card field\n3. The balance applies instantly\n\n— Notteshe\nnotteshe.com`;
+
   await getMailjet()
     .post("send", { version: "v3.1" })
     .request({
@@ -309,6 +312,7 @@ export async function sendGiftCardDelivery(data: GiftCardDeliveryData) {
           From: { Email: fromEmail, Name: "Notteshe" },
           To: [{ Email: data.to, Name: data.recipientName }],
           Subject: subject,
+          TextPart: plainText,
           HTMLPart: html,
         },
       ],

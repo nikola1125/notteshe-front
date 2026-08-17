@@ -116,6 +116,28 @@ const applyGiftCard = createServerFn({ method: "POST" })
     z.object({ code: z.string(), amountDueEur: z.number() }).parse(d)
   )
   .handler(async ({ data }) => {
+    // Auth + rate limit: without these this endpoint is an open oracle that
+    // returns any gift card's balance, enabling brute-force scanning of codes.
+    const { requireAuth } = await import("@/lib/auth/session");
+    const { rateLimit } = await import("@/lib/rateLimit");
+    const session = await requireAuth();
+
+    // Per user: generous for real use (a shopper tries 1–2 codes), kills scanning.
+    if (!rateLimit(`gc:user:${session.user.id}`, 8, 60_000)) {
+      throw new Error("Too many gift card attempts. Please wait a minute and try again.");
+    }
+    // Per IP as well, so many throwaway accounts behind one host can't scan either.
+    try {
+      const { getRequest } = await import("@tanstack/start-server-core/request-response");
+      const ip = getRequest().headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+      if (ip && !rateLimit(`gc:ip:${ip}`, 20, 60_000)) {
+        throw new Error("Too many gift card attempts. Please wait a minute and try again.");
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith("Too many")) throw err;
+      // header/request unavailable — per-user limit above is the primary control
+    }
+
     const { db } = await import("@/db");
     const { shippingConfig } = await import("@/db/schema");
     const { validateGiftCard } = await import("@/lib/giftCard");

@@ -353,10 +353,58 @@
   border-left-width: 2px !important;
 }
 
+/* Checkbox container */
+.pok-payment-checkbox-container {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 12px 0 !important;
+  cursor: pointer !important;
+}
+
+/* Hide native checkbox */
+.pok-payment-checkbox-input {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  border: 1px solid #503a50 !important;
+  background: transparent !important;
+  cursor: pointer !important;
+  position: relative !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  font-size: 16px !important; /* prevent iOS zoom override */
+  height: 16px !important;
+}
+
+/* Checked state */
+.pok-payment-checkbox-input:checked {
+  background: #b85c3a !important;
+  border-color: #b85c3a !important;
+}
+
+/* Checkmark via pseudo-element */
+.pok-payment-checkbox-input:checked::after {
+  content: "" !important;
+  display: block !important;
+  width: 4px !important;
+  height: 8px !important;
+  border: 1px solid #f2eaf0 !important;
+  border-top: none !important;
+  border-left: none !important;
+  transform: rotate(45deg) translate(4px, 1px) !important;
+}
+
 /* Checkbox label */
 .pok-payment-checkbox-container label {
   font-size: 10px !important;
-  letter-spacing: 0.12em !important;
+  letter-spacing: 0.18em !important;
   text-transform: uppercase !important;
+  color: #a08898 !important;
+  cursor: pointer !important;
+  line-height: 1 !important;
 }
 /* ─────────────────────────────────────────────────────────────────────────── */

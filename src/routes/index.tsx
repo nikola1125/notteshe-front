@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { useEffect, useState, useRef } from "react";
+import { useCurrency, useCurrencyStore } from "@/store/currencyStore";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { Intro } from "@/components/Intro";
 import { cellSpanClass, cellAspectClass, rowDef, isStructured, type RowType } from "@/lib/homeLayout";
@@ -263,6 +264,8 @@ function StructuredRow({ row }: { row: HomeRowResolved }) {
 function Index() {
   const { wardrobe, wardrobeTotal, sale, homeRows } = Route.useLoaderData();
   const router = useRouter();
+  const currency = useCurrency();
+  const setCountry = useCurrencyStore((s) => s.setCountry);
   // Decide synchronously (in the initializer) so the intro overlay is present on the
   // very first paint — no hero flash before it. SSR assumes first visit (renders the
   // intro, which fully covers the hero); the client skips it if already played this
@@ -714,6 +717,25 @@ function Index() {
                       <Link to={l.to} search={("search" in l ? l.search : undefined) as any} className="relative inline-block text-[13px] text-ink/55 transition-colors duration-200 after:absolute after:bottom-[-2px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-clay after:transition-transform after:duration-300 hover:text-clay hover:after:scale-x-100">{l.label}</Link>
                     </li>
                   ))}
+                  {c.title === "House" && (
+                    <li className="pt-1">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setCountry("AL")}
+                          className={`font-mono text-[12px] transition-colors ${currency === "ALL" ? "text-clay" : "text-ink/40 hover:text-ink/70"}`}
+                        >
+                          Lek
+                        </button>
+                        <span className="text-border font-mono text-[12px]">·</span>
+                        <button
+                          onClick={() => setCountry("US")}
+                          className={`font-mono text-[12px] transition-colors ${currency === "EUR" ? "text-clay" : "text-ink/40 hover:text-ink/70"}`}
+                        >
+                          Euro
+                        </button>
+                      </div>
+                    </li>
+                  )}
                 </ul>
               </div>
             ))}
@@ -726,7 +748,7 @@ function Index() {
               Privacy · Terms · Cookies
             </span>
             <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/40">
-              Ref. NTS/26 · v.1.0
+              Crafted by N &amp; S Tech Studio
             </span>
           </div>
         </div>

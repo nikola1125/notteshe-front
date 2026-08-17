@@ -176,7 +176,7 @@ function OrderList() {
   function fmtOrder(o: OrderRow) {
     if (o.currency === "ALL") {
       const lek = o.pokAmount ?? 0;
-      return `${new Intl.NumberFormat("sq-AL").format(Math.round(lek))} L`;
+      return `ALL ${new Intl.NumberFormat("sq-AL").format(Math.round(lek))}`;
     }
     return `${o.total.toFixed(2)} €`;
   }

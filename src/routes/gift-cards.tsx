@@ -124,7 +124,7 @@ const createGiftCardPokOrder = createServerFn({ method: "POST" })
       giftCardAmountLek: 0,
       items: [{
         productId: `gift-card-${data.amountLek}`,
-        name: `Gift Card — ${data.amountLek.toLocaleString()} L`,
+        name: `Gift Card — ALL ${data.amountLek.toLocaleString()}`,
         size: "",
         colour: "",
         image: "/images/gift-card-placeholder.jpg",
@@ -146,9 +146,7 @@ const createGiftCardPokOrder = createServerFn({ method: "POST" })
       pokAmount: chargeTotal,
     };
 
-    // Authenticate with POK
-    const { pokAuth } = await import("@/lib/pok");
-    // pokAuth is not exported — inline the auth call via the existing helper
+    // Authenticate with POK (inline — pokAuth is not exported from pok.ts)
     const POK_BASE = process.env.POK_ENV === "production"
       ? "https://api.pokpay.io/"
       : "https://api-staging.pokpay.io/";
@@ -166,7 +164,7 @@ const createGiftCardPokOrder = createServerFn({ method: "POST" })
     const pokBody: Record<string, unknown> = {
       amount: chargeTotal,
       currencyCode: data.currency,
-      autoCapture: false,
+      autoCapture: true,
       products: [{ name: orderData.items[0].name, quantity: 1, price: chargeTotal }],
       shippingCost: 0,
       merchantCustomReference: data.merchantReference,
@@ -265,7 +263,7 @@ function GiftCardsPage() {
   const totalEur = Math.round((amountEur + paymentFee) * 100) / 100;
 
   function formatLek(amount: number) {
-    return `${amount.toLocaleString()} L`;
+    return `ALL ${amount.toLocaleString()}`;
   }
 
   function validate(): boolean {

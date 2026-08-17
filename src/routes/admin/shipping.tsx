@@ -284,7 +284,7 @@ function Shipping() {
                 className={inputClass}
               />
               <p className="mt-1 font-mono text-[10px] text-[var(--color-muted-foreground)]">
-                e.g. 100 → a €3.20 item shows as {new Intl.NumberFormat("sq-AL").format(Math.round((parseFloat(eurToLekRate) || 100) * 3.2 / (parseInt(lekRounding, 10) || 1)) * (parseInt(lekRounding, 10) || 1))} L
+                e.g. 100 → a €3.20 item shows as ALL {new Intl.NumberFormat("sq-AL").format(Math.round((parseFloat(eurToLekRate) || 100) * 3.2 / (parseInt(lekRounding, 10) || 1)) * (parseInt(lekRounding, 10) || 1))}
               </p>
             </div>
           </div>

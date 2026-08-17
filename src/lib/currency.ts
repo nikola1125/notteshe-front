@@ -32,7 +32,7 @@ export function convert(eurAmount: number, currency: Currency, rate: Rate): numb
 export function formatMoney(eurAmount: number, currency: Currency, rate: Rate): string {
   if (currency === "ALL") {
     const value = convert(eurAmount, "ALL", rate);
-    return `${new Intl.NumberFormat("sq-AL").format(value)} L`;
+    return `ALL ${new Intl.NumberFormat("sq-AL").format(value)}`;
   }
   // EUR: whole numbers show with no decimals, otherwise up to 2.
   const rounded = Math.round(eurAmount * 100) / 100;

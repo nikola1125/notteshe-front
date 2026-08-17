@@ -61,20 +61,43 @@ const adjustGiftCard = createServerFn({ method: "POST" })
     }
 
     if (data.action === "refund") {
-      const refundAmount = gc.initialAmount;
-      const newBalance = Math.min(gc.initialAmount, gc.balance + refundAmount);
-      if (newBalance === gc.balance) return { success: true };
+      if (gc.balance <= 0) throw new Error("Gift card has no remaining balance to refund.");
+      if (gc.balance < gc.initialAmount) throw new Error("Gift card was partially used. Handle partial refunds via the POK dashboard.");
+
+      // Find the POK order that funded this gift card
+      let pokOrderId: string | null = null;
+      let pokCurrency: "EUR" | "ALL" = "EUR";
+
+      if (gc.sourceOrderId) {
+        const { orders } = await import("@/db/schema");
+        const [order] = await db()
+          .select({ pokOrderId: orders.pokOrderId, currency: orders.currency })
+          .from(orders)
+          .where(eq(orders.id, gc.sourceOrderId))
+          .limit(1);
+        if (order) {
+          pokOrderId = order.pokOrderId ?? null;
+          pokCurrency = (order.currency ?? "EUR") as "EUR" | "ALL";
+        }
+      }
+
+      if (!pokOrderId) throw new Error("No payment record found for this gift card. Cannot refund to card.");
+
+      const { pokRefund } = await import("@/lib/pok");
+      await pokRefund(pokOrderId, "Gift card refund by admin");
+
+      // Zero balance and disable the card
       await db().update(giftCard)
-        .set({ balance: newBalance, status: newBalance > 0 ? "active" : gc.status })
+        .set({ balance: 0, status: "disabled" })
         .where(eq(giftCard.id, data.id));
       await db().insert(giftCardTransaction).values({
         id: randomUUID(),
         giftCardId: gc.id,
         type: "refund",
-        amount: newBalance - gc.balance,
-        balanceAfter: newBalance,
+        amount: -gc.balance,
+        balanceAfter: 0,
         adminId: admin.id,
-        note: data.note ?? "Admin refund",
+        note: data.note ?? `Full POK refund issued (${pokCurrency})`,
       });
       return { success: true };
     }
@@ -202,8 +225,8 @@ function AdminGiftCardDetailPage() {
         <div className="space-y-8">
           <div className="border border-border p-6 space-y-4">
             <Row label="Status" value={<span className={`font-mono text-[11px] uppercase tracking-widest ${statusColor(gc.status)}`}>{gc.status}</span>} />
-            <Row label="Balance" value={`${gc.balance.toLocaleString()} L`} />
-            <Row label="Initial amount" value={`${gc.initialAmount.toLocaleString()} L`} />
+            <Row label="Balance" value={`ALL ${gc.balance.toLocaleString()}`} />
+            <Row label="Initial amount" value={`ALL ${gc.initialAmount.toLocaleString()}`} />
             <Row label="Recipient" value={`${gc.recipientName} — ${gc.recipientEmail}`} />
             <Row label="Purchaser" value={gc.purchaserEmail} />
             {gc.message && <Row label="Message" value={gc.message} />}
@@ -229,9 +252,9 @@ function AdminGiftCardDetailPage() {
                     </div>
                     <div className="text-right">
                       <p className={`font-mono text-[11px] ${t.amount >= 0 ? "text-green-400" : "text-clay"}`}>
-                        {t.amount >= 0 ? "+" : ""}{t.amount.toLocaleString()} L
+                        {t.amount >= 0 ? "+" : ""}ALL {Math.abs(t.amount).toLocaleString()}
                       </p>
-                      <p className="font-mono text-[9px] text-muted-foreground/40">→ {t.balanceAfter.toLocaleString()} L</p>
+                      <p className="font-mono text-[9px] text-muted-foreground/40">→ ALL {t.balanceAfter.toLocaleString()}</p>
                     </div>
                   </div>
                 ))}
@@ -266,15 +289,25 @@ function AdminGiftCardDetailPage() {
             disabled={busy}
           />
 
-          <ActionBtn
-            label="Full refund (restore to initial)"
-            onClick={() => {
-              if (window.confirm(`Restore this gift card to its full initial balance of ${gc.initialAmount.toLocaleString()} L?`)) {
-                void doAction("refund");
-              }
-            }}
-            disabled={busy}
-          />
+          {gc.balance < gc.initialAmount ? (
+            <div className="border border-border p-4">
+              <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/50">Refund to card</p>
+              <p className="mt-2 font-mono text-[10px] text-muted-foreground/40">
+                Not available — ALL {(gc.initialAmount - gc.balance).toLocaleString()} has already been spent. Handle partial refunds manually via the POK dashboard.
+              </p>
+            </div>
+          ) : (
+            <ActionBtn
+              label="Refund to card"
+              onClick={() => {
+                if (window.confirm(`Refund ALL ${gc.initialAmount.toLocaleString()} to the client's payment card via POK? The gift card will be disabled.`)) {
+                  void doAction("refund");
+                }
+              }}
+              disabled={busy || gc.balance <= 0 || !gc.sourceOrderId}
+              destructive
+            />
+          )}
         </div>
       </div>
 

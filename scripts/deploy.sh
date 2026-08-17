@@ -16,6 +16,10 @@ npm run build:vps
 echo "→ Uploading changed files…"
 rsync -avz --delete .output "$VPS:$REMOTE/"
 
+echo "→ Uploading env vars…"
+rsync -avz .env.production "$VPS:$REMOTE/.env.production"
+rsync -avz .env.production "$VPS:$REMOTE/.env"
+
 echo "→ Restarting the app…"
 ssh "$VPS" 'sudo systemctl restart notteshe'
 

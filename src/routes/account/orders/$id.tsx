@@ -48,14 +48,26 @@ const getOrderDetail = createServerFn({ method: "GET" })
 
     let discountCode: string | null = null;
     let discountAmount = 0;
+    let paymentFee = 0;
+    let giftCardCode: string | null = null;
+    let giftCardAmountLek = 0;
     try {
       const dr = await db()
-        .select({ discountCode: orders.discountCode, discountAmount: orders.discountAmount })
+        .select({
+          discountCode: orders.discountCode,
+          discountAmount: orders.discountAmount,
+          paymentFee: orders.paymentFee,
+          giftCardCode: orders.giftCardCode,
+          giftCardAmountLek: orders.giftCardAmountLek,
+        })
         .from(orders)
         .where(eq(orders.id, data.id))
         .limit(1);
       discountCode = dr[0]?.discountCode ?? null;
       discountAmount = Number(dr[0]?.discountAmount ?? 0);
+      paymentFee = Number(dr[0]?.paymentFee ?? 0);
+      giftCardCode = dr[0]?.giftCardCode ?? null;
+      giftCardAmountLek = Number(dr[0]?.giftCardAmountLek ?? 0);
     } catch { /* column not yet migrated */ }
 
     return {
@@ -63,9 +75,12 @@ const getOrderDetail = createServerFn({ method: "GET" })
       status: order.status,
       subtotal: Number(order.subtotal),
       shippingFee: Number(order.shippingFee),
+      paymentFee,
       total: Number(order.total),
       discountCode,
       discountAmount,
+      giftCardCode,
+      giftCardAmountLek,
       shippingAddress: order.shippingAddress as ShippingAddress,
       trackingNumber: order.trackingNumber,
       createdAt: order.createdAt.toISOString(),
@@ -185,10 +200,22 @@ function OrderDetailPage() {
                 <span>Shipping</span>
                 <span>{order.shippingFee === 0 ? "Free" : formatMoney(order.shippingFee, currency, rate)}</span>
               </div>
+              {order.paymentFee > 0 && (
+                <div className="flex justify-between font-mono text-[11px] text-ink/60">
+                  <span>Payment fee</span>
+                  <span>{formatMoney(order.paymentFee, currency, rate)}</span>
+                </div>
+              )}
               {order.discountCode && (
                 <div className="flex justify-between font-mono text-[11px] text-green-400">
-                  <span>{order.discountCode}</span>
+                  <span>Discount <span className="ml-1.5 font-mono text-[10px] tracking-widest">{order.discountCode}</span></span>
                   <span>−{formatMoney(order.discountAmount, currency, rate)}</span>
+                </div>
+              )}
+              {order.giftCardCode && order.giftCardAmountLek > 0 && (
+                <div className="flex justify-between font-mono text-[11px] text-muted-foreground">
+                  <span>Gift card <span className="ml-1.5 font-mono text-[10px] tracking-widest">{order.giftCardCode}</span></span>
+                  <span>−ALL {new Intl.NumberFormat("sq-AL").format(Math.round(order.giftCardAmountLek))}</span>
                 </div>
               )}
               <div className="flex justify-between border-t border-border pt-3">

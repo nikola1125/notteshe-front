@@ -232,7 +232,7 @@ function fmt(n: number) {
 }
 
 function fmtLek(n: number) {
-  return `${new Intl.NumberFormat("sq-AL", { maximumFractionDigits: 0 }).format(n)} L`;
+  return `ALL ${new Intl.NumberFormat("sq-AL", { maximumFractionDigits: 0 }).format(n)}`;
 }
 
 // Format an order in the currency it was purchased in.

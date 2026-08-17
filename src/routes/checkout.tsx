@@ -1352,7 +1352,7 @@ function CheckoutPage() {
                   <div className="flex justify-between font-mono text-[11px] text-green-400">
                     <span>Gift card</span>
                     <span>−{currency === "ALL"
-                      ? `${appliedGiftCard.appliedLek.toLocaleString()} L`
+                      ? `ALL ${appliedGiftCard.appliedLek.toLocaleString()}`
                       : formatMoney(gcApplied, currency, rate)}</span>
                   </div>
                 )}
@@ -1437,11 +1437,11 @@ function CheckoutPage() {
                     <p className="font-mono text-[9px] text-muted-foreground/60">{appliedGiftCard.code}</p>
                     <p className="font-mono text-[9px] text-green-400">
                       −{currency === "ALL"
-                        ? `${appliedGiftCard.appliedLek.toLocaleString()} L`
+                        ? `ALL ${appliedGiftCard.appliedLek.toLocaleString()}`
                         : formatMoney(appliedGiftCard.appliedEur, currency, rate)}
                       {" "}
                       <span className="text-muted-foreground/50">
-                        (remaining: {(appliedGiftCard.balanceLek - appliedGiftCard.appliedLek).toLocaleString()} L)
+                        (remaining: ALL {(appliedGiftCard.balanceLek - appliedGiftCard.appliedLek).toLocaleString()})
                       </span>
                     </p>
                   </div>

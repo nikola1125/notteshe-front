@@ -93,6 +93,7 @@ export const placeOrder = createServerFn({ method: "POST" })
       }
     }
 
+    const isGiftCardOnlyOrder = orderData.items.every((i) => i.isGiftCard);
     const orderId = randomUUID();
     const shippingAddress = {
       firstName: orderData.firstName, lastName: orderData.lastName,
@@ -121,7 +122,7 @@ export const placeOrder = createServerFn({ method: "POST" })
     const orderValues = {
       id: orderId,
       userId,
-      status: "PENDING" as const,
+      status: (isGiftCardOnlyOrder ? "CONFIRMED" : "PENDING") as "CONFIRMED" | "PENDING",
       subtotal: orderData.subtotal,
       shippingFee: orderData.shippingFee,
       discountCode: orderData.discountCode,
@@ -187,6 +188,7 @@ export const placeOrder = createServerFn({ method: "POST" })
             amountLek: item.giftCardAmountLek ?? 0,
             purchaserUserId: userId,
             purchaserEmail: orderData.email,
+            purchaserName: `${orderData.firstName}${orderData.lastName ? ` ${orderData.lastName}` : ""}`.trim(),
             recipientEmail: item.giftCardForSelf ? orderData.email : (item.giftCardRecipientEmail ?? orderData.email),
             recipientName: item.giftCardForSelf ? orderData.firstName : (item.giftCardRecipientName ?? orderData.firstName),
             message: item.giftCardMessage ?? null,
@@ -240,7 +242,6 @@ export const placeOrder = createServerFn({ method: "POST" })
     });
 
     // Notify connected admins — skip for gift card-only orders (digital, no fulfilment needed)
-    const isGiftCardOnlyOrder = orderData.items.every((i) => i.isGiftCard);
     if (!isGiftCardOnlyOrder) {
       const { notifyAdmins } = await import("@/lib/admin/sse");
       await notifyAdmins("new_order", { ref: orderId.slice(0, 8).toUpperCase(), total: orderData.total });

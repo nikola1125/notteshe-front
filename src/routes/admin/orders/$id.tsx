@@ -63,6 +63,8 @@ interface OrderDetailData {
     paymentFee: number;
     discountCode: string | null;
     discountAmount: number;
+    giftCardCode: string | null;
+    giftCardAmountLek: number;
     total: number;
     currency: "EUR" | "ALL";
     pokAmount: number | null;
@@ -143,15 +145,25 @@ const getOrderDetail = createServerFn({ method: "GET" })
     let discountCode: string | null = null;
     let discountAmount = 0;
     let paymentFee = 0;
+    let giftCardCode: string | null = null;
+    let giftCardAmountLek = 0;
     try {
       const dr = await database
-        .select({ discountCode: orders.discountCode, discountAmount: orders.discountAmount, paymentFee: orders.paymentFee })
+        .select({
+          discountCode: orders.discountCode,
+          discountAmount: orders.discountAmount,
+          paymentFee: orders.paymentFee,
+          giftCardCode: orders.giftCardCode,
+          giftCardAmountLek: orders.giftCardAmountLek,
+        })
         .from(orders)
         .where(eq(orders.id, data.id))
         .limit(1);
       discountCode = dr[0]?.discountCode ?? null;
       discountAmount = Number(dr[0]?.discountAmount ?? 0);
       paymentFee = Number(dr[0]?.paymentFee ?? 0);
+      giftCardCode = dr[0]?.giftCardCode ?? null;
+      giftCardAmountLek = Number(dr[0]?.giftCardAmountLek ?? 0);
     } catch { /* column not yet migrated */ }
 
     const pokOrderId = o.pokOrderId ?? null;
@@ -166,6 +178,8 @@ const getOrderDetail = createServerFn({ method: "GET" })
         paymentFee,
         discountCode,
         discountAmount,
+        giftCardCode,
+        giftCardAmountLek,
         total: Number(o.total),
         currency: (o.currency ?? "EUR") as "EUR" | "ALL",
         pokAmount: o.pokAmount != null ? Number(o.pokAmount) : null,
@@ -423,7 +437,7 @@ function OrderDetail() {
       : 1;
   function fmt(n: number) {
     if (orderCurrency === "ALL") {
-      return `${new Intl.NumberFormat("sq-AL").format(Math.round(n * lekRate))} L`;
+      return `ALL ${new Intl.NumberFormat("sq-AL").format(Math.round(n * lekRate))}`;
     }
     return `${n.toFixed(2)} €`;
   }
@@ -507,6 +521,12 @@ function OrderDetail() {
                 <div className="flex justify-between font-mono text-xs text-green-400">
                   <span>Discount <span className="ml-1 rounded bg-green-500/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider">{data.order.discountCode}</span></span>
                   <span>−{fmt(data.order.discountAmount)}</span>
+                </div>
+              )}
+              {data.order.giftCardCode && data.order.giftCardAmountLek > 0 && (
+                <div className="flex justify-between font-mono text-xs text-purple-400">
+                  <span>Gift card <span className="ml-1 rounded bg-purple-500/10 px-1.5 py-0.5 font-mono text-[9px] tracking-wider">{data.order.giftCardCode}</span></span>
+                  <span>−ALL {new Intl.NumberFormat("sq-AL").format(Math.round(data.order.giftCardAmountLek))}</span>
                 </div>
               )}
               <div className="flex justify-between font-mono text-sm font-medium">

@@ -211,8 +211,8 @@ function AdminGiftCardsPage() {
               <tr key={gc.id} className="border-b border-border/40 transition-colors hover:bg-muted/30">
                 <td className="py-4 pr-6 font-mono text-[11px] text-ink">{gc.code}</td>
                 <td className="py-4 pr-6 font-mono text-[11px] text-ink">
-                  {gc.balance.toLocaleString()} L
-                  <span className="ml-1 text-muted-foreground/40">/ {gc.initialAmount.toLocaleString()} L</span>
+                  ALL {gc.balance.toLocaleString()}
+                  <span className="ml-1 text-muted-foreground/40">/ ALL {gc.initialAmount.toLocaleString()}</span>
                 </td>
                 <td className={`py-4 pr-6 font-mono text-[10px] uppercase tracking-widest ${statusColor(gc.status)}`}>{gc.status}</td>
                 <td className="py-4 pr-6 font-mono text-[11px] text-muted-foreground/70">

@@ -76,6 +76,7 @@ export interface IssueGiftCardParams {
   amountLek: number;
   purchaserUserId: string | null;
   purchaserEmail: string;
+  purchaserName?: string;
   recipientEmail: string;
   recipientName: string;
   message?: string | null;
@@ -132,7 +133,7 @@ export async function issueGiftCard(params: IssueGiftCardParams): Promise<string
   await sendGiftCardDelivery({
     to: params.recipientEmail,
     recipientName: params.recipientName,
-    senderName: params.forSelf ? null : params.purchaserEmail,
+    senderName: params.forSelf ? null : (params.purchaserName || params.purchaserEmail),
     code,
     amountLek: params.amountLek,
     message: params.message ?? null,

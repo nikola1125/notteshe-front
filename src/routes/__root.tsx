@@ -8,7 +8,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -132,7 +132,19 @@ function RootComponent() {
   const { authModalOpen, authModalMode, authModalCallback, closeAuthModal } = useAuthStore();
   const location = useLocation();
   const isAdmin = location.pathname.startsWith("/admin");
+  const [suspendedToast, setSuspendedToast] = useState(false);
   useSmoothScroll();
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("auth_error") === "suspended") {
+        setSuspendedToast(true);
+        window.history.replaceState({}, "", window.location.pathname);
+        setTimeout(() => setSuspendedToast(false), 6000);
+      }
+    }
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -140,6 +152,11 @@ function RootComponent() {
         {!isAdmin && <Header />}
         {!isAdmin && <CartDrawer />}
         {!isAdmin && <RegionModal />}
+        {suspendedToast && (
+          <div className="fixed bottom-20 left-1/2 z-50 -translate-x-1/2 border border-border bg-background px-6 py-3 shadow-lg">
+            <p className="font-mono text-[11px] uppercase tracking-widest text-clay">Your account has been suspended. Please contact support.</p>
+          </div>
+        )}
         {!isAdmin && authModalOpen && (
           <AuthModal
             defaultMode={authModalMode}

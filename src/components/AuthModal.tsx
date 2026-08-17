@@ -20,7 +20,11 @@ export function AuthModal({ onClose, onSuccess, defaultMode = "login" }: AuthMod
     setGoogleLoading(true);
     setError("");
     try {
-      await authClient.signIn.social({ provider: "google", callbackURL: "/" });
+      await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/",
+        errorCallbackURL: "/?auth_error=suspended",
+      });
     } catch {
       setError("Google sign-in failed. Please try again.");
       setGoogleLoading(false);

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { requireAuth } from "@/lib/auth/session";
 import { db } from "@/db";
 import { orders, cancellationRequest } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { Price, useRate } from "@/components/Price";
@@ -59,9 +59,25 @@ const getMyOrders = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 const requestCancellation = createServerFn({ method: "POST" })
-  .validator(z.object({ orderId: z.string(), message: z.string().optional() }))
+  .validator(z.object({ orderId: z.string(), message: z.string().max(1000).optional() }))
   .handler(async ({ data }) => {
     const session = await requireAuth();
+
+    // Ownership check (IDOR fix): the order must belong to this user. Without
+    // this, anyone could file cancellation requests against arbitrary order IDs.
+    const [order] = await db()
+      .select({ id: orders.id })
+      .from(orders)
+      .where(and(eq(orders.id, data.orderId), eq(orders.userId, session.user.id)))
+      .limit(1);
+    if (!order) throw new Error("Order not found.");
+
+    // Rate limit so the admin cancellation queue can't be spammed.
+    const { rateLimit } = await import("@/lib/rateLimit");
+    if (!rateLimit(`cancel:user:${session.user.id}`, 5, 60_000)) {
+      throw new Error("Too many cancellation requests. Please wait a moment and try again.");
+    }
+
     const userName = session.user.name ?? session.user.email;
     await db().insert(cancellationRequest).values({
       id: nanoid(),

@@ -154,6 +154,18 @@ export async function loginAdmin(
   email: string,
   password: string
 ): Promise<{ success: true } | { success: false; error: string }> {
+  // Rate limit by client IP to blunt credential stuffing / brute force. PBKDF2
+  // verification is deliberately slow, so this also caps CPU-exhaustion abuse.
+  const { rateLimit } = await import("@/lib/rateLimit");
+  let ip = "unknown";
+  try {
+    const { getRequest } = await import("@tanstack/start-server-core/request-response");
+    ip = getRequest().headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  } catch { /* no request context — fall back to shared bucket */ }
+  if (!rateLimit(`adminlogin:ip:${ip}`, 10, 60_000)) {
+    return { success: false, error: "Too many attempts. Please wait a minute and try again." };
+  }
+
   const rows = await db()
     .select()
     .from(adminUser)

@@ -61,6 +61,18 @@ export default {
       const url = new URL(request.url);
 
       if (url.pathname.startsWith("/api/auth/")) {
+        // Throttle sign-in / sign-up by client IP to blunt credential stuffing.
+        // (nginx forwards the real IP in x-forwarded-for.)
+        if (url.pathname.includes("/sign-in") || url.pathname.includes("/sign-up")) {
+          const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+          const { rateLimit } = await import("./lib/rateLimit");
+          if (!rateLimit(`authlogin:ip:${ip}`, 10, 60_000)) {
+            return new Response(
+              JSON.stringify({ error: "Too many attempts. Please wait a minute and try again." }),
+              { status: 429, headers: { "content-type": "application/json" } },
+            );
+          }
+        }
         const { auth } = await getAuthModule();
         return auth.handler(request);
       }

@@ -18,11 +18,11 @@ echo "→ Uploading changed files…"
 rsync -avz --delete .output "$VPS:$REMOTE/"
 
 echo "→ Uploading env vars…"
-# --chmod locks the uploaded secrets to owner-only (600) so no other local
-# process on the VPS can read DATABASE_URL / POK / Mailjet / etc.
-rsync -avz --chmod=F600 .env.production "$VPS:$REMOTE/.env.production"
-rsync -avz --chmod=F600 .env.production "$VPS:$REMOTE/.env"
-# Belt-and-suspenders in case an older file already exists world-readable.
+rsync -avz .env.production "$VPS:$REMOTE/.env.production"
+rsync -avz .env.production "$VPS:$REMOTE/.env"
+# Lock the uploaded secrets to owner-only (600) so no other local process on the
+# VPS can read DATABASE_URL / POK / Mailjet / etc. (macOS rsync lacks --chmod=F,
+# so do it explicitly over ssh.)
 ssh "$VPS" "chmod 600 $REMOTE/.env $REMOTE/.env.production"
 
 echo "→ Restarting the app…"

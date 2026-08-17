@@ -509,7 +509,7 @@ function OrderDetail() {
               </div>
               <div className="flex justify-between font-mono text-xs">
                 <span className="text-[var(--color-muted-foreground)]">Shipping</span>
-                <span>{data.order.shippingFee === 0 ? "Free" : fmt(data.order.shippingFee)}</span>
+                <span>{fmt(data.order.shippingFee)}</span>
               </div>
               {data.order.paymentFee > 0 && (
                 <div className="flex justify-between font-mono text-xs">

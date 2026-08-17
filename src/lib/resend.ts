@@ -144,7 +144,7 @@ export async function sendOrderConfirmation(data: OrderConfirmationData) {
         <tr><td style="padding:8px 44px 32px;">
           <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border-top:1px solid ${C.border};padding-top:8px;">
             ${row("Subtotal", money(data.subtotal))}
-            ${row("Shipping", data.shippingFee === 0 ? "Free" : money(data.shippingFee))}
+            ${row("Shipping", money(data.shippingFee))}
             ${data.discountAmount && data.discountAmount > 0 ? row("Discount", `−${money(data.discountAmount)}`) : ""}
             ${data.paymentMethod ? row("Payment", data.paymentMethod) : ""}
             ${row("Total", money(data.total), true)}
@@ -279,7 +279,7 @@ export async function sendGiftCardDelivery(data: GiftCardDeliveryData) {
     <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
       ${step("01", "Browse <a href=\"https://notteshe.com/shop\" style=\"color:${C.clay};text-decoration:none;\">notteshe.com</a> and add your favourites to cart")}
       ${step("02", "At checkout, enter the code above in the <em>Gift card</em> field")}
-      ${step("03", "The balance applies instantly — enjoy free shipping on orders over 5,000 L")}
+      ${step("03", "The balance applies instantly at checkout")}
     </table>
     <div style="margin-top:28px;text-align:center;">
       <a href="https://notteshe.com/shop" style="display:inline-block;padding:14px 44px;background:${C.clay};font-family:${SANS};font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:#ffffff;text-decoration:none;">Start Shopping</a>

@@ -406,7 +406,7 @@ function ShopPage() {
 
       <div className="border-t border-border py-10 text-center">
         <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
-          All prices include VAT · Free shipping over {formatMoney(200, currency, rate)} · Exchanges within 14 days
+          All prices include VAT · Exchanges within 14 days
         </p>
       </div>
     </div>

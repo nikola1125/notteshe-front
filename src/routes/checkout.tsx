@@ -1324,7 +1324,7 @@ function CheckoutPage() {
                   <span>Subtotal</span><span>{formatMoney(subtotal, currency, rate)}</span>
                 </div>
                 <div className="flex justify-between font-mono text-[11px] text-ink/60">
-                  <span>Shipping</span><span>{shipping === 0 ? "Free" : formatMoney(shipping, currency, rate)}</span>
+                  <span>Shipping</span><span>{formatMoney(shipping, currency, rate)}</span>
                 </div>
                 {appliedDiscount && (
                   <div className="flex items-center justify-between font-mono text-[11px] text-green-400">
@@ -1355,9 +1355,6 @@ function CheckoutPage() {
                       ? `ALL ${appliedGiftCard.appliedLek.toLocaleString()}`
                       : formatMoney(gcApplied, currency, rate)}</span>
                   </div>
-                )}
-                {shippingCfg.enabled && shipping > 0 && (
-                  <p className="font-mono text-[9px] text-muted-foreground/40">Free shipping on orders over {formatMoney(shippingCfg.freeThreshold, currency, rate)}</p>
                 )}
               </div>
 

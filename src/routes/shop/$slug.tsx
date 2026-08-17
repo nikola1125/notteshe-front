@@ -476,7 +476,6 @@ function ProductPage() {
               </svg>
             </summary>
             <div className="space-y-2 pb-6 text-[12px] leading-relaxed text-muted-foreground">
-              <p>Free shipping on orders over {formatMoney(200, currency, rate)}.</p>
               <p>Standard delivery 3–5 working days. Express available at checkout.</p>
               <p>Exchanges accepted within 14 days of delivery — no refunds. Items must be unworn and in original packaging.</p>
             </div>

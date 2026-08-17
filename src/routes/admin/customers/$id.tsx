@@ -374,7 +374,7 @@ function CustomerDetail() {
                           </div>
                           <div className="flex justify-between font-mono text-[10px]">
                             <span className="text-[var(--color-muted-foreground)]">Shipping</span>
-                            <span>{o.shippingFee === 0 ? "Free" : `${o.shippingFee.toFixed(2)} €`}</span>
+                            <span>{o.shippingFee.toFixed(2)} €</span>
                           </div>
                           {o.paymentFee > 0 && (
                             <div className="flex justify-between font-mono text-[10px]">

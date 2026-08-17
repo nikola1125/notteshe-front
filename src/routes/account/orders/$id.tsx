@@ -198,7 +198,7 @@ function OrderDetailPage() {
               </div>
               <div className="flex justify-between font-mono text-[11px] text-ink/60">
                 <span>Shipping</span>
-                <span>{order.shippingFee === 0 ? "Free" : formatMoney(order.shippingFee, currency, rate)}</span>
+                <span>{formatMoney(order.shippingFee, currency, rate)}</span>
               </div>
               {order.paymentFee > 0 && (
                 <div className="flex justify-between font-mono text-[11px] text-ink/60">

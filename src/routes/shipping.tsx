@@ -51,7 +51,6 @@ function ShippingPage() {
                 </div>
               ))}
             </div>
-            <p className="mt-4 font-mono text-[11px] text-muted-foreground">Free shipping on all orders over {formatMoney(200, currency, rate)}.</p>
           </section>
 
           <section>

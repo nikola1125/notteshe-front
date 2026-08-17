@@ -6,10 +6,19 @@ import { z } from "zod";
 import { useState } from "react";
 import { toast } from "sonner";
 import { db } from "@/db";
-import { user, orders, orderItem } from "@/db/schema";
+import {
+  user,
+  orders,
+  orderItem,
+  address,
+  wishlistItem,
+  giftCard,
+  giftCardTransaction,
+  newsletterSubscriber,
+} from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAudit } from "@/lib/admin/audit";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Download } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -187,6 +196,149 @@ const deleteCustomer = createServerFn({ method: "POST" })
     return { success: true };
   });
 
+const getUserDataExport = createServerFn({ method: "GET" })
+  .validator((input: unknown) => ({ id: (input as { id: string }).id }))
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    const database = db();
+
+    const [userRows, addressRows, orderRows, wishlistRows, giftCardRows] =
+      await Promise.all([
+        database.select().from(user).where(eq(user.id, data.id)).limit(1),
+        database.select().from(address).where(eq(address.userId, data.id)),
+        database
+          .select()
+          .from(orders)
+          .where(eq(orders.userId, data.id))
+          .orderBy(desc(orders.createdAt)),
+        database.select().from(wishlistItem).where(eq(wishlistItem.userId, data.id)),
+        database.select().from(giftCard).where(eq(giftCard.purchaserUserId, data.id)),
+      ]);
+
+    if (!userRows[0]) throw new Error("Customer not found");
+    const u = userRows[0];
+
+    // Newsletter table has no userId FK — look up by email
+    const newsletterRowsReal = await database
+      .select()
+      .from(newsletterSubscriber)
+      .where(eq(newsletterSubscriber.email, u.email))
+      .limit(1);
+
+    // Fetch order items for all orders
+    const orderItemRows =
+      orderRows.length > 0
+        ? await Promise.all(
+            orderRows.map((o) =>
+              database.select().from(orderItem).where(eq(orderItem.orderId, o.id))
+            )
+          )
+        : [];
+
+    // Fetch gift card transactions for all purchased gift cards
+    const giftCardTransactionRows =
+      giftCardRows.length > 0
+        ? await Promise.all(
+            giftCardRows.map((gc) =>
+              database
+                .select()
+                .from(giftCardTransaction)
+                .where(eq(giftCardTransaction.giftCardId, gc.id))
+                .orderBy(desc(giftCardTransaction.createdAt))
+            )
+          )
+        : [];
+
+    return {
+      exportedAt: new Date().toISOString(),
+      profile: {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        emailVerified: u.emailVerified,
+        phone: u.phone ?? null,
+        blocked: u.blocked,
+        createdAt: u.createdAt.toISOString(),
+        updatedAt: u.updatedAt.toISOString(),
+      },
+      addresses: addressRows.map((a) => ({
+        id: a.id,
+        firstName: a.firstName,
+        lastName: a.lastName,
+        line1: a.line1,
+        line2: a.line2 ?? null,
+        city: a.city,
+        postalCode: a.postalCode,
+        country: a.country,
+        isDefault: a.isDefault,
+        createdAt: a.createdAt.toISOString(),
+      })),
+      orders: orderRows.map((o, i) => ({
+        id: o.id,
+        status: o.status,
+        subtotal: Number(o.subtotal),
+        shippingFee: Number(o.shippingFee),
+        paymentFee: Number(o.paymentFee ?? 0),
+        discountCode: o.discountCode ?? null,
+        discountAmount: Number(o.discountAmount ?? 0),
+        giftCardCode: o.giftCardCode ?? null,
+        giftCardAmountLek: Number(o.giftCardAmountLek ?? 0),
+        total: Number(o.total),
+        currency: o.currency,
+        pokAmount: o.pokAmount != null ? Number(o.pokAmount) : null,
+        shippingAddress: o.shippingAddress as Record<string, string | null | undefined>,
+        pokOrderId: o.pokOrderId ?? null,
+        trackingNumber: o.trackingNumber ?? null,
+        createdAt: o.createdAt.toISOString(),
+        updatedAt: o.updatedAt.toISOString(),
+        items: (orderItemRows[i] ?? []).map((it) => ({
+          id: it.id,
+          productSnapshot: it.productSnapshot,
+          size: it.size,
+          colour: it.colour,
+          quantity: it.quantity,
+          unitPrice: Number(it.unitPrice),
+        })),
+      })),
+      wishlistItems: wishlistRows.map((w) => ({
+        id: w.id,
+        productId: w.productId,
+        addedAt: w.createdAt.toISOString(),
+      })),
+      giftCardsPurchased: giftCardRows.map((gc, i) => ({
+        id: gc.id,
+        code: gc.code,
+        initialAmount: Number(gc.initialAmount),
+        balance: Number(gc.balance),
+        status: gc.status,
+        recipientEmail: gc.recipientEmail,
+        recipientName: gc.recipientName,
+        message: gc.message ?? null,
+        sourceOrderId: gc.sourceOrderId ?? null,
+        expiresAt: gc.expiresAt?.toISOString() ?? null,
+        createdAt: gc.createdAt.toISOString(),
+        lastUsedAt: gc.lastUsedAt?.toISOString() ?? null,
+        transactions: (giftCardTransactionRows[i] ?? []).map((tx) => ({
+          id: tx.id,
+          type: tx.type,
+          amount: Number(tx.amount),
+          balanceAfter: Number(tx.balanceAfter),
+          orderId: tx.orderId ?? null,
+          note: tx.note ?? null,
+          createdAt: tx.createdAt.toISOString(),
+        })),
+      })),
+      newsletterSubscription: newsletterRowsReal[0]
+        ? {
+            email: newsletterRowsReal[0].email,
+            isActive: newsletterRowsReal[0].isActive,
+            source: newsletterRowsReal[0].source ?? null,
+            subscribedAt: newsletterRowsReal[0].createdAt.toISOString(),
+          }
+        : null,
+    };
+  });
+
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 function CustomerDetailError({ error }: { error: Error }) {
@@ -233,6 +385,7 @@ function CustomerDetail() {
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  const [downloading, setDownloading] = useState(false);
 
   function toggleOrder(id: string) {
     setExpandedOrders((prev) => {
@@ -282,6 +435,26 @@ function CustomerDetail() {
     }
   }
 
+  async function handleExport() {
+    setDownloading(true);
+    try {
+      const data = await getUserDataExport({ data: { id: customer.id } });
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const date = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `notteshe-user-data-${customer.id}-${date}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Data exported");
+    } catch {
+      toast.error("Failed to export data");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   return (
     <div className="p-6 lg:p-8">
       <BackButton />
@@ -307,6 +480,14 @@ function CustomerDetail() {
           <span className="rounded bg-[var(--color-muted)]/30 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)]">
             {customer.orders.length} order{customer.orders.length !== 1 ? "s" : ""}
           </span>
+          <button
+            onClick={() => void handleExport()}
+            disabled={downloading}
+            className="ml-auto flex items-center gap-1.5 rounded border border-[var(--color-border)] px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted-foreground)] transition-opacity hover:opacity-80 disabled:opacity-40"
+          >
+            <Download size={11} />
+            {downloading ? "Exporting…" : "Export data (GDPR)"}
+          </button>
         </div>
       </div>
 

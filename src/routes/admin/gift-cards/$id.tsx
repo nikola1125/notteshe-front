@@ -64,6 +64,28 @@ const adjustGiftCard = createServerFn({ method: "POST" })
       if (gc.balance <= 0) throw new Error("Gift card has no remaining balance to refund.");
       if (gc.balance < gc.initialAmount) throw new Error("Gift card was partially used. Handle partial refunds via the POK dashboard.");
 
+      // Atomically LOCK the card before refunding: disable it only if it is still
+      // active AND untouched (full balance). This closes the race where the holder
+      // spends the card during the refund window and keeps both the goods and the
+      // full cash refund — once disabled, no checkout can debit it. Balance is left
+      // intact for now so we can restore the card if the refund can't complete.
+      const [locked] = await db().update(giftCard)
+        .set({ status: "disabled" })
+        .where(sql`${giftCard.id} = ${data.id} AND ${giftCard.status} = 'active' AND ${giftCard.balance} = ${giftCard.initialAmount} AND ${giftCard.balance} > 0`)
+        .returning({ balance: giftCard.balance });
+
+      if (!locked) {
+        const [fresh] = await db()
+          .select({ status: giftCard.status, balance: giftCard.balance, initialAmount: giftCard.initialAmount })
+          .from(giftCard).where(eq(giftCard.id, data.id)).limit(1);
+        if (!fresh) throw new Error("Gift card not found.");
+        if (fresh.balance <= 0) throw new Error("Gift card has no remaining balance to refund.");
+        if (fresh.balance < fresh.initialAmount) throw new Error("Gift card was used since this page loaded — no longer fully refundable. Handle any partial refund via the POK dashboard.");
+        throw new Error("Gift card is not eligible for a refund (already disabled or refunded).");
+      }
+
+      const refundLek = locked.balance;
+
       // Find the POK order that funded this gift card
       let pokOrderId: string | null = null;
       let pokCurrency: "EUR" | "ALL" = "EUR";
@@ -81,20 +103,30 @@ const adjustGiftCard = createServerFn({ method: "POST" })
         }
       }
 
-      if (!pokOrderId) throw new Error("No payment record found for this gift card. Cannot refund to card.");
+      if (!pokOrderId) {
+        // Can't refund — restore the card to its prior active state.
+        await db().update(giftCard).set({ status: "active" }).where(eq(giftCard.id, data.id));
+        throw new Error("No payment record found for this gift card. Cannot refund to card.");
+      }
 
       const { pokRefund } = await import("@/lib/pok");
-      await pokRefund(pokOrderId, "Gift card refund by admin");
+      try {
+        await pokRefund(pokOrderId, "Gift card refund by admin");
+      } catch (err) {
+        // Refund failed — restore the card so it isn't left disabled-but-unrefunded.
+        await db().update(giftCard).set({ status: "active" }).where(eq(giftCard.id, data.id));
+        throw err;
+      }
 
-      // Zero balance and disable the card
+      // Refund succeeded — zero the balance (card is already disabled).
       await db().update(giftCard)
-        .set({ balance: 0, status: "disabled" })
+        .set({ balance: 0 })
         .where(eq(giftCard.id, data.id));
       await db().insert(giftCardTransaction).values({
         id: randomUUID(),
         giftCardId: gc.id,
         type: "refund",
-        amount: -gc.balance,
+        amount: -refundLek,
         balanceAfter: 0,
         adminId: admin.id,
         note: data.note ?? `Full POK refund issued (${pokCurrency})`,

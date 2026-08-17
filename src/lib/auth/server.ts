@@ -30,12 +30,15 @@ function getAuth() {
         requireEmailVerification: false,
       },
 
-      // Block enforcement: checked at session update (re-login), not at create.
-      // Checking at create interfered with brand-new signups — the hook fires
-      // for both signup and login, and any DB hiccup would wrongly block new users.
+      // Block enforcement at login (session creation): a blocked user can't get
+      // a fresh session. This only fires on a POSITIVE blocked===true read, so a
+      // brand-new signup (blocked=false, or the row not yet visible) is never
+      // wrongly rejected. A DB hiccup here fails open by design — the real
+      // enforcement is requireAuth(), which re-checks blocked (fail-closed) on
+      // every privileged action, plus session revocation when an admin blocks.
       databaseHooks: {
         session: {
-          update: {
+          create: {
             before: async (session) => {
               try {
                 const { APIError } = await import("better-auth");
@@ -50,9 +53,8 @@ function getAuth() {
                   });
                 }
               } catch (err: unknown) {
-                // Re-throw only our own APIError; swallow unexpected DB errors
-                // so a transient Neon hiccup never blocks legitimate users.
                 if ((err as { status?: number })?.status === 403) throw err;
+                // Unexpected DB error — allow; requireAuth() is the backstop.
               }
               return { data: session };
             },

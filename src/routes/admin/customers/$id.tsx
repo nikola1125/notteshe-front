@@ -155,6 +155,12 @@ const setBlockedCustomer = createServerFn({ method: "POST" })
       .update(user)
       .set({ blocked: data.blocked, updatedAt: new Date() })
       .where(eq(user.id, data.id));
+    // Revoke all active sessions on block so it takes effect immediately —
+    // an existing session cookie would otherwise keep working for up to ~24h.
+    if (data.blocked) {
+      const { session } = await import("@/db/schema");
+      await db().delete(session).where(eq(session.userId, data.id));
+    }
     await logAudit(
       admin.id,
       data.blocked ? "customer.block" : "customer.unblock",

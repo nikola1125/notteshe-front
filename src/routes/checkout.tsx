@@ -519,7 +519,7 @@ const placeZeroTotalOrder = createServerFn({ method: "POST" })
     await db().insert(orders).values({
       id: orderId,
       userId,
-      status: "CONFIRMED" as const,  // fully paid by gift card
+      status: "PENDING" as const,  // paid by gift card — still needs admin to confirm & ship
       subtotal,
       shippingFee,
       paymentFee: 0,

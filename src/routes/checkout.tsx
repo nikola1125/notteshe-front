@@ -92,24 +92,6 @@ const CartItemSchema = z.object({
   giftCardForSelf: z.boolean().optional(),
 });
 
-const CodOrderSchema = z.object({
-  currency: z.enum(["EUR", "ALL"]).default("EUR"),
-  discountCode: z.string().optional(),
-  giftCardCode: z.string().optional(),
-  shippingForm: z.object({
-    email: z.string().email(),
-    phone: z.string(),
-    firstName: z.string().min(1),
-    lastName: z.string().min(1),
-    address: z.string().min(1),
-    address2: z.string().optional(),
-    city: z.string().min(1),
-    postalCode: z.string().min(1),
-    country: z.string().min(1),
-  }),
-  items: z.array(CartItemSchema),
-});
-
 // Schema for zero-total orders (gift card covers the full amount, no payment gateway)
 const ZeroTotalOrderSchema = z.object({
   currency: z.enum(["EUR", "ALL"]).default("EUR"),
@@ -128,259 +110,6 @@ const ZeroTotalOrderSchema = z.object({
   }),
   items: z.array(CartItemSchema),
 });
-
-const placeCodOrder = createServerFn({ method: "POST" })
-  .validator((d: unknown) => CodOrderSchema.parse(d))
-  .handler(async ({ data }) => {
-    const { requireAuth } = await import("@/lib/auth/session");
-    const { db } = await import("@/db");
-    const {
-      orders, orderItem, productSize, product, shippingConfig,
-      discountCode: discountCodeTable, auditLog,
-    } = await import("@/db/schema");
-    const { inArray, and, eq, sql } = await import("drizzle-orm");
-    const { randomUUID } = await import("node:crypto");
-
-    const session = await requireAuth();
-    const userId = session.user.id;
-
-    // Gift cards cannot be purchased with COD
-    if (data.items.some((i) => i.isGiftCard)) {
-      throw new Error("Gift card purchases require online (card) payment.");
-    }
-
-    const productIds = [...new Set(data.items.map((i) => i.productId))];
-    const [productRows, sizeRows] = await Promise.all([
-      db().select({ id: product.id, price: product.price, originalPrice: product.originalPrice, isSale: product.isSale })
-        .from(product).where(inArray(product.id, productIds)),
-      db().select({ productId: productSize.productId, label: productSize.label, stock: productSize.stock })
-        .from(productSize).where(inArray(productSize.productId, productIds)),
-    ]);
-
-    const priceMap = new Map(productRows.map((p) => [p.id, p]));
-    const itemsWithPrices = data.items.map((item) => {
-      const p = priceMap.get(item.productId);
-      if (!p) throw new Error(`Product "${item.name}" is no longer available.`);
-      return { ...item, price: p.price, originalPrice: p.isSale ? (p.originalPrice ?? null) : null };
-    });
-
-    for (const item of data.items) {
-      const row = sizeRows.find((s) => s.productId === item.productId && s.label === item.size);
-      if (!row || row.stock < item.quantity) {
-        throw new Error(`"${item.name}" size ${item.size} is no longer available in the requested quantity.`);
-      }
-    }
-
-    const subtotal = itemsWithPrices.reduce((s, i) => s + i.price * i.quantity, 0);
-    const [cfg] = await db()
-      .select({ enabled: shippingConfig.enabled, fee: shippingConfig.fee, freeThreshold: shippingConfig.freeThreshold })
-      .from(shippingConfig).limit(1);
-    const shippingFee = cfg?.enabled ? (subtotal >= (cfg.freeThreshold ?? 200) ? 0 : (cfg.fee ?? 12)) : 0;
-
-    // EUR→Lek rate
-    let eurToLekRate = 100;
-    let lekRounding = 100;
-    try {
-      const [rc] = await db().select({ eurToLekRate: shippingConfig.eurToLekRate, lekRounding: shippingConfig.lekRounding }).from(shippingConfig).limit(1);
-      if (rc) { eurToLekRate = rc.eurToLekRate ?? 100; lekRounding = rc.lekRounding ?? 100; }
-    } catch { /* not migrated */ }
-
-    let discountAmount = 0;
-    let validatedDiscountCode: string | null = null;
-    if (data.discountCode) {
-      const [code] = await db().select().from(discountCodeTable)
-        .where(eq(discountCodeTable.code, data.discountCode.toUpperCase().trim())).limit(1);
-      const now = new Date();
-      if (code && code.isActive && (!code.expiresAt || code.expiresAt > now) &&
-          (code.maxUses === null || code.usedCount < code.maxUses) &&
-          (code.minOrderAmount === null || subtotal >= code.minOrderAmount)) {
-        const saleIds = new Set(productRows.filter((p) => p.isSale).map((p) => p.id));
-        if (!data.items.some((i) => saleIds.has(i.productId))) {
-          discountAmount = code.type === "PERCENT"
-            ? Math.round(subtotal * (code.value / 100) * 100) / 100
-            : Math.min(code.value, subtotal);
-          validatedDiscountCode = code.code;
-        }
-      }
-    }
-
-    // Gift card redemption
-    let gcAmountLek = 0;
-    let validatedGiftCardCode: string | null = null;
-    if (data.giftCardCode) {
-      const { validateGiftCard } = await import("@/lib/giftCard");
-      const amountDueEur = Math.max(0, subtotal + shippingFee - discountAmount);
-      const gcResult = await validateGiftCard(data.giftCardCode, amountDueEur, eurToLekRate);
-      if (!gcResult.valid) throw new Error(gcResult.error);
-      validatedGiftCardCode = gcResult.code;
-      gcAmountLek = gcResult.appliedLek;
-    }
-    const gcAppliedEur = gcAmountLek / eurToLekRate;
-
-    const total = Math.max(0, subtotal + shippingFee - discountAmount - gcAppliedEur);
-    const codCurrency = data.currency;
-    const codCollect = codCurrency === "ALL"
-      ? Math.round((total * eurToLekRate) / (lekRounding > 0 ? lekRounding : 1)) * (lekRounding > 0 ? lekRounding : 1)
-      : Math.round(total * 100) / 100;
-
-    for (const item of itemsWithPrices) {
-      const updated = await db()
-        .update(productSize)
-        .set({ stock: sql`stock - ${item.quantity}` })
-        .where(and(
-          eq(productSize.productId, item.productId),
-          eq(productSize.label, item.size),
-          sql`stock >= ${item.quantity}`,
-        ))
-        .returning({ id: productSize.id });
-      if (updated.length === 0) {
-        throw new Error(`"${item.name}" size ${item.size} went out of stock before your order was finalised.`);
-      }
-    }
-
-    // Atomically debit gift card now that stock is reserved
-    if (validatedGiftCardCode && gcAmountLek > 0) {
-      const orderId = randomUUID(); // pre-generate so we can pass it to the debit
-      const { atomicDebitGiftCard } = await import("@/lib/giftCard");
-      try {
-        await atomicDebitGiftCard(validatedGiftCardCode, gcAmountLek, orderId);
-      } catch (err) {
-        // Roll back stock? We can't in neon-http without transactions. Log for manual review.
-        console.error("[placeCodOrder] gift card debit failed:", err);
-        throw new Error("Gift card could not be applied. Please try again or remove the gift card.");
-      }
-
-      const shippingAddress = {
-        firstName: data.shippingForm.firstName, lastName: data.shippingForm.lastName,
-        line1: data.shippingForm.address, line2: data.shippingForm.address2 ?? null,
-        city: data.shippingForm.city, postalCode: data.shippingForm.postalCode,
-        country: data.shippingForm.country, phone: data.shippingForm.phone, email: data.shippingForm.email,
-      };
-
-      await db().insert(orders).values({
-        id: orderId,
-        userId,
-        status: "PENDING" as const,
-        subtotal,
-        shippingFee,
-        paymentFee: 0,
-        discountCode: validatedDiscountCode,
-        discountAmount,
-        giftCardCode: validatedGiftCardCode,
-        giftCardAmountLek: gcAmountLek,
-        total,
-        currency: codCurrency,
-        pokAmount: codCollect,
-        shippingAddress,
-        pokOrderId: null,
-      });
-
-      await db().insert(orderItem).values(
-        itemsWithPrices.map((item) => ({
-          id: randomUUID(), orderId, productId: item.productId,
-          productSnapshot: { name: item.name, image: item.image, price: item.price, originalPrice: item.originalPrice },
-          size: item.size, colour: item.colour, quantity: item.quantity, unitPrice: item.price,
-        }))
-      );
-
-      if (validatedDiscountCode) {
-        await db().update(discountCodeTable).set({ usedCount: sql`used_count + 1` })
-          .where(and(eq(discountCodeTable.code, validatedDiscountCode), sql`(max_uses IS NULL OR used_count < max_uses)`)).catch(() => {});
-      }
-
-      await db().insert(auditLog).values({ id: randomUUID(), adminId: null, action: "payment.success", entityType: "order", entityId: orderId, diff: { after: { orderId, userId, email: data.shippingForm.email, total, itemCount: data.items.length, method: "cod+giftcard" } } });
-      const { notifyAdmins } = await import("@/lib/admin/sse");
-      await notifyAdmins("new_order", { ref: orderId.slice(0, 8).toUpperCase(), total });
-      const { sendOrderConfirmation } = await import("@/lib/resend");
-      sendOrderConfirmation({ to: data.shippingForm.email, firstName: data.shippingForm.firstName, orderId, currency: codCurrency, items: itemsWithPrices.map((i) => ({ name: i.name, size: i.size, colour: i.colour, quantity: i.quantity, unitPrice: i.price, image: i.image })), subtotal, shippingFee, discountAmount, total, paymentMethod: "Cash on Delivery + Gift Card", shippingAddress: { firstName: data.shippingForm.firstName, lastName: data.shippingForm.lastName, line1: data.shippingForm.address, line2: data.shippingForm.address2 ?? null, city: data.shippingForm.city, postalCode: data.shippingForm.postalCode, country: data.shippingForm.country, phone: data.shippingForm.phone } }).catch((err) => console.error("[resend] COD+GC confirmation failed:", err));
-      return { orderId };
-    }
-
-    // Normal COD (no gift card)
-    const orderId = randomUUID();
-    const shippingAddress = {
-      firstName: data.shippingForm.firstName, lastName: data.shippingForm.lastName,
-      line1: data.shippingForm.address, line2: data.shippingForm.address2 ?? null,
-      city: data.shippingForm.city, postalCode: data.shippingForm.postalCode,
-      country: data.shippingForm.country, phone: data.shippingForm.phone, email: data.shippingForm.email,
-    };
-
-    await db().insert(orders).values({
-      id: orderId,
-      userId,
-      status: "PENDING" as const,
-      subtotal,
-      shippingFee,
-      paymentFee: 0,
-      discountCode: validatedDiscountCode,
-      discountAmount,
-      giftCardCode: null,
-      giftCardAmountLek: 0,
-      total,
-      currency: codCurrency,
-      pokAmount: codCollect,
-      shippingAddress,
-      pokOrderId: null,
-    });
-
-    await db().insert(orderItem).values(
-      itemsWithPrices.map((item) => ({
-        id: randomUUID(),
-        orderId,
-        productId: item.productId,
-        productSnapshot: { name: item.name, image: item.image, price: item.price, originalPrice: item.originalPrice },
-        size: item.size,
-        colour: item.colour,
-        quantity: item.quantity,
-        unitPrice: item.price,
-      }))
-    );
-
-    if (validatedDiscountCode) {
-      await db()
-        .update(discountCodeTable)
-        .set({ usedCount: sql`used_count + 1` })
-        .where(and(
-          eq(discountCodeTable.code, validatedDiscountCode),
-          sql`(max_uses IS NULL OR used_count < max_uses)`,
-        ))
-        .catch(() => {});
-    }
-
-    await db().insert(auditLog).values({
-      id: randomUUID(),
-      adminId: null,
-      action: "payment.success",
-      entityType: "order",
-      entityId: orderId,
-      diff: { after: { orderId, userId, email: data.shippingForm.email, total, itemCount: data.items.length, method: "cod" } },
-    });
-
-    const { notifyAdmins } = await import("@/lib/admin/sse");
-    await notifyAdmins("new_order", { ref: orderId.slice(0, 8).toUpperCase(), total });
-
-    const { sendOrderConfirmation } = await import("@/lib/resend");
-    sendOrderConfirmation({
-      to: data.shippingForm.email,
-      firstName: data.shippingForm.firstName,
-      orderId,
-      currency: codCurrency,
-      items: itemsWithPrices.map((i) => ({ name: i.name, size: i.size, colour: i.colour, quantity: i.quantity, unitPrice: i.price, image: i.image })),
-      subtotal,
-      shippingFee,
-      discountAmount,
-      total,
-      paymentMethod: "Cash on Delivery",
-      shippingAddress: {
-        firstName: data.shippingForm.firstName, lastName: data.shippingForm.lastName,
-        line1: data.shippingForm.address, line2: data.shippingForm.address2 ?? null,
-        city: data.shippingForm.city, postalCode: data.shippingForm.postalCode,
-        country: data.shippingForm.country, phone: data.shippingForm.phone,
-      },
-    }).catch((err) => console.error("[resend] COD confirmation failed:", err));
-
-    return { orderId };
-  });
 
 const applyGiftCard = createServerFn({ method: "POST" })
   .validator((d: unknown) =>
@@ -552,10 +281,10 @@ const placeZeroTotalOrder = createServerFn({ method: "POST" })
     const { notifyAdmins } = await import("@/lib/admin/sse");
     await notifyAdmins("new_order", { ref: orderId.slice(0, 8).toUpperCase(), total: subtotal });
 
-    const codCurrency = data.currency;
+    const orderCurrency = data.currency;
     const { sendOrderConfirmation } = await import("@/lib/resend");
     sendOrderConfirmation({
-      to: data.shippingForm.email, firstName: data.shippingForm.firstName, orderId, currency: codCurrency,
+      to: data.shippingForm.email, firstName: data.shippingForm.firstName, orderId, currency: orderCurrency,
       items: itemsWithPrices.map((i) => ({ name: i.name, size: i.size, colour: i.colour, quantity: i.quantity, unitPrice: i.price, image: i.image })),
       subtotal, shippingFee, discountAmount, total,
       paymentMethod: "Gift Card",
@@ -757,7 +486,7 @@ const EMPTY_FORM: ShippingForm = {
   address: "", address2: "", city: "", postalCode: "", country: "",
 };
 
-type PaymentMethod = "cod" | "new-card" | "saved-card";
+type PaymentMethod = "new-card" | "saved-card";
 type CheckoutStep = "details" | "initiating" | "card-payment" | "saved-card-payment";
 
 const POK_ENV = (typeof import.meta !== "undefined" && import.meta.env?.VITE_POK_ENV as "production" | "staging") || "staging";
@@ -791,7 +520,7 @@ function CheckoutPage() {
   const rate = useRate();
   const [step, setStep] = useState<CheckoutStep>("details");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
-    hasSavedCards ? "saved-card" : "cod"
+    hasSavedCards ? "saved-card" : "new-card"
   );
   const [selectedSavedCardId, setSelectedSavedCardId] = useState<string | null>(
     savedCards[0]?.id ?? null
@@ -902,7 +631,7 @@ function CheckoutPage() {
     : shippingCfg.fee;
   const discount = appliedDiscount?.discountAmount ?? 0;
   const gcApplied = appliedGiftCard?.appliedEur ?? 0;
-  const paymentFee = (paymentMethod === "new-card" || paymentMethod === "saved-card") && shippingCfg.paymentFeeEnabled
+  const paymentFee = shippingCfg.paymentFeeEnabled
     ? Math.round(((subtotal + shipping - discount) * (shippingCfg.paymentFeePercent / 100) + shippingCfg.paymentFeeFixed) * 100) / 100
     : 0;
   const amountDue = Math.max(0, subtotal + shipping - discount + paymentFee);
@@ -1008,36 +737,6 @@ function CheckoutPage() {
           currency,
           discountCode: appliedDiscount?.code,
           giftCardCode: appliedGiftCard.code,
-          shippingForm: buildShippingForm(),
-          items: buildOrderItems(),
-        },
-      });
-      clearCart();
-      void navigate({ to: "/order-confirmed" });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : null;
-      setPlaceError(msg ?? "Could not place your order. Please try again.");
-    } finally {
-      setPlacing(false);
-      initiatingRef.current = false;
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form, items, appliedDiscount, appliedGiftCard]);
-
-  // ── COD path ──────────────────────────────────────────────────────────────────
-
-  const handlePlaceCodOrder = useCallback(async () => {
-    if (initiatingRef.current) return;
-    if (!validateShipping()) return;
-    initiatingRef.current = true;
-    setPlacing(true);
-    setPlaceError(null);
-    try {
-      await placeCodOrder({
-        data: {
-          currency,
-          discountCode: appliedDiscount?.code,
-          giftCardCode: appliedGiftCard?.code,
           shippingForm: buildShippingForm(),
           items: buildOrderItems(),
         },
@@ -1207,7 +906,7 @@ function CheckoutPage() {
     setLocalSavedCards(next);
     if (selectedSavedCardId === id) {
       setSelectedSavedCardId(next[0]?.id ?? null);
-      if (next.length === 0) setPaymentMethod("cod");
+      if (next.length === 0) setPaymentMethod("new-card");
     }
   }
 
@@ -1566,28 +1265,6 @@ function CheckoutPage() {
               <p className="mb-4 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Payment method</p>
               <div className="space-y-2">
 
-                {/* Cash on delivery — first (hidden when cart has gift card purchases) */}
-                {!hasGiftCardInCart && (
-                  <button
-                    type="button"
-                    disabled={formDisabled}
-                    onClick={() => { setPaymentMethod("cod"); setPlaceError(null); }}
-                    className={`w-full flex items-center gap-4 border px-5 py-4 text-left transition-colors duration-150 disabled:cursor-default ${
-                      paymentMethod === "cod"
-                        ? "border-foreground/40 bg-muted"
-                        : "border-border bg-transparent hover:border-border/70"
-                    }`}
-                  >
-                    <span className={`h-4 w-4 rounded-full border flex items-center justify-center shrink-0 ${paymentMethod === "cod" ? "border-foreground" : "border-muted-foreground/40"}`}>
-                      {paymentMethod === "cod" && <span className="h-2 w-2 rounded-full bg-foreground" />}
-                    </span>
-                    <div>
-                      <p className="font-mono text-[11px] uppercase tracking-widest text-ink">Cash on delivery</p>
-                      <p className="mt-0.5 font-mono text-[9px] text-muted-foreground/50">Pay when your order arrives</p>
-                    </div>
-                  </button>
-                )}
-
                 {/* Saved cards */}
                 {localSavedCards.map((card) => {
                   const active = paymentMethod === "saved-card" && selectedSavedCardId === card.id;
@@ -1685,18 +1362,6 @@ function CheckoutPage() {
                   </button>
                 ) : (
                   <>
-                    {paymentMethod === "cod" && (
-                      <button
-                        onClick={handlePlaceCodOrder}
-                        disabled={placing}
-                        className="w-full bg-foreground py-4 font-mono text-[11px] uppercase tracking-widest text-background transition-opacity hover:opacity-80 disabled:opacity-50"
-                      >
-                        {placing
-                          ? <span className="flex items-center justify-center gap-3"><Spinner />Placing order…</span>
-                          : `Place order — ${formatMoney(total, currency, rate)}`}
-                      </button>
-                    )}
-
                     {paymentMethod === "new-card" && (
                       <button
                         onClick={handleInitiateCardPayment}

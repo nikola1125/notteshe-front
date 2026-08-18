@@ -11,6 +11,7 @@
     "build": "vite build && node scripts/patch-libs.mjs && node scripts/verify-libs.mjs",
     "build:vps": "NITRO_PRESET=node-server vite build",
     "deploy": "bash scripts/deploy.sh",
+    "email:preview": "tsx scripts/gen-email-previews.mts",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",

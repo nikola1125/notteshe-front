@@ -88,9 +88,10 @@ function escHeader(v: unknown): string {
   return String(v).replace(/\s+/g, " ").trim();
 }
 
-export async function sendOrderConfirmation(data: OrderConfirmationData) {
+// Pure HTML builder — exported so the email can be previewed in the browser
+// (see the admin email-preview route) without sending anything.
+export function buildOrderConfirmationHtml(data: OrderConfirmationData, rate: Rate): string {
   const currency: Currency = data.currency ?? "EUR";
-  const rate = await getRate();
   const money = (eur: number) => formatMoney(eur, currency, rate);
   const ref = data.orderId.slice(0, 8).toUpperCase();
 
@@ -197,6 +198,13 @@ export async function sendOrderConfirmation(data: OrderConfirmationData) {
   </table>
 </body></html>`;
 
+  return html;
+}
+
+export async function sendOrderConfirmation(data: OrderConfirmationData) {
+  const rate = await getRate();
+  const html = buildOrderConfirmationHtml(data, rate);
+  const ref = data.orderId.slice(0, 8).toUpperCase();
   const fromEmail = getRuntimeEnv("EMAIL_FROM") ?? "order@notteshe.com";
 
   await getMailjet()
@@ -224,8 +232,8 @@ interface GiftCardDeliveryData {
   message: string | null;
 }
 
-export async function sendGiftCardDelivery(data: GiftCardDeliveryData) {
-  const fromEmail = getRuntimeEnv("EMAIL_FROM") ?? "order@notteshe.com";
+// Pure builder — exported for the browser preview route.
+export function buildGiftCardDelivery(data: GiftCardDeliveryData): { subject: string; html: string; plainText: string } {
   const formattedAmount = `ALL ${new Intl.NumberFormat("sq-AL").format(Math.round(data.amountLek))}`;
   const isGift = !!data.senderName;
   const subject = isGift
@@ -331,6 +339,13 @@ export async function sendGiftCardDelivery(data: GiftCardDeliveryData) {
     : `Your gift card is ready.\n\n`;
 
   const plainText = `NOTTESHE\n\nDear ${data.recipientName},\n\n${giftIntro}Your code: ${data.code}\nBalance: ${formattedAmount}\n\nTo redeem:\n1. Visit notteshe.com/shop\n2. At checkout, enter the code above in the Gift card field\n3. The balance applies instantly\n\n— Notteshe\nnotteshe.com`;
+
+  return { subject, html, plainText };
+}
+
+export async function sendGiftCardDelivery(data: GiftCardDeliveryData) {
+  const fromEmail = getRuntimeEnv("EMAIL_FROM") ?? "order@notteshe.com";
+  const { subject, html, plainText } = buildGiftCardDelivery(data);
 
   await getMailjet()
     .post("send", { version: "v3.1" })

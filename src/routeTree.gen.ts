@@ -28,6 +28,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminActivitiesRouteImport } from './routes/admin/activities'
 import { Route as AdminAuditRouteImport } from './routes/admin/audit'
 import { Route as AdminDiscountsRouteImport } from './routes/admin/discounts'
+import { Route as AdminEmailPreviewRouteImport } from './routes/admin/email-preview'
 import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
 import { Route as AdminNewsletterRouteImport } from './routes/admin/newsletter'
 import { Route as AdminPermanentWardrobeRouteImport } from './routes/admin/permanent-wardrobe'
@@ -146,6 +147,11 @@ const AdminAuditRoute = AdminAuditRouteImport.update({
 const AdminDiscountsRoute = AdminDiscountsRouteImport.update({
   id: '/discounts',
   path: '/discounts',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminEmailPreviewRoute = AdminEmailPreviewRouteImport.update({
+  id: '/email-preview',
+  path: '/email-preview',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminInventoryRoute = AdminInventoryRouteImport.update({
@@ -290,6 +296,7 @@ export interface FileRoutesByFullPath {
   '/admin/activities': typeof AdminActivitiesRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/discounts': typeof AdminDiscountsRoute
+  '/admin/email-preview': typeof AdminEmailPreviewRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/newsletter': typeof AdminNewsletterRoute
   '/admin/permanent-wardrobe': typeof AdminPermanentWardrobeRoute
@@ -333,6 +340,7 @@ export interface FileRoutesByTo {
   '/admin/activities': typeof AdminActivitiesRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/discounts': typeof AdminDiscountsRoute
+  '/admin/email-preview': typeof AdminEmailPreviewRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/newsletter': typeof AdminNewsletterRoute
   '/admin/permanent-wardrobe': typeof AdminPermanentWardrobeRoute
@@ -379,6 +387,7 @@ export interface FileRoutesById {
   '/admin/activities': typeof AdminActivitiesRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/discounts': typeof AdminDiscountsRoute
+  '/admin/email-preview': typeof AdminEmailPreviewRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/newsletter': typeof AdminNewsletterRoute
   '/admin/permanent-wardrobe': typeof AdminPermanentWardrobeRoute
@@ -426,6 +435,7 @@ export interface FileRouteTypes {
     | '/admin/activities'
     | '/admin/audit'
     | '/admin/discounts'
+    | '/admin/email-preview'
     | '/admin/inventory'
     | '/admin/newsletter'
     | '/admin/permanent-wardrobe'
@@ -469,6 +479,7 @@ export interface FileRouteTypes {
     | '/admin/activities'
     | '/admin/audit'
     | '/admin/discounts'
+    | '/admin/email-preview'
     | '/admin/inventory'
     | '/admin/newsletter'
     | '/admin/permanent-wardrobe'
@@ -514,6 +525,7 @@ export interface FileRouteTypes {
     | '/admin/activities'
     | '/admin/audit'
     | '/admin/discounts'
+    | '/admin/email-preview'
     | '/admin/inventory'
     | '/admin/newsletter'
     | '/admin/permanent-wardrobe'
@@ -694,6 +706,13 @@ declare module '@tanstack/react-router' {
       path: '/discounts'
       fullPath: '/admin/discounts'
       preLoaderRoute: typeof AdminDiscountsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/email-preview': {
+      id: '/admin/email-preview'
+      path: '/email-preview'
+      fullPath: '/admin/email-preview'
+      preLoaderRoute: typeof AdminEmailPreviewRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/inventory': {
@@ -884,6 +903,7 @@ interface AdminRouteChildren {
   AdminActivitiesRoute: typeof AdminActivitiesRoute
   AdminAuditRoute: typeof AdminAuditRoute
   AdminDiscountsRoute: typeof AdminDiscountsRoute
+  AdminEmailPreviewRoute: typeof AdminEmailPreviewRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminNewsletterRoute: typeof AdminNewsletterRoute
   AdminPermanentWardrobeRoute: typeof AdminPermanentWardrobeRoute
@@ -909,6 +929,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminActivitiesRoute: AdminActivitiesRoute,
   AdminAuditRoute: AdminAuditRoute,
   AdminDiscountsRoute: AdminDiscountsRoute,
+  AdminEmailPreviewRoute: AdminEmailPreviewRoute,
   AdminInventoryRoute: AdminInventoryRoute,
   AdminNewsletterRoute: AdminNewsletterRoute,
   AdminPermanentWardrobeRoute: AdminPermanentWardrobeRoute,

@@ -89,6 +89,13 @@ const createGiftCardPokOrder = createServerFn({ method: "POST" })
       }
     } catch { /* not migrated */ }
 
+    // Minimum gift card: €10 in EUR, ALL 1,000 in Lek. Enforced server-side so
+    // it can't be bypassed by calling the endpoint directly.
+    const minGiftLek = data.currency === "ALL" ? 1000 : Math.round(10 * eurToLekRate);
+    if (data.amountLek < minGiftLek) {
+      throw new Error(`Minimum gift card amount is ${data.currency === "ALL" ? "ALL 1,000" : "€10"}.`);
+    }
+
     const priceEur = Math.round((data.amountLek / eurToLekRate) * 100) / 100;
     const paymentFee = paymentFeeEnabled
       ? Math.round((priceEur * (paymentFeePercent / 100) + paymentFeeFixed) * 100) / 100
@@ -282,8 +289,10 @@ function GiftCardsPage() {
 
   function validate(): boolean {
     const next: Record<string, string> = {};
+    const minGiftLek = currency === "ALL" ? 1000 : Math.round(10 * eurToLekRate);
     if (amountLek <= 0) next.amount = "Select or enter an amount";
-    if (amountLek > 100000) next.amount = `Maximum amount is ${displayAmount(100000)}`;
+    else if (amountLek < minGiftLek) next.amount = `Minimum gift card is ${currency === "ALL" ? "ALL 1,000" : "€10"}`;
+    else if (amountLek > 100000) next.amount = `Maximum amount is ${displayAmount(100000)}`;
     if (!forSelf) {
       if (!recipientEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail))
         next.recipientEmail = "Enter a valid email address";

@@ -261,10 +261,13 @@ export const createPokOrder = createServerFn({ method: "POST" })
       }
     } catch { /* columns not yet migrated */ }
 
-    // Gift card purchase items: price in EUR = amountLek / rate
+    // Gift card purchase items: price in EUR = amountLek / rate.
+    // Minimum: €10 in EUR, ALL 1,000 in Lek (enforced server-side).
+    const minGiftLek = currency === "ALL" ? 1000 : Math.round(10 * eurToLekRate);
     const gcItemsWithPrices = giftCardPurchaseItems.map((item) => {
       const amountLek = item.giftCardAmountLek ?? 0;
       if (amountLek <= 0) throw new Error(`Invalid gift card amount for "${item.name}".`);
+      if (amountLek < minGiftLek) throw new Error(`Minimum gift card amount is ${currency === "ALL" ? "ALL 1,000" : "€10"}.`);
       const priceEur = Math.round((amountLek / eurToLekRate) * 100) / 100;
       return {
         ...item,

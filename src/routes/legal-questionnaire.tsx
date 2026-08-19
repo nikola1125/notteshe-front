@@ -173,6 +173,24 @@ export const Route = createFileRoute("/legal-questionnaire")({
   component: LegalQuestionnaire,
 });
 
+function buildPlainText(values: Record<string, string>, notes: string): string {
+  const sections = [...new Set(QUESTIONS.map((q) => q.section))];
+  const lines: string[] = ["NOTTESHE — LEGAL QUESTIONNAIRE ANSWERS", "=".repeat(50), ""];
+  for (const section of sections) {
+    lines.push(`\n── ${section} ──`);
+    for (const q of QUESTIONS.filter((q) => q.section === section)) {
+      const val = (values[q.name] ?? "").trim();
+      lines.push(`\nQ${q.num}. ${q.label}`);
+      lines.push(`→ ${val || "(no answer)"}`);
+    }
+  }
+  if (notes.trim()) {
+    lines.push("\n\n── Additional Notes ──");
+    lines.push(notes.trim());
+  }
+  return lines.join("\n");
+}
+
 function LegalQuestionnaire() {
   const [values, setValues] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
@@ -181,10 +199,28 @@ function LegalQuestionnaire() {
   });
   const [notes, setNotes] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [submittedText, setSubmittedText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
 
   const sections = [...new Set(QUESTIONS.map((q) => q.section))];
+
+  function handleCopy(text: string) {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }).catch(() => {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    });
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -216,6 +252,7 @@ ${notesHtml}
 </div></body></html>`;
 
       await submitQuestionnaireFn({ data: { html } });
+      setSubmittedText(buildPlainText(values, notes));
       setSubmitted(true);
     } catch (err) {
       console.error(err);
@@ -227,12 +264,31 @@ ${notesHtml}
 
   if (submitted) {
     return (
-      <div style={{ minHeight: "100vh", background: "#f7f5f2", display: "flex", alignItems: "center", justifyContent: "center", padding: "32px 16px" }}>
-        <div style={{ maxWidth: 480, textAlign: "center" }}>
-          <div style={{ fontSize: 11, letterSpacing: "0.3em", textTransform: "uppercase", color: "#999", marginBottom: 12, fontFamily: "Georgia, serif" }}>Notteshe</div>
-          <div style={{ fontSize: 40, marginBottom: 16 }}>✓</div>
-          <h1 style={{ fontFamily: "Georgia, serif", fontSize: 24, fontWeight: "normal", marginBottom: 12, color: "#111" }}>Answers submitted</h1>
-          <p style={{ fontSize: 14, color: "#666", lineHeight: 1.7 }}>Your answers have been sent to Nikolaos. Thank you.</p>
+      <div style={{ minHeight: "100vh", background: "#f7f5f2", padding: "40px 16px 80px", fontFamily: "Arial, sans-serif" }}>
+        <div style={{ maxWidth: 760, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 32, paddingBottom: 24, borderBottom: "2px solid #222" }}>
+            <div style={{ fontSize: 11, letterSpacing: "0.3em", textTransform: "uppercase", color: "#999", marginBottom: 10, fontFamily: "Georgia, serif" }}>Notteshe</div>
+            <div style={{ fontSize: 32, marginBottom: 10 }}>✓</div>
+            <h1 style={{ fontFamily: "Georgia, serif", fontSize: 22, fontWeight: "normal", color: "#111", marginBottom: 8 }}>Answers submitted</h1>
+            <p style={{ fontSize: 13, color: "#666", lineHeight: 1.6 }}>Sent to nikolaos@91.life. All answers are also shown below — select all and copy to paste directly into the legal documents.</p>
+          </div>
+
+          <div style={{ marginBottom: 12, display: "flex", justifyContent: "flex-end" }}>
+            <button
+              onClick={() => handleCopy(submittedText)}
+              style={{ background: copied ? "#2a6a2a" : "#222", color: "#fff", border: "none", padding: "10px 22px", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer", fontFamily: "Arial, sans-serif" }}
+            >
+              {copied ? "✓ Copied" : "Copy all answers"}
+            </button>
+          </div>
+
+          <textarea
+            readOnly
+            value={submittedText}
+            style={{ width: "100%", minHeight: 600, fontFamily: "monospace", fontSize: 13, lineHeight: 1.7, color: "#1a1a1a", background: "#fff", border: "1px solid #ddd", padding: "16px", resize: "vertical", boxSizing: "border-box" as const }}
+            onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+          />
+          <div style={{ fontSize: 12, color: "#aaa", marginTop: 8, textAlign: "center" }}>Click inside the box to select all, then Ctrl+C / Cmd+C to copy.</div>
         </div>
       </div>
     );

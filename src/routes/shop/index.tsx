@@ -10,6 +10,18 @@ import { Price, useRate } from "@/components/Price";
 import { useCurrency } from "@/store/currencyStore";
 import { formatMoney } from "@/lib/currency";
 
+// ─── Split product name into two lines for mobile cards ──────────────────────
+// 2 words → [word1] / [word2]
+// 3 words → [word1 word2] / [word3]
+// 4 words → [word1 word2] / [word3 word4]
+// 5+      → [first half] / [second half]
+function splitName(name: string): [string, string] {
+  const words = name.split(" ");
+  if (words.length <= 1) return [name, ""];
+  const mid = words.length === 2 ? 1 : Math.floor(words.length / 2);
+  return [words.slice(0, mid).join(" "), words.slice(mid).join(" ")];
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ShopProduct {
@@ -379,7 +391,12 @@ function ShopPage() {
                 <div className="mt-4 flex items-start justify-between">
                   <div>
                     <h3 className="relative inline-block serif text-[15px] text-ink after:absolute after:bottom-[-2px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 md:group-hover:after:scale-x-100">
-                      {p.name}
+                      {/* Mobile: staggered two-line name */}
+                      <span className="md:hidden">
+                        {(() => { const [top, btm] = splitName(p.name); return btm ? <>{top}<br />{btm}</> : top; })()}
+                      </span>
+                      {/* Desktop: single line */}
+                      <span className="hidden md:inline">{p.name}</span>
                     </h3>
                     {p.colourCount > 0 && (
                       <p className="mt-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">

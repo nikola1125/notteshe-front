@@ -27,6 +27,13 @@ interface CollectionDetail {
   products: CollectionProduct[];
 }
 
+function splitName(name: string): [string, string] {
+  const words = name.split(" ");
+  if (words.length <= 1) return [name, ""];
+  const mid = words.length === 2 ? 1 : Math.floor(words.length / 2);
+  return [words.slice(0, mid).join(" "), words.slice(mid).join(" ")];
+}
+
 const getCollection = createServerFn({ method: "GET" })
   .validator((input: unknown) => ({ slug: (input as { slug: string }).slug }))
   .handler(async ({ data }): Promise<CollectionDetail | null> => {
@@ -190,7 +197,8 @@ function CollectionDetailPage() {
                 <div className="mt-4 flex items-start justify-between">
                   <div>
                     <h3 className="relative inline-block serif text-[15px] text-ink after:absolute after:bottom-[-2px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-ink after:transition-transform after:duration-300 md:group-hover:after:scale-x-100">
-                      {p.name}
+                      <span className="md:hidden">{(() => { const [top, btm] = splitName(p.name); return btm ? <>{top}<br />{btm}</> : top; })()}</span>
+                      <span className="hidden md:inline">{p.name}</span>
                     </h3>
                     {p.colourCount > 0 && (
                       <p className="mt-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">

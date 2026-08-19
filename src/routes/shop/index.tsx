@@ -389,11 +389,11 @@ function ShopPage() {
                   </div>
                   <div className="text-right">
                     {p.originalPrice && (
-                      <p className="font-mono text-[10px] text-muted-foreground line-through">
+                      <p className="whitespace-nowrap font-mono text-[10px] text-muted-foreground line-through">
                         <Price value={p.originalPrice} />
                       </p>
                     )}
-                    <p className={`font-mono text-[12px] ${p.isSale ? "text-clay" : "text-ink/70"}`}>
+                    <p className={`whitespace-nowrap font-mono text-[12px] ${p.isSale ? "text-clay" : "text-ink/70"}`}>
                       <Price value={p.price} />
                     </p>
                   </div>

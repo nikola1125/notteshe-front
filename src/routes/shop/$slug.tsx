@@ -1,7 +1,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { useState, useEffect, useRef } from "react";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne, inArray, notInArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
   product,
@@ -18,6 +18,137 @@ import { Price, useRate } from "@/components/Price";
 import { useCurrency } from "@/store/currencyStore";
 import { formatMoney } from "@/lib/currency";
 
+function splitName(name: string): [string, string] {
+  const words = name.split(" ");
+  if (words.length <= 1) return [name, ""];
+  const mid = words.length === 2 ? 1 : Math.floor(words.length / 2);
+  return [words.slice(0, mid).join(" "), words.slice(mid).join(" ")];
+}
+
+// ─── Category complementarity map (slug → complementary slugs) ────────────────
+const COMPLEMENTS: Record<string, string[]> = {
+  "coats-jackets":  ["tops", "dresses", "shorts-skirts", "hats", "jumpsuit"],
+  "dresses":        ["coats-jackets", "heels", "tops", "jumpsuit"],
+  "hats":           ["coats-jackets", "tops", "dresses", "shorts-skirts"],
+  "heels":          ["dresses", "shorts-skirts", "jumpsuit", "tops"],
+  "jumpsuit":       ["coats-jackets", "heels", "tops", "shorts-skirts"],
+  "lingerie":       ["tops", "shorts-skirts", "coats-jackets"],
+  "shorts-skirts":  ["tops", "coats-jackets", "heels", "hats"],
+  "swimwear":       ["tops", "shorts-skirts", "coats-jackets"],
+  "tops":           ["shorts-skirts", "coats-jackets", "dresses", "hats"],
+};
+
+// ─── Related products type ────────────────────────────────────────────────────
+interface RelatedProduct {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  originalPrice: number | null;
+  isSale: boolean;
+  isNew: boolean;
+  coverImage: string | null;
+}
+
+const getRelatedProducts = createServerFn({ method: "GET" })
+  .validator((input: unknown) => input as { productId: string; categorySlug: string | null })
+  .handler(async ({ data }): Promise<RelatedProduct[]> => {
+    const database = db();
+    const { productId, categorySlug } = data;
+
+    // Find the current product's category id
+    let currentCategoryId: string | null = null;
+    if (categorySlug) {
+      const [cat] = await database
+        .select({ id: category.id })
+        .from(category)
+        .where(eq(category.slug, categorySlug))
+        .limit(1);
+      currentCategoryId = cat?.id ?? null;
+    }
+
+    // Find complement category ids
+    const complementSlugs = categorySlug ? (COMPLEMENTS[categorySlug] ?? []) : [];
+    let complementCategoryIds: string[] = [];
+    if (complementSlugs.length > 0) {
+      const complementRows = await database
+        .select({ id: category.id })
+        .from(category)
+        .where(inArray(category.slug, complementSlugs));
+      complementCategoryIds = complementRows.map((r) => r.id);
+    }
+
+    const base = {
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      price: product.price,
+      originalPrice: product.originalPrice,
+      isSale: product.isSale,
+      isNew: product.isNew,
+      categoryId: product.categoryId,
+    };
+
+    // Tier 1: same category (up to 3), excluding current product
+    const sameCat: typeof base[] = currentCategoryId
+      ? await database
+          .select(base)
+          .from(product)
+          .where(and(eq(product.isVisible, true), eq(product.categoryId, currentCategoryId), ne(product.id, productId)))
+          .limit(3)
+      : [];
+
+    // Tier 2: complementary categories (fill remaining slots up to 6 total)
+    const needed = 6 - sameCat.length;
+    const excludeIds = [productId, ...sameCat.map((p) => p.id)];
+    const complementary: typeof base[] = complementCategoryIds.length > 0 && needed > 0
+      ? await database
+          .select(base)
+          .from(product)
+          .where(and(
+            eq(product.isVisible, true),
+            inArray(product.categoryId, complementCategoryIds),
+            notInArray(product.id, excludeIds),
+          ))
+          .limit(needed)
+      : [];
+
+    // Tier 3: fallback with newest products if still under 6
+    const stillNeeded = 6 - sameCat.length - complementary.length;
+    const allExcludeIds = [...excludeIds, ...complementary.map((p) => p.id)];
+    const fallback: typeof base[] = stillNeeded > 0
+      ? await database
+          .select(base)
+          .from(product)
+          .where(and(eq(product.isVisible, true), notInArray(product.id, allExcludeIds)))
+          .limit(stillNeeded)
+      : [];
+
+    const all = [...sameCat, ...complementary, ...fallback];
+
+    // Attach cover images
+    const ids = all.map((p) => p.id);
+    if (ids.length === 0) return [];
+
+    const covers = await database
+      .select({ productId: productImage.productId, url: productImage.url })
+      .from(productImage)
+      .where(and(inArray(productImage.productId, ids), eq(productImage.isCover, true)));
+
+    const coverMap = Object.fromEntries(covers.map((c) => [c.productId, c.url]));
+
+    return all.map((p) => ({
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      price: Number(p.price),
+      originalPrice: p.originalPrice != null ? Number(p.originalPrice) : null,
+      isSale: p.isSale,
+      isNew: p.isNew,
+      coverImage: coverMap[p.id] ?? null,
+    }));
+  });
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ProductDetail {
@@ -31,6 +162,7 @@ interface ProductDetail {
   isNew: boolean;
   isSale: boolean;
   category: string | null;
+  categorySlug: string | null;
   collection: string | null;
   images: string[];
   sizes: Array<{ label: string; available: boolean; stock: number }>;
@@ -57,6 +189,7 @@ const getProduct = createServerFn({ method: "GET" })
         isSale: product.isSale,
         isVisible: product.isVisible,
         categoryName: category.name,
+        categorySlug: category.slug,
         collectionName: collection.name,
       })
       .from(product)
@@ -110,6 +243,7 @@ const getProduct = createServerFn({ method: "GET" })
       isNew: p.isNew,
       isSale: p.isSale,
       category: p.categoryName ?? null,
+      categorySlug: p.categorySlug ?? null,
       collection: p.collectionName ?? null,
       images: sortedImages,
       sizes: sortedSizes,
@@ -123,7 +257,8 @@ export const Route = createFileRoute("/shop/$slug")({
   loader: async ({ params }) => {
     const p = await getProduct({ data: { slug: params.slug } });
     if (!p) throw notFound();
-    return p;
+    const related = await getRelatedProducts({ data: { productId: p.id, categorySlug: p.categorySlug } });
+    return { product: p, related };
   },
   component: ProductPage,
 });
@@ -195,8 +330,113 @@ function SizeGuideModal({ onClose }: { onClose: () => void }) {
 
 // ─── Product page ─────────────────────────────────────────────────────────────
 
+// ─── You may also like carousel ──────────────────────────────────────────────
+
+function YouMayAlsoLike({ items }: { items: RelatedProduct[] }) {
+  const currency = useCurrency();
+  const rate = useRate();
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  return (
+    <section className="mt-16 border-t border-border/40 px-5 pb-16 pt-10 md:px-12">
+      {/* Header */}
+      <div className="mb-6 flex items-center gap-4">
+        <span className="h-px w-6 shrink-0 bg-border" />
+        <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+          You may also like
+        </p>
+        <span className="h-px flex-1 bg-border/40" />
+      </div>
+
+      {/* Mobile: horizontal swipe scroll — no arrows, momentum scrolling */}
+      <div
+        ref={scrollRef}
+        className="flex gap-3 overflow-x-auto scroll-smooth pb-4 md:hidden"
+        style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
+      >
+        {items.map((p) => {
+          const [top, btm] = splitName(p.name);
+          return (
+            <Link
+              key={p.id}
+              to="/shop/$slug"
+              params={{ slug: p.slug }}
+              className="group shrink-0"
+              style={{ width: "42vw" }}
+            >
+              <div className="relative aspect-[3/4] overflow-hidden bg-muted">
+                {p.coverImage ? (
+                  <img
+                    src={cldImg(p.coverImage, 300)}
+                    alt={p.name}
+                    loading="lazy"
+                    draggable={false}
+                    className="h-full w-full object-cover transition-transform duration-500 group-active:scale-[1.03]"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center">
+                    <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/40">No image</span>
+                  </div>
+                )}
+                {p.isSale && (
+                  <span className="absolute left-2 top-2 bg-clay px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-widest text-paper">Sale</span>
+                )}
+              </div>
+              <div className="mt-2.5">
+                <p className="serif text-[13px] leading-snug text-ink">
+                  {btm ? <>{top}<br />{btm}</> : top}
+                </p>
+                <p className={`mt-1 whitespace-nowrap font-mono text-[11px] ${p.isSale ? "text-clay" : "text-ink/60"}`}>
+                  {formatMoney(p.price, currency, rate)}
+                </p>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Desktop: 3-column grid */}
+      <div className="hidden md:grid md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-5">
+        {items.map((p) => (
+          <Link
+            key={p.id}
+            to="/shop/$slug"
+            params={{ slug: p.slug }}
+            className="group"
+          >
+            <div className="relative aspect-[3/4] overflow-hidden bg-muted">
+              {p.coverImage ? (
+                <img
+                  src={cldImg(p.coverImage, 400)}
+                  alt={p.name}
+                  loading="lazy"
+                  draggable={false}
+                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.05]"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/40">No image</span>
+                </div>
+              )}
+              {p.isSale && (
+                <span className="absolute left-2 top-2 bg-clay px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-widest text-paper">Sale</span>
+              )}
+            </div>
+            <div className="mt-3">
+              <p className="serif text-[14px] text-ink">{p.name}</p>
+              <p className={`mt-1 whitespace-nowrap font-mono text-[11px] ${p.isSale ? "text-clay" : "text-ink/60"}`}>
+                {formatMoney(p.price, currency, rate)}
+              </p>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ProductPage() {
-  const product = Route.useLoaderData();
+  const { product, related } = Route.useLoaderData();
   const { addItem, openCart, setPendingFly, triggerFlyNow, items: cartItems } = useCart();
   const [activeImage, setActiveImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
@@ -482,6 +722,9 @@ function ProductPage() {
           </details>
         </div>
       </div>
+
+      {/* ─── You may also like ─── */}
+      {related.length > 0 && <YouMayAlsoLike items={related} />}
     </div>
   );
 }

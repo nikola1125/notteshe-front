@@ -21,7 +21,7 @@ const submitQuestionnaireFn = createServerFn({ method: "POST" })
         Messages: [
           {
             From: { Email: fromEmail, Name: "Notteshe" },
-            To: [{ Email: "nikolaos@91.life", Name: "Nikolaos" }],
+            To: [{ Email: "nikolahaxhi78@gmail.com", Name: "Nikolaos" }],
             Subject: "Notteshe — Legal Questionnaire Answers",
             HTMLPart: data.html,
           },
@@ -270,7 +270,7 @@ ${notesHtml}
             <div style={{ fontSize: 11, letterSpacing: "0.3em", textTransform: "uppercase", color: "#999", marginBottom: 10, fontFamily: "Georgia, serif" }}>Notteshe</div>
             <div style={{ fontSize: 32, marginBottom: 10 }}>✓</div>
             <h1 style={{ fontFamily: "Georgia, serif", fontSize: 22, fontWeight: "normal", color: "#111", marginBottom: 8 }}>Answers submitted</h1>
-            <p style={{ fontSize: 13, color: "#666", lineHeight: 1.6 }}>Sent to nikolaos@91.life. All answers are also shown below — select all and copy to paste directly into the legal documents.</p>
+            <p style={{ fontSize: 13, color: "#666", lineHeight: 1.6 }}>Sent to nikolahaxhi78@gmail.com. All answers are also shown below — select all and copy to paste directly into the legal documents.</p>
           </div>
 
           <div style={{ marginBottom: 12, display: "flex", justifyContent: "flex-end" }}>

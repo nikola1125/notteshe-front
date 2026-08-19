@@ -392,7 +392,7 @@ ${notesHtml}
             >
               {submitting ? "Sending…" : "Submit Answers"}
             </button>
-            <div style={{ marginTop: 10, fontSize: 12, color: "#999" }}>Answers will be emailed directly to Nikolaos.</div>
+            <div style={{ marginTop: 10, fontSize: 12, color: "#999" }}>Answers will be emailed directly to Nikola.</div>
           </div>
         </form>
       </div>

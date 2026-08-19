@@ -338,14 +338,11 @@ function YouMayAlsoLike({ items }: { items: RelatedProduct[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   return (
-    <section className="mt-16 border-t border-border/40 px-5 pb-16 pt-10 md:px-12">
+    <section className="mt-8 border-t border-border px-5 pb-12 pt-8 md:mt-10 md:px-12">
       {/* Header */}
-      <div className="mb-6 flex items-center gap-4">
-        <span className="h-px w-6 shrink-0 bg-border" />
-        <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-          You may also like
-        </p>
-        <span className="h-px flex-1 bg-border/40" />
+      <div className="mb-6 flex items-center gap-5">
+        <h2 className="serif text-2xl text-ink md:text-3xl">You may also like.</h2>
+        <span className="h-px flex-1 bg-border/50" />
       </div>
 
       {/* Mobile: horizontal swipe scroll — no arrows, momentum scrolling */}

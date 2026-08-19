@@ -91,7 +91,7 @@ async function route(request: Request, env: Record<string, string>, ctx: unknown
     // Throttle sign-in / sign-up by client IP to blunt credential stuffing.
     // (nginx forwards the real IP in x-forwarded-for.)
     if (url.pathname.includes("/sign-in") || url.pathname.includes("/sign-up")) {
-      const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+      const ip = request.headers.get("x-real-ip")?.trim() || request.headers.get("x-forwarded-for")?.split(",").pop()?.trim() || "unknown";
       const { rateLimit } = await import("./lib/rateLimit");
       if (!rateLimit(`authlogin:ip:${ip}`, 10, 60_000)) {
         return new Response(

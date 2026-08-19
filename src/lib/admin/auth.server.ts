@@ -160,7 +160,8 @@ export async function loginAdmin(
   let ip = "unknown";
   try {
     const { getRequest } = await import("@tanstack/start-server-core/request-response");
-    ip = getRequest().headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const req = getRequest();
+    ip = req.headers.get("x-real-ip")?.trim() || req.headers.get("x-forwarded-for")?.split(",").pop()?.trim() || "unknown";
   } catch { /* no request context — fall back to shared bucket */ }
   if (!rateLimit(`adminlogin:ip:${ip}`, 10, 60_000)) {
     return { success: false, error: "Too many attempts. Please wait a minute and try again." };

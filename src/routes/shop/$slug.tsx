@@ -338,7 +338,7 @@ function YouMayAlsoLike({ items }: { items: RelatedProduct[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   return (
-    <section className="mt-4 border-t border-border px-5 pb-12 pt-5 md:mt-10 md:px-12">
+    <section className="mt-1 border-t border-border px-5 pb-12 pt-4 md:mt-10 md:px-12">
       {/* Header */}
       <div className="mb-6 flex items-center gap-5">
         <h2 className="serif text-2xl text-ink md:text-3xl">You may also like.</h2>

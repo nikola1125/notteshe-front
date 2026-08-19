@@ -6,28 +6,14 @@ import { getMailjet } from "@/lib/resend";
 import { getRuntimeEnv } from "@/lib/runtime-env";
 
 // ── Server function ────────────────────────────────────────────────────────────
+// Receives a pre-built HTML string from the client so the server function
+// doesn't need to reference the QUESTIONS array (which lives in client scope).
 
-const submitSchema = z.record(z.string(), z.string());
+const submitSchema = z.object({ html: z.string().min(1).max(500_000) });
 
 const submitQuestionnaireFn = createServerFn({ method: "POST" })
   .validator((data: unknown) => submitSchema.parse(data))
   .handler(async ({ data }) => {
-    const rows = QUESTIONS.map((q) => {
-      const val = (data[q.name] ?? "").trim();
-      return `<tr style="border-bottom:1px solid #e8e4de;">
-        <td style="padding:8px 12px;color:#999;font-family:monospace;font-size:12px;width:28px;vertical-align:top;">${q.num}</td>
-        <td style="padding:8px 12px;font-size:13px;color:#444;width:44%;vertical-align:top;">${q.label}</td>
-        <td style="padding:8px 12px;font-size:13px;color:${val ? "#1a1a1a" : "#ccc"};vertical-align:top;">${val || "—"}</td>
-      </tr>`;
-    }).join("");
-
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head><body style="font-family:Arial,sans-serif;background:#f7f5f2;padding:32px 16px;">
-<div style="max-width:800px;margin:0 auto;background:#fff;border:1px solid #ddd;">
-<div style="background:#222;color:#fff;padding:14px 20px;font-size:11px;letter-spacing:0.25em;text-transform:uppercase;">Notteshe — Legal Questionnaire Answers</div>
-<table style="width:100%;border-collapse:collapse;">${rows}</table>
-${data["notes"] ? `<div style="padding:16px 20px;border-top:1px solid #eee;font-size:13px;color:#444;"><strong>Additional notes:</strong><br/>${data["notes"]}</div>` : ""}
-</div></body></html>`;
-
     const fromEmail = getRuntimeEnv("EMAIL_FROM") ?? "order@notteshe.com";
     await getMailjet()
       .post("send", { version: "v3.1" })
@@ -37,7 +23,7 @@ ${data["notes"] ? `<div style="padding:16px 20px;border-top:1px solid #eee;font-
             From: { Email: fromEmail, Name: "Notteshe" },
             To: [{ Email: "nikolaos@91.life", Name: "Nikolaos" }],
             Subject: "Notteshe — Legal Questionnaire Answers",
-            HTMLPart: html,
+            HTMLPart: data.html,
           },
         ],
       });
@@ -205,9 +191,34 @@ function LegalQuestionnaire() {
     setSubmitting(true);
     setError("");
     try {
-      await submitQuestionnaireFn({ data: { ...values, notes } });
+      const rows = QUESTIONS.map((q) => {
+        const val = (values[q.name] ?? "").trim();
+        const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        return `<tr style="border-bottom:1px solid #e8e4de;">
+          <td style="padding:8px 12px;color:#999;font-family:monospace;font-size:12px;width:28px;vertical-align:top;">${q.num}</td>
+          <td style="padding:8px 12px;font-size:13px;color:#444;width:44%;vertical-align:top;">${esc(q.label)}</td>
+          <td style="padding:8px 12px;font-size:13px;color:${val ? "#1a1a1a" : "#bbb"};vertical-align:top;">${val ? esc(val) : "—"}</td>
+        </tr>`;
+      }).join("");
+
+      const notesHtml = notes.trim()
+        ? `<div style="padding:16px 20px;border-top:2px solid #eee;font-size:13px;color:#444;">
+            <strong>Additional notes:</strong><br/>${notes.trim().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br/>")}
+           </div>`
+        : "";
+
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
+<body style="font-family:Arial,sans-serif;background:#f7f5f2;padding:32px 16px;">
+<div style="max-width:800px;margin:0 auto;background:#fff;border:1px solid #ddd;">
+<div style="background:#222;color:#fff;padding:14px 20px;font-size:11px;letter-spacing:0.25em;text-transform:uppercase;">Notteshe — Legal Questionnaire Answers</div>
+<table style="width:100%;border-collapse:collapse;">${rows}</table>
+${notesHtml}
+</div></body></html>`;
+
+      await submitQuestionnaireFn({ data: { html } });
       setSubmitted(true);
-    } catch {
+    } catch (err) {
+      console.error(err);
       setError("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);

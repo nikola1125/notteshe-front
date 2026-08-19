@@ -221,7 +221,7 @@ function ShopPage() {
           <h1 className="serif mt-3 text-5xl leading-tight text-ink md:text-7xl">
             {activeCategoryId === "sale" ? "Sale." : "The Shop."}
           </h1>
-          <p className="mt-4 max-w-md text-[13px] leading-relaxed text-muted-foreground">
+          <p className="mt-8 max-w-md text-[13px] leading-relaxed text-muted-foreground">
             {total} {total === 1 ? "piece" : "pieces"}. Considered once, made well, left alone.
           </p>
         </div>

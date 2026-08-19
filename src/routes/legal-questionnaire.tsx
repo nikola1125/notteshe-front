@@ -3,7 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { z } from "zod";
 import { getMailjet } from "@/lib/resend";
-import { getRuntimeEnv } from "@/lib/env";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 
 // ── Server function ────────────────────────────────────────────────────────────
 

@@ -31,6 +31,7 @@ import { Route as AdminAuditRouteImport } from './routes/admin/audit'
 import { Route as AdminDiscountsRouteImport } from './routes/admin/discounts'
 import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
 import { Route as AdminNewsletterRouteImport } from './routes/admin/newsletter'
+import { Route as AdminPasskeysRouteImport } from './routes/admin/passkeys'
 import { Route as AdminPermanentWardrobeRouteImport } from './routes/admin/permanent-wardrobe'
 import { Route as AdminShippingRouteImport } from './routes/admin/shipping'
 import { Route as CollectionsIndexRouteImport } from './routes/collections/index'
@@ -162,6 +163,11 @@ const AdminInventoryRoute = AdminInventoryRouteImport.update({
 const AdminNewsletterRoute = AdminNewsletterRouteImport.update({
   id: '/newsletter',
   path: '/newsletter',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPasskeysRoute = AdminPasskeysRouteImport.update({
+  id: '/passkeys',
+  path: '/passkeys',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminPermanentWardrobeRoute = AdminPermanentWardrobeRouteImport.update({
@@ -299,6 +305,7 @@ export interface FileRoutesByFullPath {
   '/admin/discounts': typeof AdminDiscountsRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/newsletter': typeof AdminNewsletterRoute
+  '/admin/passkeys': typeof AdminPasskeysRoute
   '/admin/permanent-wardrobe': typeof AdminPermanentWardrobeRoute
   '/admin/shipping': typeof AdminShippingRoute
   '/collections/$slug': typeof CollectionsSlugRoute
@@ -343,6 +350,7 @@ export interface FileRoutesByTo {
   '/admin/discounts': typeof AdminDiscountsRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/newsletter': typeof AdminNewsletterRoute
+  '/admin/passkeys': typeof AdminPasskeysRoute
   '/admin/permanent-wardrobe': typeof AdminPermanentWardrobeRoute
   '/admin/shipping': typeof AdminShippingRoute
   '/collections/$slug': typeof CollectionsSlugRoute
@@ -390,6 +398,7 @@ export interface FileRoutesById {
   '/admin/discounts': typeof AdminDiscountsRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/newsletter': typeof AdminNewsletterRoute
+  '/admin/passkeys': typeof AdminPasskeysRoute
   '/admin/permanent-wardrobe': typeof AdminPermanentWardrobeRoute
   '/admin/shipping': typeof AdminShippingRoute
   '/collections/$slug': typeof CollectionsSlugRoute
@@ -438,6 +447,7 @@ export interface FileRouteTypes {
     | '/admin/discounts'
     | '/admin/inventory'
     | '/admin/newsletter'
+    | '/admin/passkeys'
     | '/admin/permanent-wardrobe'
     | '/admin/shipping'
     | '/collections/$slug'
@@ -482,6 +492,7 @@ export interface FileRouteTypes {
     | '/admin/discounts'
     | '/admin/inventory'
     | '/admin/newsletter'
+    | '/admin/passkeys'
     | '/admin/permanent-wardrobe'
     | '/admin/shipping'
     | '/collections/$slug'
@@ -528,6 +539,7 @@ export interface FileRouteTypes {
     | '/admin/discounts'
     | '/admin/inventory'
     | '/admin/newsletter'
+    | '/admin/passkeys'
     | '/admin/permanent-wardrobe'
     | '/admin/shipping'
     | '/collections/$slug'
@@ -730,6 +742,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminNewsletterRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/passkeys': {
+      id: '/admin/passkeys'
+      path: '/passkeys'
+      fullPath: '/admin/passkeys'
+      preLoaderRoute: typeof AdminPasskeysRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/permanent-wardrobe': {
       id: '/admin/permanent-wardrobe'
       path: '/permanent-wardrobe'
@@ -906,6 +925,7 @@ interface AdminRouteChildren {
   AdminDiscountsRoute: typeof AdminDiscountsRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminNewsletterRoute: typeof AdminNewsletterRoute
+  AdminPasskeysRoute: typeof AdminPasskeysRoute
   AdminPermanentWardrobeRoute: typeof AdminPermanentWardrobeRoute
   AdminShippingRoute: typeof AdminShippingRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -931,6 +951,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminDiscountsRoute: AdminDiscountsRoute,
   AdminInventoryRoute: AdminInventoryRoute,
   AdminNewsletterRoute: AdminNewsletterRoute,
+  AdminPasskeysRoute: AdminPasskeysRoute,
   AdminPermanentWardrobeRoute: AdminPermanentWardrobeRoute,
   AdminShippingRoute: AdminShippingRoute,
   AdminIndexRoute: AdminIndexRoute,

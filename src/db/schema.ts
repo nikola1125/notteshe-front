@@ -299,6 +299,20 @@ export const adminSession = pgTable("admin_session", {
   index("admin_session_token_idx").on(t.token),
 ]);
 
+// ─── Admin Passkey (WebAuthn) ─────────────────────────────────────────────────
+
+export const adminPasskey = pgTable("admin_passkey", {
+  id: text("id").primaryKey(),
+  adminId: text("admin_id").notNull().references(() => adminUser.id, { onDelete: "cascade" }),
+  credentialId: text("credential_id").notNull().unique(),
+  publicKey: text("public_key").notNull(),   // base64url-encoded COSE public key
+  counter: integer("counter").notNull().default(0),
+  deviceName: text("device_name"),           // e.g. "iPhone 15 Pro"
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  index("admin_passkey_admin_idx").on(t.adminId),
+]);
+
 // ─── Audit Log ────────────────────────────────────────────────────────────────
 
 export const auditLog = pgTable("audit_log", {
@@ -473,6 +487,7 @@ export type NewOrder = typeof orders.$inferInsert;
 export type OrderItem = typeof orderItem.$inferSelect;
 export type ShippingConfig = typeof shippingConfig.$inferSelect;
 export type AdminUser = typeof adminUser.$inferSelect;
+export type AdminPasskey = typeof adminPasskey.$inferSelect;
 export type AuditLog = typeof auditLog.$inferSelect;
 export type PendingOrder = typeof pendingOrder.$inferSelect;
 export type DiscountCode = typeof discountCode.$inferSelect;

@@ -2,6 +2,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { loginAdminFn } from "@/lib/admin/auth";
+import { startAuthenticationFn, finishAuthenticationFn } from "@/lib/admin/passkey";
 
 export const Route = createFileRoute("/admin-login")({
   head: () => ({
@@ -16,6 +17,20 @@ function AdminLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [biometricLoading, setBiometricLoading] = useState(false);
+  const [hasBiometric, setHasBiometric] = useState(false);
+
+  useEffect(() => {
+    // Detect if this device supports WebAuthn (passkey available)
+    if (
+      window.PublicKeyCredential &&
+      typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === "function"
+    ) {
+      window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+        .then((available) => setHasBiometric(available))
+        .catch(() => {});
+    }
+  }, []);
 
   useEffect(() => {
     // Register SW so the browser evaluates this site as PWA-installable
@@ -49,6 +64,33 @@ function AdminLogin() {
       toast.error("Login failed");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleBiometric() {
+    setBiometricLoading(true);
+    try {
+      const { startAuthentication } = await import("@simplewebauthn/browser");
+      const options = await startAuthenticationFn();
+      const authResponse = await startAuthentication({ optionsJSON: options });
+      const result = await finishAuthenticationFn({ data: { response: authResponse } });
+      if (result.success) {
+        if ((window as any).__installPrompt) {
+          (window as any).__installPrompt.prompt();
+          (window as any).__installPrompt = null;
+        }
+        await router.navigate({ to: "/admin" });
+      } else {
+        toast.error((result as any).error ?? "Biometric login failed");
+      }
+    } catch (err: any) {
+      if (err?.name === "NotAllowedError") {
+        // User cancelled — silent
+      } else {
+        toast.error("Biometric login failed");
+      }
+    } finally {
+      setBiometricLoading(false);
     }
   }
 
@@ -111,6 +153,32 @@ function AdminLogin() {
           >
             {loading ? "Signing in…" : "Sign in"}
           </button>
+
+          {hasBiometric && (
+            <>
+              <div className="flex items-center gap-3 pt-1">
+                <div className="h-px flex-1 bg-[var(--color-border)]" />
+                <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--color-muted-foreground)]">or</span>
+                <div className="h-px flex-1 bg-[var(--color-border)]" />
+              </div>
+              <button
+                type="button"
+                onClick={handleBiometric}
+                disabled={biometricLoading}
+                className="flex w-full items-center justify-center gap-2 rounded border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-2.5 font-mono text-xs uppercase tracking-widest text-[var(--color-foreground)] transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 10a2 2 0 0 0-2 2v1a2 2 0 0 0 4 0v-1a2 2 0 0 0-2-2z"/>
+                  <path d="M10.4 3.3A8 8 0 0 1 20 11v4"/>
+                  <path d="M4 13a8 8 0 0 1 3.4-6.5"/>
+                  <path d="M8 20.7A8 8 0 0 0 19.4 17"/>
+                  <path d="M12 20v.01"/>
+                  <path d="M12 14v3"/>
+                </svg>
+                {biometricLoading ? "Verifying…" : "Use Touch ID / Face ID"}
+              </button>
+            </>
+          )}
         </form>
       </div>
     </div>

@@ -23,7 +23,7 @@ const RP_ID = process.env["NODE_ENV"] === "production" ? "notteshe.com" : "local
 const RP_NAME = "Notteshe Admin";
 const ORIGIN =
   process.env["NODE_ENV"] === "production"
-    ? "https://notteshe.com"
+    ? "https://admin.notteshe.com"
     : "http://localhost:3000";
 
 // ─── Registration ─────────────────────────────────────────────────────────────

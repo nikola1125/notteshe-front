@@ -2,13 +2,26 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { BackButton } from "@/components/admin/BackButton";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import { toast } from "sonner";
 import { useState } from "react";
 import { db } from "@/db";
 import { shippingConfig } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAudit } from "@/lib/admin/audit";
+import { rateLimit } from "@/lib/rateLimit";
 import type { ShippingConfig } from "@/db/schema";
+
+const ShippingConfigSchema = z.object({
+  enabled: z.boolean(),
+  fee: z.number().min(0).max(10000),
+  freeThreshold: z.number().min(0).max(1000000),
+  paymentFeeEnabled: z.boolean(),
+  paymentFeePercent: z.number().min(0).max(100),
+  paymentFeeFixed: z.number().min(0).max(10000),
+  eurToLekRate: z.number().positive().max(100000),
+  lekRounding: z.number().int().positive().max(100000),
+});
 
 const getShippingConfig = createServerFn({ method: "GET" }).handler(
   async (): Promise<ShippingConfig> => {
@@ -56,12 +69,12 @@ const getShippingConfig = createServerFn({ method: "GET" }).handler(
 );
 
 const saveShippingConfig = createServerFn({ method: "POST" })
-  .validator(
-    (input: unknown) =>
-      input as { enabled: boolean; fee: number; freeThreshold: number; paymentFeeEnabled: boolean; paymentFeePercent: number; paymentFeeFixed: number; eurToLekRate: number; lekRounding: number }
-  )
+  .validator((input: unknown) => ShippingConfigSchema.parse(input))
   .handler(async ({ data }) => {
     const admin = await requireAdmin();
+    if (!rateLimit(`admin:${admin.id}:mutation`, 30, 60_000)) {
+      throw new Error("Too many requests. Please slow down.");
+    }
     const database = db();
 
     // Always save core fields

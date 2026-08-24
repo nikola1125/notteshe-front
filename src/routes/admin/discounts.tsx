@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { BackButton } from "@/components/admin/BackButton";
 import { eq, desc } from "drizzle-orm";
+import { z } from "zod";
 import { toast } from "sonner";
 import { useState, useRef, useEffect } from "react";
 import { Trash2, Share2, X, Download, Copy } from "lucide-react";
@@ -9,7 +10,26 @@ import { db } from "@/db";
 import { discountCode } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAudit } from "@/lib/admin/audit";
+import { rateLimit } from "@/lib/rateLimit";
 import type { DiscountCode } from "@/db/schema";
+
+const CreateDiscountSchema = z.object({
+  code: z.string().min(1).max(50).regex(/^[A-Za-z0-9_-]+$/, "Code must be alphanumeric"),
+  type: z.enum(["PERCENT", "FIXED"]),
+  value: z.number().positive().max(100000),
+  minOrderAmount: z.number().positive().max(1000000).optional(),
+  maxUses: z.number().int().positive().max(10000000).optional(),
+  expiresAt: z.string().optional(),
+});
+
+const ToggleDiscountSchema = z.object({
+  id: z.string().min(1).max(100),
+  active: z.boolean(),
+});
+
+const DeleteDiscountSchema = z.object({
+  id: z.string().min(1).max(100),
+});
 
 const getDiscounts = createServerFn({ method: "GET" }).handler(
   async (): Promise<DiscountCode[]> => {
@@ -19,19 +39,12 @@ const getDiscounts = createServerFn({ method: "GET" }).handler(
 );
 
 const createDiscount = createServerFn({ method: "POST" })
-  .validator(
-    (input: unknown) =>
-      input as {
-        code: string;
-        type: "PERCENT" | "FIXED";
-        value: number;
-        minOrderAmount?: number;
-        maxUses?: number;
-        expiresAt?: string;
-      }
-  )
+  .validator((input: unknown) => CreateDiscountSchema.parse(input))
   .handler(async ({ data }) => {
     const admin = await requireAdmin();
+    if (!rateLimit(`admin:${admin.id}:mutation`, 30, 60_000)) {
+      throw new Error("Too many requests. Please slow down.");
+    }
     const id = crypto.randomUUID();
     await db()
       .insert(discountCode)
@@ -51,7 +64,7 @@ const createDiscount = createServerFn({ method: "POST" })
   });
 
 const toggleDiscount = createServerFn({ method: "POST" })
-  .validator((input: unknown) => input as { id: string; active: boolean })
+  .validator((input: unknown) => ToggleDiscountSchema.parse(input))
   .handler(async ({ data }) => {
     const admin = await requireAdmin();
     await db()
@@ -63,9 +76,12 @@ const toggleDiscount = createServerFn({ method: "POST" })
   });
 
 const deleteDiscount = createServerFn({ method: "POST" })
-  .validator((input: unknown) => ({ id: (input as { id: string }).id }))
+  .validator((input: unknown) => DeleteDiscountSchema.parse(input))
   .handler(async ({ data }) => {
     const admin = await requireAdmin();
+    if (!rateLimit(`admin:${admin.id}:mutation`, 30, 60_000)) {
+      throw new Error("Too many requests. Please slow down.");
+    }
     await db()
       .delete(discountCode)
       .where(eq(discountCode.id, data.id));

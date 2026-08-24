@@ -2,6 +2,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { BackButton } from "@/components/admin/BackButton";
 import { createServerFn } from "@tanstack/react-start";
 import { eq, desc, sql, and } from "drizzle-orm";
+import { z } from "zod";
 import { toast } from "sonner";
 import { useState } from "react";
 import { db } from "@/db";
@@ -9,6 +10,20 @@ import { orders, orderItem, productSize, user, auditLog, adminUser, cancellation
 
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAudit } from "@/lib/admin/audit";
+import { rateLimit } from "@/lib/rateLimit";
+
+const ORDER_STATUS_VALUES = ["PENDING", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED", "REFUNDED"] as const;
+
+const UpdateOrderStatusSchema = z.object({
+  id: z.string().min(1).max(100),
+  status: z.enum(ORDER_STATUS_VALUES),
+  trackingNumber: z.string().max(200).optional(),
+});
+
+const SaveAdminNoteSchema = z.object({
+  id: z.string().min(1).max(100),
+  note: z.string().max(5000),
+});
 import type { PokOrderData } from "@/lib/pok";
 import { pokGetOrder } from "@/lib/pok";
 
@@ -209,12 +224,12 @@ const getOrderDetail = createServerFn({ method: "GET" })
   });
 
 const updateOrderStatus = createServerFn({ method: "POST" })
-  .validator(
-    (input: unknown) =>
-      input as { id: string; status: OrderStatus; trackingNumber?: string }
-  )
+  .validator((input: unknown) => UpdateOrderStatusSchema.parse(input))
   .handler(async ({ data }) => {
     const admin = await requireAdmin();
+    if (!rateLimit(`admin:${admin.id}:mutation`, 30, 60_000)) {
+      throw new Error("Too many requests. Please slow down.");
+    }
     const database = db();
 
     const [current] = await database
@@ -304,7 +319,7 @@ const updateOrderStatus = createServerFn({ method: "POST" })
   });
 
 const saveAdminNote = createServerFn({ method: "POST" })
-  .validator((input: unknown) => input as { id: string; note: string })
+  .validator((input: unknown) => SaveAdminNoteSchema.parse(input))
   .handler(async ({ data }) => {
     const admin = await requireAdmin();
     await db()

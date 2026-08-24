@@ -21,7 +21,6 @@ import {
   Activity,
   CreditCard,
   Gift,
-  MailOpen,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -46,7 +45,6 @@ const NAV_ITEMS: Array<{ label: string; href: string; icon: React.ElementType; e
   { label: "Discounts", href: "/admin/discounts", icon: Tag },
   { label: "Gift Cards", href: "/admin/gift-cards", icon: Gift },
   { label: "Newsletter", href: "/admin/newsletter", icon: Mail },
-  { label: "Email Preview", href: "/admin/email-preview", icon: MailOpen },
 ];
 
 const LOG_SUB_ITEMS = [

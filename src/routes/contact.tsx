@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { contactMessage } from "@/db/schema";
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import { rateLimit } from "@/lib/rateLimit";
 
 const ContactSchema = z.object({
   name: z.string().min(1),
@@ -15,6 +16,12 @@ const ContactSchema = z.object({
 const submitContact = createServerFn({ method: "POST" })
   .validator(ContactSchema)
   .handler(async ({ data }) => {
+    const { getRequest } = await import("@tanstack/start-server-core/request-response");
+    const req = getRequest();
+    const ip = req.headers.get("x-real-ip")?.trim() || req.headers.get("x-forwarded-for")?.split(",").pop()?.trim() || "unknown";
+    if (!rateLimit(`contact:ip:${ip}`, 5, 10 * 60_000)) {
+      throw new Error("Too many messages. Please wait before sending again.");
+    }
     await db().insert(contactMessage).values({
       id: nanoid(),
       name: data.name,

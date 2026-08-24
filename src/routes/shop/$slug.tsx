@@ -338,7 +338,7 @@ function YouMayAlsoLike({ items }: { items: RelatedProduct[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   return (
-    <section className="mt-1 border-t border-border px-5 pb-12 pt-4 md:mt-10 md:px-12">
+    <section className="mt-8 px-5 pb-12 md:mt-10 md:px-12">
       {/* Header */}
       <div className="mb-6 flex items-center gap-5">
         <h2 className="serif text-2xl text-ink md:text-3xl">You may also like.</h2>
@@ -529,7 +529,7 @@ function ProductPage() {
       </div>
 
       {/* ─── Main layout ─── */}
-      <div className="mx-auto grid max-w-[1600px] grid-cols-1 gap-10 px-5 pt-8 pb-20 md:grid-cols-2 md:gap-16 md:px-12 md:pt-12 lg:grid-cols-[1fr_480px]">
+      <div className="mx-auto grid max-w-[1600px] grid-cols-1 gap-10 px-5 pt-8 pb-0 md:grid-cols-2 md:gap-16 md:px-12 md:pt-12 md:pb-6 lg:grid-cols-[1fr_480px]">
 
         {/* ── Images ── */}
         <div className="flex flex-col gap-3 md:flex-row">

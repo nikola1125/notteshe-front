@@ -2,6 +2,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { BackButton } from "@/components/admin/BackButton";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import { toast } from "sonner";
 import { db } from "@/db";
 import {
@@ -14,7 +15,47 @@ import {
 } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAudit } from "@/lib/admin/audit";
+import { rateLimit } from "@/lib/rateLimit";
 import { ProductForm, type ProductFormData } from "@/components/admin/ProductForm";
+
+const SizeEntrySchema = z.object({
+  id: z.string().optional(),
+  label: z.string().min(1).max(20),
+  available: z.boolean(),
+  stock: z.number().int().min(0).max(9999),
+});
+
+const ColourEntrySchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(1).max(50),
+  hex: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex colour"),
+});
+
+const ImageEntrySchema = z.object({
+  id: z.string().optional(),
+  cloudflareId: z.string().min(1).max(300),
+  url: z.string().min(1).max(600),
+  isCover: z.boolean(),
+});
+
+const ProductFormSchema = z.object({
+  name: z.string().min(1).max(200),
+  slug: z.string().min(1).max(200).regex(/^[a-z0-9-]+$/, "Slug must be lowercase alphanumeric with hyphens"),
+  description: z.string().max(3000),
+  details: z.array(z.string().max(500)).max(30),
+  categoryId: z.string().max(100),
+  collectionId: z.string().max(100),
+  price: z.number().positive().max(100000),
+  originalPrice: z.number().positive().max(100000).nullable(),
+  isNew: z.boolean(),
+  isSale: z.boolean(),
+  isVisible: z.boolean(),
+  inStock: z.boolean(),
+  isPermanentWardrobe: z.boolean(),
+  sizes: z.array(SizeEntrySchema).max(30),
+  colours: z.array(ColourEntrySchema).max(30),
+  images: z.array(ImageEntrySchema).max(30),
+});
 
 interface FormOptions {
   categories: Array<{ id: string; name: string }>;
@@ -36,9 +77,12 @@ const getFormOptions = createServerFn({ method: "GET" }).handler(
 );
 
 const createProduct = createServerFn({ method: "POST" })
-  .validator((input: unknown) => input as ProductFormData)
+  .validator((input: unknown) => ProductFormSchema.parse(input))
   .handler(async ({ data }) => {
     const admin = await requireAdmin();
+    if (!rateLimit(`admin:${admin.id}:mutation`, 30, 60_000)) {
+      throw new Error("Too many requests. Please slow down.");
+    }
     if (!data.categoryId && !data.collectionId) {
       throw new Error("Select at least a Category or a Collection.");
     }

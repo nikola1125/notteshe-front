@@ -19,6 +19,7 @@ import { Route as ContactRouteImport } from './routes/contact'
 import { Route as ExchangesRouteImport } from './routes/exchanges'
 import { Route as FaqRouteImport } from './routes/faq'
 import { Route as GiftCardsRouteImport } from './routes/gift-cards'
+import { Route as LegalQuestionnaireRouteImport } from './routes/legal-questionnaire'
 import { Route as OrderConfirmedRouteImport } from './routes/order-confirmed'
 import { Route as ShippingRouteImport } from './routes/shipping'
 import { Route as ShopRouteImport } from './routes/shop'
@@ -28,7 +29,6 @@ import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminActivitiesRouteImport } from './routes/admin/activities'
 import { Route as AdminAuditRouteImport } from './routes/admin/audit'
 import { Route as AdminDiscountsRouteImport } from './routes/admin/discounts'
-import { Route as AdminEmailPreviewRouteImport } from './routes/admin/email-preview'
 import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
 import { Route as AdminNewsletterRouteImport } from './routes/admin/newsletter'
 import { Route as AdminPermanentWardrobeRouteImport } from './routes/admin/permanent-wardrobe'
@@ -104,6 +104,11 @@ const GiftCardsRoute = GiftCardsRouteImport.update({
   path: '/gift-cards',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LegalQuestionnaireRoute = LegalQuestionnaireRouteImport.update({
+  id: '/legal-questionnaire',
+  path: '/legal-questionnaire',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OrderConfirmedRoute = OrderConfirmedRouteImport.update({
   id: '/order-confirmed',
   path: '/order-confirmed',
@@ -147,11 +152,6 @@ const AdminAuditRoute = AdminAuditRouteImport.update({
 const AdminDiscountsRoute = AdminDiscountsRouteImport.update({
   id: '/discounts',
   path: '/discounts',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminEmailPreviewRoute = AdminEmailPreviewRouteImport.update({
-  id: '/email-preview',
-  path: '/email-preview',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminInventoryRoute = AdminInventoryRouteImport.update({
@@ -288,6 +288,7 @@ export interface FileRoutesByFullPath {
   '/exchanges': typeof ExchangesRoute
   '/faq': typeof FaqRoute
   '/gift-cards': typeof GiftCardsRoute
+  '/legal-questionnaire': typeof LegalQuestionnaireRoute
   '/order-confirmed': typeof OrderConfirmedRoute
   '/shipping': typeof ShippingRoute
   '/shop': typeof ShopRouteWithChildren
@@ -296,7 +297,6 @@ export interface FileRoutesByFullPath {
   '/admin/activities': typeof AdminActivitiesRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/discounts': typeof AdminDiscountsRoute
-  '/admin/email-preview': typeof AdminEmailPreviewRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/newsletter': typeof AdminNewsletterRoute
   '/admin/permanent-wardrobe': typeof AdminPermanentWardrobeRoute
@@ -333,6 +333,7 @@ export interface FileRoutesByTo {
   '/exchanges': typeof ExchangesRoute
   '/faq': typeof FaqRoute
   '/gift-cards': typeof GiftCardsRoute
+  '/legal-questionnaire': typeof LegalQuestionnaireRoute
   '/order-confirmed': typeof OrderConfirmedRoute
   '/shipping': typeof ShippingRoute
   '/size-guide': typeof SizeGuideRoute
@@ -340,7 +341,6 @@ export interface FileRoutesByTo {
   '/admin/activities': typeof AdminActivitiesRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/discounts': typeof AdminDiscountsRoute
-  '/admin/email-preview': typeof AdminEmailPreviewRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/newsletter': typeof AdminNewsletterRoute
   '/admin/permanent-wardrobe': typeof AdminPermanentWardrobeRoute
@@ -379,6 +379,7 @@ export interface FileRoutesById {
   '/exchanges': typeof ExchangesRoute
   '/faq': typeof FaqRoute
   '/gift-cards': typeof GiftCardsRoute
+  '/legal-questionnaire': typeof LegalQuestionnaireRoute
   '/order-confirmed': typeof OrderConfirmedRoute
   '/shipping': typeof ShippingRoute
   '/shop': typeof ShopRouteWithChildren
@@ -387,7 +388,6 @@ export interface FileRoutesById {
   '/admin/activities': typeof AdminActivitiesRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/discounts': typeof AdminDiscountsRoute
-  '/admin/email-preview': typeof AdminEmailPreviewRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/newsletter': typeof AdminNewsletterRoute
   '/admin/permanent-wardrobe': typeof AdminPermanentWardrobeRoute
@@ -427,6 +427,7 @@ export interface FileRouteTypes {
     | '/exchanges'
     | '/faq'
     | '/gift-cards'
+    | '/legal-questionnaire'
     | '/order-confirmed'
     | '/shipping'
     | '/shop'
@@ -435,7 +436,6 @@ export interface FileRouteTypes {
     | '/admin/activities'
     | '/admin/audit'
     | '/admin/discounts'
-    | '/admin/email-preview'
     | '/admin/inventory'
     | '/admin/newsletter'
     | '/admin/permanent-wardrobe'
@@ -472,6 +472,7 @@ export interface FileRouteTypes {
     | '/exchanges'
     | '/faq'
     | '/gift-cards'
+    | '/legal-questionnaire'
     | '/order-confirmed'
     | '/shipping'
     | '/size-guide'
@@ -479,7 +480,6 @@ export interface FileRouteTypes {
     | '/admin/activities'
     | '/admin/audit'
     | '/admin/discounts'
-    | '/admin/email-preview'
     | '/admin/inventory'
     | '/admin/newsletter'
     | '/admin/permanent-wardrobe'
@@ -517,6 +517,7 @@ export interface FileRouteTypes {
     | '/exchanges'
     | '/faq'
     | '/gift-cards'
+    | '/legal-questionnaire'
     | '/order-confirmed'
     | '/shipping'
     | '/shop'
@@ -525,7 +526,6 @@ export interface FileRouteTypes {
     | '/admin/activities'
     | '/admin/audit'
     | '/admin/discounts'
-    | '/admin/email-preview'
     | '/admin/inventory'
     | '/admin/newsletter'
     | '/admin/permanent-wardrobe'
@@ -564,6 +564,7 @@ export interface RootRouteChildren {
   ExchangesRoute: typeof ExchangesRoute
   FaqRoute: typeof FaqRoute
   GiftCardsRoute: typeof GiftCardsRoute
+  LegalQuestionnaireRoute: typeof LegalQuestionnaireRoute
   OrderConfirmedRoute: typeof OrderConfirmedRoute
   ShippingRoute: typeof ShippingRoute
   ShopRoute: typeof ShopRouteWithChildren
@@ -645,6 +646,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GiftCardsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/legal-questionnaire': {
+      id: '/legal-questionnaire'
+      path: '/legal-questionnaire'
+      fullPath: '/legal-questionnaire'
+      preLoaderRoute: typeof LegalQuestionnaireRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/order-confirmed': {
       id: '/order-confirmed'
       path: '/order-confirmed'
@@ -706,13 +714,6 @@ declare module '@tanstack/react-router' {
       path: '/discounts'
       fullPath: '/admin/discounts'
       preLoaderRoute: typeof AdminDiscountsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/email-preview': {
-      id: '/admin/email-preview'
-      path: '/email-preview'
-      fullPath: '/admin/email-preview'
-      preLoaderRoute: typeof AdminEmailPreviewRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/inventory': {
@@ -903,7 +904,6 @@ interface AdminRouteChildren {
   AdminActivitiesRoute: typeof AdminActivitiesRoute
   AdminAuditRoute: typeof AdminAuditRoute
   AdminDiscountsRoute: typeof AdminDiscountsRoute
-  AdminEmailPreviewRoute: typeof AdminEmailPreviewRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminNewsletterRoute: typeof AdminNewsletterRoute
   AdminPermanentWardrobeRoute: typeof AdminPermanentWardrobeRoute
@@ -929,7 +929,6 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminActivitiesRoute: AdminActivitiesRoute,
   AdminAuditRoute: AdminAuditRoute,
   AdminDiscountsRoute: AdminDiscountsRoute,
-  AdminEmailPreviewRoute: AdminEmailPreviewRoute,
   AdminInventoryRoute: AdminInventoryRoute,
   AdminNewsletterRoute: AdminNewsletterRoute,
   AdminPermanentWardrobeRoute: AdminPermanentWardrobeRoute,
@@ -976,6 +975,7 @@ const rootRouteChildren: RootRouteChildren = {
   ExchangesRoute: ExchangesRoute,
   FaqRoute: FaqRoute,
   GiftCardsRoute: GiftCardsRoute,
+  LegalQuestionnaireRoute: LegalQuestionnaireRoute,
   OrderConfirmedRoute: OrderConfirmedRoute,
   ShippingRoute: ShippingRoute,
   ShopRoute: ShopRouteWithChildren,

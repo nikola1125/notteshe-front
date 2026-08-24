@@ -2,11 +2,22 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { BackButton } from "@/components/admin/BackButton";
 import { createServerFn } from "@tanstack/react-start";
 import { eq, desc, count } from "drizzle-orm";
+import { z } from "zod";
 import { toast } from "sonner";
 import { db } from "@/db";
 import { product, productImage, category } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAudit } from "@/lib/admin/audit";
+import { rateLimit } from "@/lib/rateLimit";
+
+const ToggleVisibilitySchema = z.object({
+  id: z.string().min(1).max(100),
+  visible: z.boolean(),
+});
+
+const DeleteProductSchema = z.object({
+  id: z.string().min(1).max(100),
+});
 import { cldImg } from "@/lib/cldImage";
 import { Plus, Eye, EyeOff, Pencil, Trash2, ChevronDown } from "lucide-react";
 import { useState } from "react";
@@ -87,7 +98,7 @@ const getProducts = createServerFn({ method: "GET" })
   });
 
 const toggleVisibility = createServerFn({ method: "POST" })
-  .validator((input: unknown) => input as { id: string; visible: boolean })
+  .validator((input: unknown) => ToggleVisibilitySchema.parse(input))
   .handler(async ({ data }) => {
     const admin = await requireAdmin();
     await db().update(product).set({ isVisible: data.visible, updatedAt: new Date() }).where(eq(product.id, data.id));
@@ -96,9 +107,12 @@ const toggleVisibility = createServerFn({ method: "POST" })
   });
 
 const deleteProduct = createServerFn({ method: "POST" })
-  .validator((input: unknown) => input as { id: string })
+  .validator((input: unknown) => DeleteProductSchema.parse(input))
   .handler(async ({ data }) => {
     const admin = await requireAdmin();
+    if (!rateLimit(`admin:${admin.id}:mutation`, 30, 60_000)) {
+      throw new Error("Too many requests. Please slow down.");
+    }
     const database = db();
 
     // Fetch all images to delete from Cloudinary

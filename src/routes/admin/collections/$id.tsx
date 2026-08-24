@@ -2,13 +2,28 @@ import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { BackButton } from "@/components/admin/BackButton";
 import { eq, and, ne } from "drizzle-orm";
+import { z } from "zod";
 import { toast } from "sonner";
 import { db } from "@/db";
 import { collection, product, productImage } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAudit } from "@/lib/admin/audit";
+import { rateLimit } from "@/lib/rateLimit";
 import { cldImg } from "@/lib/cldImage";
 import { CollectionForm, type CollectionFormData } from "@/components/admin/CollectionForm";
+
+const UpdateCollectionSchema = z.object({
+  id: z.string().min(1).max(100),
+  name: z.string().min(1).max(200),
+  slug: z.string().min(1).max(200).regex(/^[a-z0-9-]+$/, "Slug must be lowercase alphanumeric with hyphens"),
+  description: z.string().max(2000),
+  coverImageUrl: z.string().max(600).nullable(),
+  coverCloudflareId: z.string().max(300).nullable(),
+  isVisible: z.boolean(),
+  sortOrder: z.number().int().min(0).max(9999),
+  homeCaption: z.string().max(500),
+  homeCaptionMeta: z.string().max(200),
+});
 
 interface CollectionEditData {
   collection: CollectionFormData & { id: string };
@@ -56,9 +71,12 @@ const getCollectionEdit = createServerFn({ method: "GET" })
   });
 
 const updateCollection = createServerFn({ method: "POST" })
-  .validator((input: unknown) => input as CollectionFormData & { id: string })
+  .validator((input: unknown) => UpdateCollectionSchema.parse(input))
   .handler(async ({ data }) => {
     const admin = await requireAdmin();
+    if (!rateLimit(`admin:${admin.id}:mutation`, 30, 60_000)) {
+      throw new Error("Too many requests. Please slow down.");
+    }
     const database = db();
     const { id } = data;
 

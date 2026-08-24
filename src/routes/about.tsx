@@ -1,8 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { SITE_URL } from "@/lib/seo";
 import aboutHero from "@/assets/about-hero.jpg";
 import aboutMid from "@/assets/about-mid.png";
 
 export const Route = createFileRoute("/about")({
+  head: () => ({
+    meta: [
+      { title: "About — Notteshe" },
+      { name: "description", content: "Born in Tirana. Notteshe is Albanian fashion rooted in craft and made for women who move through the world with intention." },
+      { property: "og:title", content: "About — Notteshe" },
+      { property: "og:description", content: "Born in Tirana. Notteshe is Albanian fashion rooted in craft and made for women who move through the world with intention." },
+      { property: "og:url", content: `${SITE_URL}/about` },
+    ],
+    links: [{ rel: "canonical", href: `${SITE_URL}/about` }],
+  }),
   component: AboutPage,
 });
 

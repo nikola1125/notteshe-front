@@ -1,5 +1,6 @@
 import "@nebula-ltd/pok-payments-js/lib/index.css";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { SITE_URL } from "@/lib/seo";
 import { useState, useEffect, useRef, Suspense, lazy, useCallback } from "react";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -213,6 +214,16 @@ const createGiftCardPokOrder = createServerFn({ method: "POST" })
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export const Route = createFileRoute("/gift-cards")({
+  head: () => ({
+    meta: [
+      { title: "Gift Cards — Notteshe" },
+      { name: "description", content: "Give the gift of Notteshe — send a digital gift card in any amount, delivered instantly by email." },
+      { property: "og:title", content: "Gift Cards — Notteshe" },
+      { property: "og:description", content: "Give the gift of Notteshe — send a digital gift card, delivered instantly by email." },
+      { property: "og:url", content: `${SITE_URL}/gift-cards` },
+    ],
+    links: [{ rel: "canonical", href: `${SITE_URL}/gift-cards` }],
+  }),
   loader: async () => getGiftCardConfig(),
   component: GiftCardsPage,
 });

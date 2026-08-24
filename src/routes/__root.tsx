@@ -12,6 +12,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { SITE_URL, DEFAULT_OG_IMAGE, buildOrgJsonLd, buildWebSiteJsonLd } from "@/lib/seo";
 import { Header } from "@/components/Header";
 import { CartDrawer } from "@/components/CartDrawer";
 import { AuthModal } from "@/components/AuthModal";
@@ -92,14 +93,22 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Notteshe — Quiet clothes for loud lives" },
       { name: "description", content: "Considered essentials, cut for stillness and made to last. Shop the New Season 26 collection." },
+      { property: "og:site_name", content: "Notteshe" },
       { property: "og:title", content: "Notteshe — Quiet clothes for loud lives" },
       { property: "og:description", content: "Considered essentials, cut for stillness and made to last." },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: SITE_URL },
+      { property: "og:image", content: DEFAULT_OG_IMAGE },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:site", content: "@notteshe" },
+      { name: "theme-color", content: "#0f0f0f" },
+      { "script:ld+json": buildOrgJsonLd() },
+      { "script:ld+json": buildWebSiteJsonLd() },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "canonical", href: SITE_URL },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" },

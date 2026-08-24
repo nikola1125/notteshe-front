@@ -7,6 +7,7 @@ import { collection, product, productImage, productColour } from "@/db/schema";
 import { WishlistButton } from "@/components/WishlistButton";
 import { cldImg, cldSrcSet } from "@/lib/cldImage";
 import { Price } from "@/components/Price";
+import { SITE_URL, buildTitle, buildDescription, cldOgImage, buildBreadcrumbJsonLd } from "@/lib/seo";
 
 interface CollectionProduct {
   id: string;
@@ -96,6 +97,34 @@ export const Route = createFileRoute("/collections/$slug")({
     const data = await getCollection({ data: { slug: params.slug } });
     if (!data) throw notFound();
     return data;
+  },
+  head: ({ loaderData, params }) => {
+    if (!loaderData) return {};
+    const { name, description, coverImage } = loaderData;
+    const url = `${SITE_URL}/collections/${params.slug}`;
+    const title = buildTitle(`${name} Collection`);
+    const desc = buildDescription(description, `Shop the ${name} collection at Notteshe`);
+    const ogImage = cldOgImage(coverImage);
+    return {
+      meta: [
+        { title },
+        { name: "description", content: desc },
+        { property: "og:title", content: title },
+        { property: "og:description", content: desc },
+        { property: "og:image", content: ogImage },
+        { property: "og:url", content: url },
+        { property: "og:type", content: "website" },
+        { name: "twitter:title", content: title },
+        { name: "twitter:description", content: desc },
+        { name: "twitter:image", content: ogImage },
+        { "script:ld+json": buildBreadcrumbJsonLd([
+          { name: "Home", url: SITE_URL },
+          { name: "Collections", url: `${SITE_URL}/collections` },
+          { name, url },
+        ]) },
+      ],
+      links: [{ rel: "canonical", href: url }],
+    };
   },
   component: CollectionDetailPage,
 });

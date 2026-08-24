@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { SITE_URL, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { createServerFn } from "@tanstack/react-start";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { eq, desc, and } from "drizzle-orm";
@@ -108,6 +109,18 @@ const getShopData = createServerFn({ method: "GET" }).handler(
 export const Route = createFileRoute("/shop/")({
   validateSearch: (search: Record<string, unknown>) => ({
     sale: search["sale"] === "1" ? "1" as const : undefined,
+  }),
+  head: () => ({
+    meta: [
+      { title: "Shop — Notteshe" },
+      { name: "description", content: "Browse the full Notteshe collection — considered essentials, cut for stillness." },
+      { property: "og:title", content: "Shop — Notteshe" },
+      { property: "og:description", content: "Browse the full Notteshe collection — considered essentials, cut for stillness." },
+      { property: "og:image", content: DEFAULT_OG_IMAGE },
+      { property: "og:url", content: `${SITE_URL}/shop` },
+      { property: "og:type", content: "website" },
+    ],
+    links: [{ rel: "canonical", href: `${SITE_URL}/shop` }],
   }),
   loader: () => getShopData(),
   component: ShopPage,

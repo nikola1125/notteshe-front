@@ -17,6 +17,7 @@ import { useCart } from "@/store/cartStore";
 import { Price, useRate } from "@/components/Price";
 import { useCurrency } from "@/store/currencyStore";
 import { formatMoney } from "@/lib/currency";
+import { SITE_URL, buildTitle, buildDescription, cldOgImage, buildProductJsonLd, buildBreadcrumbJsonLd } from "@/lib/seo";
 
 function splitName(name: string): [string, string] {
   const words = name.split(" ");
@@ -259,6 +260,38 @@ export const Route = createFileRoute("/shop/$slug")({
     if (!p) throw notFound();
     const related = await getRelatedProducts({ data: { productId: p.id, categorySlug: p.categorySlug } });
     return { product: p, related };
+  },
+  head: ({ loaderData }) => {
+    const p = loaderData?.product;
+    if (!p) return {};
+    const url = `${SITE_URL}/shop/${p.slug}`;
+    const title = buildTitle(p.name);
+    const description = buildDescription(p.description, `Shop ${p.name} at Notteshe`);
+    const ogImage = cldOgImage(p.images[0]);
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        { property: "og:image", content: ogImage },
+        { property: "og:url", content: url },
+        { property: "og:type", content: "product" },
+        { property: "product:price:amount", content: String(p.price) },
+        { property: "product:price:currency", content: "EUR" },
+        { name: "twitter:title", content: title },
+        { name: "twitter:description", content: description },
+        { name: "twitter:image", content: ogImage },
+        { "script:ld+json": buildProductJsonLd({ name: p.name, description: p.description, images: p.images, slug: p.slug, price: p.price, originalPrice: p.originalPrice }) },
+        { "script:ld+json": buildBreadcrumbJsonLd([
+          { name: "Home", url: SITE_URL },
+          { name: "Shop", url: `${SITE_URL}/shop` },
+          ...(p.category ? [{ name: p.category, url: `${SITE_URL}/shop` }] : []),
+          { name: p.name, url },
+        ]) },
+      ],
+      links: [{ rel: "canonical", href: url }],
+    };
   },
   component: ProductPage,
 });

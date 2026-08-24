@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { loginAdminFn } from "@/lib/admin/auth";
 
 export const Route = createFileRoute("/admin-login")({
+  head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
   component: AdminLogin,
 });
 

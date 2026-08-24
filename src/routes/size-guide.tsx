@@ -1,7 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { SITE_URL } from "@/lib/seo";
 
 export const Route = createFileRoute("/size-guide")({
+  head: () => ({
+    meta: [
+      { title: "Size Guide — Notteshe" },
+      { name: "description", content: "Find your perfect fit with our detailed size guide for Notteshe clothing — measurements for tops, bottoms, and dresses." },
+      { property: "og:title", content: "Size Guide — Notteshe" },
+      { property: "og:url", content: `${SITE_URL}/size-guide` },
+    ],
+    links: [{ rel: "canonical", href: `${SITE_URL}/size-guide` }],
+  }),
   component: SizeGuidePage,
 });
 

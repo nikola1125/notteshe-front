@@ -65,6 +65,7 @@ export function clearAdminCache() {
 }
 
 export const Route = createFileRoute("/admin")({
+  head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
   beforeLoad: async () => {
     const admin = await getCachedAdmin();
     if (!admin) throw redirect({ to: "/admin-login" });

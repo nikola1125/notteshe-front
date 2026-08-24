@@ -170,6 +170,7 @@ const QUESTIONS: Question[] = [
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export const Route = createFileRoute("/legal-questionnaire")({
+  head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
   component: LegalQuestionnaire,
 });
 

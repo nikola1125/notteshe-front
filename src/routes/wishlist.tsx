@@ -75,6 +75,7 @@ const getWishlistProducts = createServerFn({ method: "GET" }).handler(
 );
 
 export const Route = createFileRoute("/wishlist")({
+  head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
   loader: () => getWishlistProducts(),
   component: WishlistPage,
 });

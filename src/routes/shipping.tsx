@@ -1,9 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { SITE_URL } from "@/lib/seo";
 import { useRate } from "@/components/Price";
 import { useCurrency } from "@/store/currencyStore";
 import { formatMoney } from "@/lib/currency";
 
 export const Route = createFileRoute("/shipping")({
+  head: () => ({
+    meta: [
+      { title: "Shipping — Notteshe" },
+      { name: "description", content: "Shipping information for Albania, Europe and worldwide. Fast delivery, flat rates, and free shipping above threshold." },
+      { property: "og:title", content: "Shipping — Notteshe" },
+      { property: "og:url", content: `${SITE_URL}/shipping` },
+    ],
+    links: [{ rel: "canonical", href: `${SITE_URL}/shipping` }],
+  }),
   component: ShippingPage,
 });
 

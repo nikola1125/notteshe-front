@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/order-confirmed")({
+  head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
   component: OrderConfirmedPage,
 });
 

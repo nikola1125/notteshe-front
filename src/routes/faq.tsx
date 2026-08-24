@@ -1,7 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { SITE_URL, buildFaqJsonLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/faq")({
+  head: () => ({
+    meta: [
+      { title: "FAQ — Notteshe" },
+      { name: "description", content: "Answers to common questions about sizing, shipping, exchanges, and care for Notteshe garments." },
+      { property: "og:title", content: "FAQ — Notteshe" },
+      { property: "og:description", content: "Answers to common questions about sizing, shipping, exchanges, and care." },
+      { property: "og:url", content: `${SITE_URL}/faq` },
+      { "script:ld+json": buildFaqJsonLd(FAQS) },
+    ],
+    links: [{ rel: "canonical", href: `${SITE_URL}/faq` }],
+  }),
   component: FaqPage,
 });
 

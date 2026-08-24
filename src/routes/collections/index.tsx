@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { SITE_URL, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { createServerFn } from "@tanstack/react-start";
 import { useEffect } from "react";
 import { eq, asc } from "drizzle-orm";
@@ -53,8 +54,14 @@ export const Route = createFileRoute("/collections/")({
   head: () => ({
     meta: [
       { title: "Collections — Notteshe" },
-      { name: "description", content: "Explore the Notteshe collections." },
+      { name: "description", content: "Explore the Notteshe collections — curated edits of considered essentials, cut for stillness." },
+      { property: "og:title", content: "Collections — Notteshe" },
+      { property: "og:description", content: "Explore the Notteshe collections — curated edits of considered essentials." },
+      { property: "og:image", content: DEFAULT_OG_IMAGE },
+      { property: "og:url", content: `${SITE_URL}/collections` },
+      { property: "og:type", content: "website" },
     ],
+    links: [{ rel: "canonical", href: `${SITE_URL}/collections` }],
   }),
   loader: () => getCollections(),
   component: CollectionsIndex,

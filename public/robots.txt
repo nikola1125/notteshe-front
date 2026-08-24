@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+Disallow: /admin
+Disallow: /admin-login
+Disallow: /api/
+Disallow: /checkout
+Disallow: /order-confirmed
+Disallow: /account
+Disallow: /wishlist
+Disallow: /legal-questionnaire
+
+Sitemap: https://notteshe.com/api/sitemap.xml

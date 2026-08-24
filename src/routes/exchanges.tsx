@@ -1,6 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { SITE_URL } from "@/lib/seo";
 
 export const Route = createFileRoute("/exchanges")({
+  head: () => ({
+    meta: [
+      { title: "Returns & Exchanges — Notteshe" },
+      { name: "description", content: "Exchange policy, process and eligible items. All sales are final — exchanges accepted within 14 days of delivery." },
+      { property: "og:title", content: "Returns & Exchanges — Notteshe" },
+      { property: "og:url", content: `${SITE_URL}/exchanges` },
+    ],
+    links: [{ rel: "canonical", href: `${SITE_URL}/exchanges` }],
+  }),
   component: ExchangesPage,
 });
 

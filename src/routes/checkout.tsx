@@ -487,6 +487,7 @@ const deleteSavedCard = createServerFn({ method: "POST" })
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export const Route = createFileRoute("/checkout")({
+  head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
   loader: async () => {
     const [shippingData, savedCardsData] = await Promise.all([
       getShipping(),

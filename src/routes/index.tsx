@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { SITE_URL, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { createServerFn } from "@tanstack/react-start";
 import { useEffect, useState, useRef } from "react";
 import { useCurrency, useCurrencyStore } from "@/store/currencyStore";
@@ -163,6 +164,13 @@ const getHomeData = createServerFn({ method: "GET" }).handler(async (): Promise<
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { property: "og:url", content: SITE_URL },
+      { property: "og:image", content: DEFAULT_OG_IMAGE },
+    ],
+    links: [{ rel: "canonical", href: SITE_URL }],
+  }),
   loader: () => getHomeData(),
   staleTime: 0,
   component: Index,

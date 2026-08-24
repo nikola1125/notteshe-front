@@ -34,6 +34,15 @@ const submitContact = createServerFn({ method: "POST" })
   });
 
 export const Route = createFileRoute("/contact")({
+  head: () => ({
+    meta: [
+      { title: "Contact — Notteshe" },
+      { name: "description", content: "Get in touch with Notteshe. We're here to help with orders, press enquiries, and general questions." },
+      { property: "og:title", content: "Contact — Notteshe" },
+      { property: "og:description", content: "Get in touch with Notteshe. We usually respond within one business day." },
+    ],
+    links: [{ rel: "canonical", href: "https://notteshe.com/contact" }],
+  }),
   component: ContactPage,
 });
 

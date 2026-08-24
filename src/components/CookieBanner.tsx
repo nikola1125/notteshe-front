@@ -7,7 +7,7 @@ function loadClarity() {
   if ((window as any).clarity) return;
   const s = document.createElement("script");
   s.async = true;
-  s.src = "https://www.clarity.ms/tag/y3svsr7kjm";
+  s.src = "/clarity/tag";
   document.head.appendChild(s);
   (window as any).clarity = (window as any).clarity || function (...args: any[]) {
     ((window as any).clarity.q = (window as any).clarity.q || []).push(args);

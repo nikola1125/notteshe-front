@@ -117,6 +117,18 @@ async function route(request: Request, env: Record<string, string>, ctx: unknown
     return handleSitemap();
   }
 
+  // Clarity first-party proxy — serves clarity.ms as our own domain so
+  // Safari ITP and Chrome tracker-blocking don't block the script or session data.
+  if (url.pathname === "/clarity/tag" && request.method === "GET") {
+    const { handleClarityTag } = await import("./lib/clarityProxy");
+    return handleClarityTag();
+  }
+  if (url.pathname.startsWith("/clarity/s/")) {
+    const { handleClarityCollect } = await import("./lib/clarityProxy");
+    const subpath = url.pathname.replace("/clarity/s", "") + url.search;
+    return handleClarityCollect(request, subpath);
+  }
+
   const handler = await getServerEntry();
   const response = await handler.fetch(request, env, ctx);
   return await normalizeCatastrophicSsrResponse(response);

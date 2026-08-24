@@ -65,7 +65,10 @@ export function clearAdminCache() {
 }
 
 export const Route = createFileRoute("/admin")({
-  head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
+  head: () => ({
+    meta: [{ name: "robots", content: "noindex, nofollow" }],
+    links: [{ rel: "manifest", href: "/manifest.json" }],
+  }),
   beforeLoad: async () => {
     const admin = await getCachedAdmin();
     if (!admin) throw redirect({ to: "/admin-login" });
@@ -84,6 +87,16 @@ function AdminLayout() {
   const lastSeenRef = useRef(new Date(Date.now() - 60_000).toISOString());
   // Track delivered event IDs so the 2-second overlap doesn't show duplicate toasts.
   const seenIdsRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {/* sw registration is best-effort */});
+    }
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      (window as any).__installPrompt = e;
+    });
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(async () => {

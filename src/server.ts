@@ -111,6 +111,12 @@ async function route(request: Request, env: Record<string, string>, ctx: unknown
     return handlePokWebhook(request);
   }
 
+  // Sitemap — same reason as above: literal-path API routes not auto-served.
+  if (url.pathname === "/api/sitemap.xml" && request.method === "GET") {
+    const { handleSitemap } = await import("./lib/sitemap");
+    return handleSitemap();
+  }
+
   const handler = await getServerEntry();
   const response = await handler.fetch(request, env, ctx);
   return await normalizeCatastrophicSsrResponse(response);

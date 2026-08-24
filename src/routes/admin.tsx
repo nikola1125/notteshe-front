@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, redirect, useRouter } from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createServerFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/start-server-core/request-response";
 import { getAdminUserFn, logoutAdminFn } from "@/lib/admin/auth";
@@ -82,11 +82,30 @@ function AdminLayout() {
   const { admin } = Route.useRouteContext() as { admin: AdminUser };
   const { newOrders, pendingCancellations } = Route.useLoaderData();
   const router = useRouter();
-  // Start 60 s in the past — absorbs browser/DB clock skew and catches events
-  // that arrived while the page was loading.
   const lastSeenRef = useRef(new Date(Date.now() - 60_000).toISOString());
-  // Track delivered event IDs so the 2-second overlap doesn't show duplicate toasts.
   const seenIdsRef = useRef(new Set<string>());
+  // null = checking, false = redirect away, true = show content
+  const [sessionGated, setSessionGated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    // Force re-auth on every fresh app open: sessionStorage is cleared when the
+    // PWA/browser session ends, so this flag is gone after every close.
+    if (!sessionStorage.getItem("adminActive")) {
+      router.navigate({ to: "/admin-login" });
+      return;
+    }
+    setSessionGated(true);
+
+    // Remove the flag when the app is closed or backgrounded so the next open
+    // always requires biometric re-authentication.
+    const onHide = () => {
+      if (document.visibilityState === "hidden") {
+        sessionStorage.removeItem("adminActive");
+      }
+    };
+    document.addEventListener("visibilitychange", onHide);
+    return () => document.removeEventListener("visibilitychange", onHide);
+  }, [router]);
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -150,6 +169,9 @@ function AdminLayout() {
 
     return () => clearInterval(interval);
   }, [router]);
+
+  // Prevent flash of admin content before the sessionStorage check completes
+  if (!sessionGated) return null;
 
   return (
     <div className="flex min-h-[100dvh] bg-[var(--color-background)] text-[var(--color-foreground)]">
